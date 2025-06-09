@@ -48,7 +48,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal"
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal" // Base font set on body
       onClick={onClose} 
     >
       <div 
@@ -56,7 +56,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
         onClick={(e) => e.stopPropagation()} 
       >
         <div className="flex justify-between items-center mb-[2vh] sm:mb-[2.5vh]">
-          <h2 className="text-[clamp(1.1rem,3vh,1.75rem)] font-semibold text-sky-400">{modalTitle}</h2>
+          <h2 className="text-[clamp(1.1rem,3vh,1.75rem)] font-bold text-sky-400">{modalTitle}</h2>
           <button 
             onClick={onClose} 
             className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -72,7 +72,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
 
         <form onSubmit={handleSubmit} className="space-y-[1.5vh]">
           <div>
-            <label htmlFor="deckName" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 mb-[0.5vh]">
+            <label htmlFor="deckName" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300 mb-[0.5vh]">
               Deck Name
             </label>
             <input
@@ -87,7 +87,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
             />
           </div>
           <div>
-            <label htmlFor="deckDescription" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 mb-[0.5vh]">
+            <label htmlFor="deckDescription" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300 mb-[0.5vh]">
               Deck Prompt Description
             </label>
             <textarea
@@ -110,7 +110,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
               type="button"
               onClick={onClose}
               disabled={interactionsDisabled}
-              className={`px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
               title="Cancel"
             >
               Cancel
@@ -118,7 +118,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
             <button
               type="submit"
               disabled={interactionsDisabled}
-              className={`px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
               title={saveButtonText}
             >
               {saveButtonText}

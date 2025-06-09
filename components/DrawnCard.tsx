@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ThemeIdentifier, CustomThemeData, MicroDeck, DeckSet, getDisplayDataForCard } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
+import { GlyphPatternRow } from './DrawnCardsHistoryView'; // Import for loading placeholder
 
 export interface DrawnCardDisplayData {
   id: string;
@@ -109,7 +110,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     return () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current); };
   }, [promptText, themeIdentifier, isNewest, id, isLoadingPlaceholder]);
 
-  const cardFaceBaseClasses = "rounded-xl shadow-xl flex flex-col overflow-hidden";
+  const cardFaceBaseClasses = "rounded-xl shadow-xl flex flex-col overflow-hidden font-normal"; // Atkinson normal
   const subtleSolidBorder = "border border-slate-700/60"; 
   const overlayBaseClasses = "bg-slate-800/40"; 
   const overlayDashedBorderClasses = "border-2 border-dashed border-slate-600";
@@ -164,14 +165,14 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   }, [cardBackNotesText]);
 
   const renderCardBackNotes = () => {
-    if (!parsedGuidance.length) return <p className="text-[clamp(0.75rem,2.1vh,0.9rem)] text-slate-400 font-atkinson-regular text-center leading-[1.2]">No additional guidance for this card.</p>;
+    if (!parsedGuidance.length) return <p className="text-[clamp(0.75rem,2.1vh,0.9rem)] text-slate-400 font-normal text-center leading-[1.2]">No additional guidance for this card.</p>;
     return (
       <div className="space-y-[1vh]">
         {parsedGuidance.map((section, index) => (
           section.content.trim() ? (
             <div key={index}>
-              <h6 className="font-semibold text-[clamp(0.8rem,2.3vh,1.05rem)] text-slate-300 mb-[0.2vh] leading-[1.2]">{section.heading}</h6>
-              <p className="text-[clamp(0.75rem,2.1vh,0.95rem)] text-slate-200 font-atkinson-regular whitespace-pre-wrap leading-[1.2]">{section.content}</p>
+              <h6 className="font-bold text-[clamp(0.8rem,2.3vh,1.05rem)] text-slate-300 mb-[0.2vh] leading-[1.2]">{section.heading}</h6>
+              <p className="text-[clamp(0.75rem,2.1vh,0.95rem)] text-slate-200 font-normal whitespace-pre-wrap leading-[1.2]">{section.content}</p>
             </div>
           ) : null
         ))}
@@ -183,10 +184,37 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     ? "w-[85vw] sm:w-[70vw] md:w-[60vw] lg:w-[50vw] max-w-lg" 
     : "w-[40vw] xs:w-[35vw] sm:w-[28vw] md:w-[22vw] lg:w-[18vw] max-w-xs"; 
 
+  const cardLogoBaseStyle: React.CSSProperties = {
+    fontFamily: "'Atkinson Hyperlegible', sans-serif",
+    fontWeight: 200, // extralight
+    textTransform: 'uppercase',
+  };
+  
+  const cardLogoTextStyle = {
+    ...cardLogoBaseStyle,
+    letterSpacing: '0.1em', 
+    fontSize: isNewest ? 'clamp(0.5rem, 1.4vw, 0.75rem)' : 'clamp(0.4rem, 1.2vw, 0.65rem)',
+    lineHeight: 1.2,
+    color: 'rgba(255,255,255,0.7)',
+  };
+
+  const loadingGlyphBaseSize = "text-[clamp(1rem,3.5vh,2rem)]";
+  const loadingGlyphColor = "text-slate-200/60";
+
+
   if (isLoadingPlaceholder) {
     let loadingText = `Drawing from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
     if (activeParticipantNameForPlaceholder) loadingText = `Drawing for ${activeParticipantNameForPlaceholder} from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
     
+    const loadingResonanceTextStyle: React.CSSProperties = {
+      fontFamily: "'Atkinson Hyperlegible', sans-serif",
+      fontWeight: 200, // extralight
+      letterSpacing: '0.15em', 
+      fontSize: 'clamp(1.5rem, 4.5vh, 2.5rem)',
+      textTransform: 'uppercase',
+      color: 'rgba(203, 213, 225, 0.8)', // slate-300 slightly transparent
+    };
+
     return (
       <div className={`${baseWidthClass} perspective mx-auto relative`} style={{ height: 'auto' }}>
         <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
@@ -196,14 +224,46 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                        flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}
           >
             <div className={`absolute inset-0 ${overlayBaseClasses} rounded-xl`}></div>
-            <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
-            <div className="flex flex-col items-center justify-center flex-grow relative z-10"> 
-              <p className={`text-[clamp(1.5rem,5vh,3rem)] text-white/70 font-['Playfair_Display'] font-normal`}>
-                  Resonance ⦾
-              </p>
+            <CornerGlyphGrid position="top-left" glyphColorClass="text-slate-600" glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
+            
+            <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-[0.3em] sm:space-y-[0.5em]">
+              {/* Glyph Pattern Above */}
+              <GlyphPatternRow glyphs={[{ char: "⦾", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
+              <GlyphPatternRow glyphs={[
+                  { char: "⦾", opacity: 0.33 }, 
+                  { char: "⟁", opacity: 0.66 }, 
+                  { char: "⦾", opacity: 0.33 }
+              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
+              <GlyphPatternRow glyphs={[
+                  { char: "⦾", opacity: 0.33 }, 
+                  { char: "⟁", opacity: 0.66 }, 
+                  { char: "⦾", opacity: 0.9 }, 
+                  { char: "⟁", opacity: 0.66 }, 
+                  { char: "⦾", opacity: 0.33 }
+              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
+
+              {/* RESONANCE Text */}
+              <div className="my-[0.5em] sm:my-[0.8em]">
+                  <p style={loadingResonanceTextStyle}>RESONANCE</p>
+              </div>
+
+              {/* Glyph Pattern Below */}
+              <GlyphPatternRow glyphs={[
+                  { char: "⟁", opacity: 0.33 }, 
+                  { char: "⦾", opacity: 0.66 }, 
+                  { char: "⟁", opacity: 0.9 }, 
+                  { char: "⦾", opacity: 0.66 }, 
+                  { char: "⟁", opacity: 0.33 }
+              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
+              <GlyphPatternRow glyphs={[
+                  { char: "⟁", opacity: 0.33 }, 
+                  { char: "⦾", opacity: 0.66 }, 
+                  { char: "⟁", opacity: 0.33 }
+              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
+              <GlyphPatternRow glyphs={[{ char: "⟁", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
               <p className="text-[clamp(0.65rem,2vh,0.9rem)] text-slate-300/80 mt-[1vh] relative z-10">{loadingText}</p>
             </div>
-            <CornerGlyphGrid position="bottom-right" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
+            <CornerGlyphGrid position="bottom-right" glyphColorClass="text-slate-600" glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
           </div>
         </div>
       </div>
@@ -233,30 +293,41 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     else promptTextStyle.transitionDuration = '0ms';
   }
   
-  const brandingTextSize = isNewest ? "text-[clamp(0.55rem,1.5vw,0.8rem)]" : "text-[clamp(0.45rem,1.3vw,0.7rem)]";
   const actionButtonBaseClasses = `rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100`;
   const actionButtonSizeClasses = isNewest ? "p-[1vh]" : "p-[0.8vh]";
   const actionButtonIconSize = isNewest ? "h-[2.8vh] w-[2.8vh] max-h-6 max-w-6" : "h-[2.2vh] w-[2.2vh] max-h-5 max-w-5";
 
-  let promptTextSizeClasses = "";
+  let promptTextSizeClasses = "font-normal"; // Default to normal for Atkinson
   if (isNewest && !showCardBackView && !showLLMDetailsView) {
      if (promptText && promptText.length > VERY_LONG_PROMPT_THRESHOLD_NEWEST) {
-        promptTextSizeClasses = "text-[clamp(0.9rem,2.5vw,1.5rem)]"; 
+        promptTextSizeClasses = "text-[clamp(0.9rem,2.5vw,1.5rem)] font-normal"; 
      } else if (promptText && promptText.length > LONG_PROMPT_THRESHOLD) {
-        promptTextSizeClasses = "text-[clamp(1rem,3vw,1.75rem)]";    
+        promptTextSizeClasses = "text-[clamp(1rem,3vw,1.75rem)] font-normal";    
      } else {
-        promptTextSizeClasses = "text-[clamp(1.1rem,3.5vw,2rem)]";   
+        promptTextSizeClasses = "text-[clamp(1.1rem,3.5vw,2rem)] font-normal";   
      }
   } else if (!isNewest) { 
-    promptTextSizeClasses = (promptText && promptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)]" : "text-[clamp(0.75rem,2.5vw,1.1rem)]";
+    promptTextSizeClasses = (promptText && promptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)] font-normal" : "text-[clamp(0.75rem,2.5vw,1.1rem)] font-normal";
   }
 
   const cardBackTitle = "Guidance"; 
+  const preRevealLogoTextStyle: React.CSSProperties = {
+    ...cardLogoBaseStyle,
+    fontSize: isNewest ? 'clamp(1.5rem, 4.5vh, 2.5rem)' : 'clamp(1.2rem, 3.5vh, 2rem)',
+    letterSpacing: '0.1em',
+    color: 'rgba(203, 213, 225, 0.9)', 
+  };
+
+  const themeDisplayTitleStyle: React.CSSProperties = {
+    fontFamily: "'Atkinson Hyperlegible', sans-serif",
+    fontWeight: 400, // Regular weight
+  }
+
 
   return (
     <div 
       ref={cardRef} 
-      className={`${baseWidthClass} perspective break-inside-avoid-column mx-auto relative group ${isFaded ? 'transition-opacity duration-500 opacity-50' : 'opacity-100'}`}
+      className={`${baseWidthClass} perspective break-inside-avoid-column mx-auto relative group ${isFaded ? 'transition-opacity duration-500 opacity-75' : 'opacity-100'}`}
       style={{ height: 'auto' }} 
     >
       <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
@@ -264,11 +335,10 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
           {/* Card Pre-Reveal Face */}
           <div className={`absolute w-full h-full backface-hidden ${overlayBaseClasses} ${overlayDashedBorderClasses} rounded-xl shadow-xl flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}>
             <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />
-            <div className={`text-[clamp(2.5rem,8vh,5rem)] font-['Playfair_Display'] text-sky-500/50`} aria-hidden="true">⦾</div>
-            <p className={`text-[clamp(1.2rem,4vh,2rem)] mt-[0.5vh] font-['Playfair_Display'] font-normal`}> 
-                Resonance ⦾
-            </p> 
-            {isNewest && !isRevealed && <p className="text-[clamp(0.6rem,1.8vh,0.8rem)] text-slate-400/80 mt-[0.5vh]">(Drawing...)</p>}
+             <div className="flex flex-col items-center justify-center space-y-0"> {/* No gap for text-only logo */}
+                <div style={preRevealLogoTextStyle}>RESONANCE</div>
+            </div>
+            {isNewest && !isRevealed && <p className="text-[clamp(0.6rem,1.8vh,0.8rem)] text-slate-400/80 mt-[0.5vh] font-normal">(Drawing...)</p>}
             <CornerGlyphGrid position="bottom-right" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />
           </div>
 
@@ -298,24 +368,24 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                   <div className="flex flex-col h-full w-full">
                      <div className="flex items-center justify-between mb-[0.5vh]">
                         <div className="flex space-x-[0.5vw]">
-                          <button onClick={() => setLlmDetailsTab('input')} className={`px-[1vw] py-[0.3vh] text-[clamp(0.6rem,1.5vh,0.8rem)] rounded-md ${llmDetailsTab === 'input' ? 'bg-sky-600 text-white font-semibold' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>Input</button>
-                          <button onClick={() => setLlmDetailsTab('output')} className={`px-[1vw] py-[0.3vh] text-[clamp(0.6rem,1.5vh,0.8rem)] rounded-md ${llmDetailsTab === 'output' ? 'bg-sky-600 text-white font-semibold' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}>Output</button>
+                          <button onClick={() => setLlmDetailsTab('input')} className={`px-[1vw] py-[0.3vh] text-[clamp(0.6rem,1.5vh,0.8rem)] rounded-md ${llmDetailsTab === 'input' ? 'bg-sky-600 text-white font-bold' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 font-normal'}`}>Input</button>
+                          <button onClick={() => setLlmDetailsTab('output')} className={`px-[1vw] py-[0.3vh] text-[clamp(0.6rem,1.5vh,0.8rem)] rounded-md ${llmDetailsTab === 'output' ? 'bg-sky-600 text-white font-bold' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 font-normal'}`}>Output</button>
                         </div>
                         <button onClick={() => setShowLLMDetailsView(false)} className={`${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200 z-20`} aria-label="Close LLM Details" title="Close LLM Details">
                            <svg xmlns="http://www.w3.org/2000/svg" className={utilityButtonIconSize} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                       </div>
                       <div className={`overflow-y-auto text-slate-300 bg-slate-900/60 p-[1vh] rounded-md scrollbar-thin flex-grow text-[clamp(0.55rem,1.2vh,0.75rem)]`}>
-                        <pre className="whitespace-pre-wrap font-normal">{llmDetailsTab === 'input' ? (llmPromptForTextGeneration || "No input details.") : (rawLlmOutput || "No raw output.")}</pre>
+                        <pre className="whitespace-pre-wrap font-atkinson-mono font-normal">{llmDetailsTab === 'input' ? (llmPromptForTextGeneration || "No input details.") : (rawLlmOutput || "No raw output.")}</pre>
                       </div>
                   </div>
                 ) : showCardBackView && cardBackNotesText && cardBackNotesText.trim() !== "" ? (
                   <div className="flex flex-col flex-grow w-full text-center">
                     <div className="flex justify-between items-center mb-[0.5vh]">
                         <div className="flex-1 text-center">
-                            <h4 className={`font-['Playfair_Display'] ${themeNameSizeClasses} text-white/90 font-medium tracking-wide leading-[1.2]`}>{themeDisplayName}</h4>
+                            <h4 className={`${themeNameSizeClasses} text-white/90 font-normal tracking-wide leading-[1.2]`} style={themeDisplayTitleStyle}>{themeDisplayName}</h4>
                             {drawnForParticipantName && !isCulminationCard && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
-                            <h5 className={`font-['Playfair_Display'] text-[clamp(0.7rem,1.8vh,1rem)] text-slate-300 font-medium tracking-wide mt-[0.5vh] mb-[0.8vh] leading-[1.2]`}>{cardBackTitle}</h5>
+                            <h5 className={`text-[clamp(0.7rem,1.8vh,1rem)] text-slate-300 font-bold tracking-wide mt-[0.5vh] mb-[0.8vh] leading-[1.2]`}>{cardBackTitle}</h5>
                         </div>
                         {cardBackNotesText && cardBackNotesText.trim() !== "" && (
                              <button onClick={handlePlayCardBackAudio} disabled={isLoadingCardBackAudio} className={`ml-[0.5vw] p-[0.8vh] rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-all duration-200 ${isLoadingCardBackAudio ? 'animate-spin cursor-default' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-black/20`} aria-label={`Play audio for ${cardBackTitle}`} title={`Play audio for ${cardBackTitle}`}>
@@ -324,24 +394,24 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                             </button>
                         )}
                     </div>
-                    <div className={`flex-grow text-left overflow-y-auto scrollbar-thin pr-[0.5vw] font-atkinson-regular`}>{renderCardBackNotes()}</div>
+                    <div className={`flex-grow text-left overflow-y-auto scrollbar-thin pr-[0.5vw] font-normal`}>{renderCardBackNotes()}</div>
                   </div>
                 ) : (
                   <>
                     <div className="mb-[0.5vh] w-full text-center">
-                        <h4 className={`font-['Playfair_Display'] ${themeNameSizeClasses} text-white/90 font-medium tracking-wide truncate leading-[1.2]`}>{themeDisplayName}</h4>
+                        <h4 className={`${themeNameSizeClasses} text-white/90 font-normal tracking-wide truncate leading-[1.2]`} style={themeDisplayTitleStyle}>{themeDisplayName}</h4>
                         {drawnForParticipantName && !isCulminationCard && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
                     </div>
                     <div className={`flex-grow flex items-center justify-center ${promptTextHorizontalPadding}`}>
-                        <p className={`${promptTextSizeClasses} font-semibold text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{promptText}</p>
+                        <p className={`${promptTextSizeClasses} text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{promptText}</p>
                     </div>
                   </>
                 )}
               </div> 
               {!showLLMDetailsView && (
                 <div className="relative z-[1] flex justify-between items-center pt-[0.5vh] mt-auto w-full">
-                  <div className={`${brandingTextSize} text-white/70 select-none font-['Playfair_Display'] font-normal`}>
-                    Resonance ⦾
+                  <div className="flex flex-col items-start text-white/70 select-none">
+                    <div style={cardLogoTextStyle}>RESONANCE</div>
                   </div>
                   <div className="flex items-center space-x-[0.8vw]">
                     <button onClick={() => onDislike(id)} className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} ${feedback === 'disliked' ? 'bg-sky-700/90 text-white scale-110 ring-1 ring-sky-500' : 'bg-black/30 hover:bg-slate-600/70 text-slate-300 hover:text-white'}`} aria-label="Dislike" title="Dislike">

@@ -64,12 +64,12 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
   const currentGroupSettingLabel = GROUP_SETTINGS.find(s => s.id === groupSetting)?.label || 'Setting';
 
   return (
-    <div className="px-[1vw] py-[1vh] sm:py-[1.2vh] flex items-center space-x-[1vw] md:space-x-[1.5vw] w-full overflow-x-auto scrollbar-thin">
+    <div className="px-[1vw] py-[1vh] sm:py-[1.2vh] flex items-center space-x-[1vw] md:space-x-[1.5vw] w-full overflow-x-auto scrollbar-thin font-normal"> {/* Base font normal */}
       <button
         onClick={onOpenGroupSettingModal}
         disabled={disabled}
         className={`px-[1.5vw] py-[0.8vh] sm:px-[2vw] sm:py-[1vh] text-[clamp(0.6rem,1.8vh,0.9rem)] rounded-md transition-all duration-150 ease-in-out focus:outline-none whitespace-nowrap flex-shrink-0
-                    bg-slate-600 hover:bg-slate-500 text-slate-200 font-semibold shadow-sm
+                    bg-slate-600 hover:bg-slate-500 text-slate-200 font-normal shadow-sm
                     ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:shadow-md focus:ring-2 focus:ring-sky-400 focus:ring-offset-1 focus:ring-offset-slate-800'}`}
         aria-label={`Current group setting: ${currentGroupSettingLabel}. Click to change.`}
         title={`Group Setting: ${currentGroupSettingLabel}`}
@@ -107,7 +107,7 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
                 onClick={() => startEditing(participant)}
                 disabled={disabled}
                 className={`px-[1.2vw] py-[0.6vh] sm:px-[1.5vw] sm:py-[0.8vh] text-[clamp(0.65rem,1.9vh,0.95rem)] rounded-md transition-colors duration-150
-                            ${activeParticipantId === participant.id ? 'bg-sky-500 text-white font-semibold ring-1 sm:ring-2 ring-sky-300 ring-offset-1 ring-offset-slate-800' : 'bg-slate-600 hover:bg-slate-500 text-slate-200 font-normal'}
+                            ${activeParticipantId === participant.id ? 'bg-sky-500 text-white font-bold ring-1 sm:ring-2 ring-sky-300 ring-offset-1 ring-offset-slate-800' : 'bg-slate-600 hover:bg-slate-500 text-slate-200 font-normal'}
                             truncate w-[18vw] xs:w-[20vw] sm:w-[15vw] md:w-[12vw] max-w-[120px] ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-slate-500'}`}
                 title={participant.name.trim() ? `Participant: ${participant.name.trim()}` : "Click to set participant name"}
               >

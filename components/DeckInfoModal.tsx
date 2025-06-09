@@ -12,9 +12,15 @@ export const DeckInfoModal: React.FC<DeckInfoModalProps> = ({ item, onClose }) =
   const mainDescription = descriptionParts[0].trim();
   const inspiredByText = descriptionParts.length > 1 ? descriptionParts[1].trim() : null;
 
+  const titleStyle: React.CSSProperties = {
+    fontFamily: "'Atkinson Hyperlegible', sans-serif",
+    fontWeight: 700, // bold
+    letterSpacing: '0.025em', 
+  };
+
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal"
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal" // Base font set on body
       onClick={onClose} 
       aria-modal="true"
       role="dialog"
@@ -25,7 +31,13 @@ export const DeckInfoModal: React.FC<DeckInfoModalProps> = ({ item, onClose }) =
         onClick={(e) => e.stopPropagation()} 
       >
         <div className="flex justify-between items-center mb-[1.5vh] sm:mb-[2vh]">
-          <h2 id="deck-info-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-semibold text-sky-400 font-playfair">{item.name}</h2>
+          <h2 
+            id="deck-info-title" 
+            className="text-[clamp(1.1rem,3vh,1.75rem)] text-sky-400" // font-bold applied via style
+            style={titleStyle}
+          >
+            {item.name}
+          </h2>
           <button 
             onClick={onClose} 
             className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -39,12 +51,12 @@ export const DeckInfoModal: React.FC<DeckInfoModalProps> = ({ item, onClose }) =
         </div>
 
         <div className="space-y-[1vh] sm:space-y-[1.5vh] text-slate-300 max-h-[60vh] overflow-y-auto scrollbar-thin pr-[0.5vw] sm:pr-[1vw]">
-          <p className="text-[clamp(0.75rem,2.2vh,1rem)] whitespace-pre-wrap">{mainDescription}</p>
+          <p className="text-[clamp(0.75rem,2.2vh,1rem)] whitespace-pre-wrap font-normal">{mainDescription}</p>
           
           {inspiredByText && (
             <div className="mt-[1vh] pt-[1vh] sm:mt-[1.5vh] sm:pt-[1.5vh] border-t border-slate-700">
-              <h4 className="text-[clamp(0.7rem,2vh,0.9rem)] font-semibold text-sky-300 mb-[0.3vh] sm:mb-[0.5vh]">Inspired by:</h4>
-              <p className="text-[clamp(0.75rem,2.2vh,1rem)] whitespace-pre-wrap">{inspiredByText}</p>
+              <h4 className="text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-sky-300 mb-[0.3vh] sm:mb-[0.5vh]">Inspired by:</h4>
+              <p className="text-[clamp(0.75rem,2.2vh,1rem)] whitespace-pre-wrap font-normal">{inspiredByText}</p>
             </div>
           )}
         </div>
@@ -53,7 +65,7 @@ export const DeckInfoModal: React.FC<DeckInfoModalProps> = ({ item, onClose }) =
           <button
             type="button"
             onClick={onClose}
-            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
             title="Close"
           >
             Close

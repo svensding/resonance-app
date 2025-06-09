@@ -19,7 +19,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
 }) => {
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal"
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal" // Base font set on body
       onClick={onClose} 
       aria-modal="true"
       role="dialog"
@@ -30,7 +30,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
         onClick={(e) => e.stopPropagation()} 
       >
         <div className="flex justify-between items-center mb-[2vh] sm:mb-[3vh]">
-          <h2 id="group-setting-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-semibold text-sky-400">Choose Group Setting</h2>
+          <h2 id="group-setting-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-bold text-sky-400">Choose Group Setting</h2>
           <button 
             onClick={onClose} 
             className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -57,7 +57,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
               className={`w-full px-[2vw] py-[1.2vh] sm:px-[2.5vw] sm:py-[1.5vh] text-[clamp(0.75rem,2.2vh,1rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
                           flex flex-col
                           ${currentSetting === settingOption.id
-                            ? 'bg-sky-500 text-white font-semibold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg' 
+                            ? 'bg-sky-500 text-white font-bold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg' 
                             : `bg-slate-700 hover:bg-slate-600 text-slate-200 font-normal 
                                ${disabled ? 'cursor-not-allowed opacity-60' : 'hover:shadow-md focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-slate-800'}`
                           }
@@ -65,7 +65,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
               aria-pressed={currentSetting === settingOption.id}
               title={settingOption.description}
             >
-              <span className="font-medium">{settingOption.label}</span>
+              <span className="font-normal">{settingOption.label}</span> {/* Use normal for label, bold for selected button */}
               <span className={`text-[clamp(0.6rem,1.8vh,0.85rem)] ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-[0.3vh]`}>{settingOption.description}</span>
             </button>
           ))}
@@ -75,7 +75,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
             title="Done"
           >
             Done

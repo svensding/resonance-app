@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { VoiceName, LanguageCode, VoiceOption, LanguageOption } from '../services/geminiService';
 import { MusicSessionState } from '../services/musicService'; 
@@ -39,7 +38,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
 }) => {
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal" 
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal" // Base font set on body
       onClick={onClose} 
       aria-modal="true"
       role="dialog"
@@ -50,7 +49,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
         onClick={(e) => e.stopPropagation()} 
       >
         <div className="flex justify-between items-center mb-[2vh] sm:mb-[3vh]">
-          <h2 id="voice-settings-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-semibold text-sky-400">Voice & Audio Settings</h2>
+          <h2 id="voice-settings-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-bold text-sky-400">Voice & Audio Settings</h2>
           <button 
             onClick={onClose} 
             className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -65,7 +64,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
 
         <div className="space-y-[1.8vh] sm:space-y-[2.2vh]">
           <div>
-            <label htmlFor="voiceSelect" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 mb-[0.5vh]"> 
+            <label htmlFor="voiceSelect" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300 mb-[0.5vh]"> 
               Narration Voice
             </label>
             <select
@@ -89,7 +88,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
           </div>
 
           <div>
-            <label htmlFor="languageSelect" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 mb-[0.5vh]"> 
+            <label htmlFor="languageSelect" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300 mb-[0.5vh]"> 
               Language for Prompt <span className="text-[clamp(0.6rem,1.8vh,0.8rem)] text-slate-400 font-normal">(Influences generated text & voice tone)</span>
             </label>
             <select
@@ -115,7 +114,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
           
           <div>
             <label htmlFor="muteToggle" className="flex items-center justify-between cursor-pointer py-[0.5vh]">
-              <span className="text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300">Mute All Narration</span> 
+              <span className="text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300">Mute All Narration</span> 
               <div className="relative">
                 <input 
                   type="checkbox" 
@@ -134,7 +133,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
 
           <div>
             <label htmlFor="musicEnableToggle" className="flex items-center justify-between cursor-pointer py-[0.5vh]">
-                <span className="text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300">
+                <span className="text-[clamp(0.7rem,2vh,0.9rem)] font-normal text-slate-300">
                     Generative Background Music
                     <span className="block text-[clamp(0.6rem,1.8vh,0.8rem)] text-slate-400 font-normal">
                         (Experimental - Lyria API)
@@ -155,7 +154,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
             {isMusicEnabled && (
                 <div className="mt-[1vh] space-y-[0.5vh]">
                     <p className="text-[clamp(0.6rem,1.8vh,0.8rem)] text-slate-500 font-normal">
-                        Music status: <span className={`font-semibold ${
+                        Music status: <span className={`font-bold ${ // Use bold for status
                             musicSessionState === 'PLAYING' ? 'text-green-400' : 
                             musicSessionState === 'ERROR' ? 'text-red-400' : 
                             musicSessionState === 'CONNECTING' || musicSessionState === 'LOADING_BUFFER' ? 'text-yellow-400' : 'text-slate-400'
@@ -189,7 +188,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800" 
+            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800" 
             title="Done"
           >
             Done

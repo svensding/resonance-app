@@ -1,13 +1,14 @@
 
-
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Scale as GoogleLibraryScale } from "@google/genai"; // Scale imported as value
 import type { 
     LiveMusicSession, WeightedPrompt, LiveMusicGenerationConfig, LiveMusicServerMessage, 
-    Scale as GenAIScale, LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating 
+    LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating 
 } from "@google/genai"; 
 
 export type { WeightedPrompt, LiveMusicGenerationConfig };
-export { GenAIScale as Scale }; // Re-export Scale for use in App.tsx
+
+// Export the enum value directly.
+export const Scale = GoogleLibraryScale;
 
 const LYRIA_MODEL_NAME = 'models/lyria-realtime-exp';
 const TARGET_SAMPLE_RATE = 48000; 

@@ -19,6 +19,7 @@ export const CornerGlyphGrid: React.FC<CornerGlyphGridProps> = ({
     : [ [0.05, 0.10, 0.15], [0.10, 0.15, 0.20], [0.15, 0.20, 0.25] ];
   
   const baseClasses = `${glyphColorClass} ${glyphSizeClass} leading-none`;
+  const glyphCharacter = position === 'top-left' ? '⦾' : '⟁';
 
   return (
     <div 
@@ -31,7 +32,7 @@ export const CornerGlyphGrid: React.FC<CornerGlyphGridProps> = ({
           className={baseClasses} 
           style={{ opacity: opacity }}
         >
-          ⦾
+          {glyphCharacter}
         </span>
       ))}
     </div>

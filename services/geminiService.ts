@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import type { DrawnCardData as CardHistoryItem } from '../App'; 
 
@@ -14,7 +15,7 @@ if (API_KEY) {
 }
 
 const TEXT_GENERATION_MODEL = 'gemini-2.0-flash-lite'; 
-const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
+const TTS_MODEL = 'gemini-2.5-flash-preview-tts'; 
 
 // --- New Deck Sets and Micro Decks Architecture ---
 
@@ -238,7 +239,7 @@ export const GOOGLE_VOICES: VoiceOption[] = [
     { name: "Sadaltager", characteristics: "Knowledgeable", gender: "Male" }, { name: "Sulafat", characteristics: "Warm", gender: "Female" }
 ];
 export const LANGUAGES: LanguageOption[] = [
-    { code: "en-US", name: "English (US)" }, { code: "es-US", name: "Spanish (US)" }, { code: "nl-NL", name: "Dutch (Netherlands)" }, // Corrected nl-BE to nl-NL based on supported languages info
+    { code: "en-US", name: "English (US)" }, { code: "es-US", name: "Spanish (US)" }, { code: "nl-NL", name: "Dutch (Netherlands)" }, 
 ];
 export const DEFAULT_VOICE_NAME: VoiceName = "Enceladus";
 export const DEFAULT_LANGUAGE_CODE: LanguageCode = "en-US";
@@ -332,7 +333,7 @@ const constructGeminiPayload = (
   groupSetting: GroupSetting,
   history: CardHistoryItem[],
   languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE,
-  isSvenAndLisaSpecialModeActive: boolean = false // Added flag
+  isSvenAndLisaSpecialModeActive: boolean = false 
 ): GeminiPayload => {
   
   const selectedLanguageName = LANGUAGES.find(lang => lang.code === languageCode)?.name || "English (US)";
@@ -653,7 +654,7 @@ export const generatePromptAndAudioFromGemini = async (
     console.log(`${logPrefix} (Attempt ${attempt + 1}/${MAX_TEXT_GEN_RETRIES + 1})`);
     try {
       const currentTextResponse: GenerateContentResponse = await ai.models.generateContent({
-        model: TEXT_GENERATION_MODEL, contents: userContent, config: { systemInstruction: systemInstruction },
+        model: TEXT_GENERATION_MODEL, contents: [{role: "user", parts: [{text: userContent}]}], config: { systemInstruction: systemInstruction },
       });
 
       if (currentTextResponse && (currentTextResponse.text || (currentTextResponse.candidates && currentTextResponse.candidates.length > 0) || currentTextResponse.promptFeedback)) {

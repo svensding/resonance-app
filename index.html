@@ -1,3 +1,4 @@
+
 <script type="importmap">
 {
   "imports": {
@@ -6,7 +7,8 @@
     "react/": "https://esm.sh/react@^19.1.0/",
     "path": "https://esm.sh/path@^0.12.7",
     "vite": "https://esm.sh/vite@^6.3.5",
-    "@google/genai": "https://esm.sh/@google/genai@^1.4.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.4.0",
+    "url": "https://esm.sh/url@^0.11.4"
   }
 }
 </script>
@@ -15,63 +17,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resonance ⦾</title>
+  <title>RESONANCE</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600;1,700;1,800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,200;0,400;0,700;1,200;1,400;1,700&family=Atkinson+Hyperlegible+Mono&display=swap" rel="stylesheet">
   <style>
     :root {
       /* Base (Mobile) Viewport Heights */
       --header-height-actual: 15vh;
-      --footer-height-actual: 7.5vh; /* Was 10vh, reduced by 25% */
+      --footer-height-actual: 7.5vh; 
 
       /* Calculated Padding for Main Content Area */
       --main-content-top-padding: calc(var(--header-height-actual) + 3vh);
-      --main-content-bottom-padding: calc(var(--footer-height-actual) + 7vh); /* Was +8vh, adjusted for shorter footer */
+      --main-content-bottom-padding: calc(var(--footer-height-actual) + 7vh); 
     }
 
     @media (min-width: 768px) { /* md breakpoint and up */
       :root {
         --header-height-actual: 14vh;
-        --footer-height-actual: 6.75vh; /* Was 9vh, reduced by 25% */
+        --footer-height-actual: 6.75vh; 
       }
     }
     @media (min-width: 1024px) { /* lg breakpoint and up */
       :root {
         --header-height-actual: 13vh;
-        --footer-height-actual: 6vh; /* Was 8vh, reduced by 25% */
+        --footer-height-actual: 6vh; 
       }
     }
 
     html, body {
-      height: 100vh; /* Use viewport height */
-      overflow: hidden; /* Prevent body scroll, #root will handle it */
+      height: 100vh; 
+      overflow: hidden; 
     }
     body {
       background-color: #0f172a; /* bg-slate-900 */
       color: #e2e8f0; /* text-slate-200 */
-      overscroll-behavior-y: contain; /* Prevent pull-to-refresh issues on mobile */
+      overscroll-behavior-y: contain; 
       font-family: 'Atkinson Hyperlegible', sans-serif;
       font-weight: 400; /* Regular */
       margin: 0;
-      position: relative; /* For pseudo-element pattern */
+      position: relative; 
     }
     #root {
       height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
     }
-    body::after { /* Active glyph pattern */
+    body::after { 
       content: "⦾ \00a0 \00a0 \00a0 ⋈ \00a0 \00a0 \00a0 ⟁ \00a0 \00a0 \00a0 ⟐";
       position: fixed;
       top: 0;
       left: 0;
       width: 200%; 
       height: 200%; 
-      font-size: clamp(50px, 10vw, 100px); /* Responsive font size for pattern */
+      font-size: clamp(50px, 10vw, 100px); 
       color: rgba(203, 213, 225, 0.008); 
-      line-height: 1.8em; /* Adjusted line height */
+      line-height: 1.8em; 
       white-space: pre;
       overflow: hidden;
       pointer-events: none;
@@ -88,7 +94,7 @@
 
     @keyframes backgroundPatternScroll {
       0% { transform: translate(-25%, -25%) rotate(-15deg); }
-      100% { transform: translate(-75%, -75%) rotate(-15deg); } /* Adjust scroll amount */
+      100% { transform: translate(-75%, -75%) rotate(-15deg); } 
     }
     
     .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -124,7 +130,7 @@
     @keyframes shimmer {
       0% { left: -100%; }
       50% { left: 100%; }
-      100% { left: 100%; } /* Hold at end briefly */
+      100% { left: 100%; } 
     }
     .animate-pulse-slow {
       animation: pulse-slow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -133,11 +139,89 @@
       0%, 100% { opacity: 0.8; }
       50% { opacity: 1; }
     }
+
+    /* Initial Loading State Styles */
+    .initial-loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      color: #cbd5e1; /* slate-300 for glyphs */
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+    }
+    .brand-logo-initial-text {
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      font-size: clamp(1.5rem, 5vh, 2.8rem); 
+      font-weight: 200; /* Atkinson Hyperlegible Light/ExtraLight */
+      letter-spacing: 0.15em; 
+      color: rgba(203, 213, 225, 0.9); /* slate-300 with slight transparency */
+      text-transform: uppercase;
+      line-height: 1.2; 
+      margin: 0.5em 0; /* Matches component */
+    }
+    .glyph-pattern-row-initial {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1em; /* em-space equivalent */
+      line-height: tight;
+      font-size: clamp(1rem,3.5vh,2rem); /* Matches component */
+      color: #64748b; /* slate-500 for glyphs */
+      margin-bottom: 0.3em; /* Matches component */
+    }
+    .glyph-pattern-row-initial:last-child {
+      margin-bottom: 0;
+    }
+    .glyph-initial.opacity-33 { opacity: 0.33; }
+    .glyph-initial.opacity-66 { opacity: 0.66; }
+    .glyph-initial.opacity-90 { opacity: 0.9; }
+
+    .font-atkinson-mono {
+      font-family: 'Atkinson Hyperlegible Mono', monospace;
+    }
   </style>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="font-atkinson-regular">
-  <div id="root" class="hide-scrollbar"></div>
+<body class="font-normal">
+  <div id="root" class="hide-scrollbar">
+    <!-- Initial loading state: will be replaced by React app -->
+    <div class="initial-loading-state">
+      <div class="glyph-pattern-row-initial">
+        <span class="glyph-initial opacity-33">⦾</span>
+      </div>
+      <div class="glyph-pattern-row-initial">
+        <span class="glyph-initial opacity-33">⦾</span>
+        <span class="glyph-initial opacity-66">⟁</span>
+        <span class="glyph-initial opacity-33">⦾</span>
+      </div>
+      <div class="glyph-pattern-row-initial">
+        <span class="glyph-initial opacity-33">⦾</span>
+        <span class="glyph-initial opacity-66">⟁</span>
+        <span class="glyph-initial opacity-90">⦾</span>
+        <span class="glyph-initial opacity-66">⟁</span>
+        <span class="glyph-initial opacity-33">⦾</span>
+      </div>
+      <div class="brand-logo-initial-text">RESONANCE</div>
+      <div class="glyph-pattern-row-initial">
+        <span class="glyph-initial opacity-33">⟁</span>
+        <span class="glyph-initial opacity-66">⦾</span>
+        <span class="glyph-initial opacity-90">⟁</span>
+        <span class="glyph-initial opacity-66">⦾</span>
+        <span class="glyph-initial opacity-33">⟁</span>
+      </div>
+      <div class="glyph-pattern-row-initial">
+        <span class="glyph-initial opacity-33">⟁</span>
+        <span class="glyph-initial opacity-66">⦾</span>
+        <span class="glyph-initial opacity-33">⟁</span>
+      </div>
+      <div class="glyph-pattern-row-initial">
+        <span class="glyph-initial opacity-33">⟁</span>
+      </div>
+      <p class="text-[clamp(0.65rem,2vh,0.9rem)] text-slate-400/90 mt-[2vh] relative z-10 font-normal">Loading Resonance...</p>
+    </div>
+  </div>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
