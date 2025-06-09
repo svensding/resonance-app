@@ -63,8 +63,8 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   const glyphColor = "text-white/70";
   
   const titleTextSize = isRandomButton 
-    ? "text-[clamp(0.64rem,1.76vh,0.96rem)]" 
-    : "text-[clamp(0.56rem,1.6vh,0.8rem)]";  
+    ? "text-[clamp(0.55rem,1.5vh,0.85rem)]"  // Adjusted
+    : "text-[clamp(0.48rem,1.4vh,0.75rem)]"; // Adjusted
 
   const titleMarginTop = isRandomButton ? "mt-[1vh]" : "mt-[0.5vh]";
 

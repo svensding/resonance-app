@@ -13,8 +13,10 @@ import {
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { 
-    MusicService, MusicSessionState, WeightedPrompt as LyriaWeightedPrompt, LiveMusicGenerationConfig as LyriaConfig, Scale
+    MusicService, MusicSessionState, WeightedPrompt as LyriaWeightedPrompt, LiveMusicGenerationConfig as LyriaConfig 
+    // Scale was previously imported from here
 } from './services/musicService';
+import { Scale } from '@google/genai'; // Import Scale directly from @google/genai
 import { ApiKeyMessage } from './components/ApiKeyMessage';
 import { ThemeDeckSelection } from './components/ThemeDeckSelection';
 import { DrawnCardsHistoryView } from './components/DrawnCardsHistoryView';

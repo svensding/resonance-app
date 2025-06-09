@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { GroupSetting, GROUP_SETTINGS } from '../services/geminiService';
 
@@ -68,7 +69,7 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
       <button
         onClick={onOpenGroupSettingModal}
         disabled={disabled}
-        className={`px-[1.5vw] py-[0.8vh] sm:px-[2vw] sm:py-[1vh] text-[clamp(0.6rem,1.8vh,0.9rem)] rounded-md transition-all duration-150 ease-in-out focus:outline-none whitespace-nowrap flex-shrink-0
+        className={`px-[1.5vw] py-[0.8vh] sm:px-[2vw] sm:py-[1vh] text-[clamp(0.55rem,1.6vh,0.8rem)] rounded-md transition-all duration-150 ease-in-out focus:outline-none whitespace-nowrap flex-shrink-0
                     bg-slate-600 hover:bg-slate-500 text-slate-200 font-normal shadow-sm
                     ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:shadow-md focus:ring-2 focus:ring-sky-400 focus:ring-offset-1 focus:ring-offset-slate-800'}`}
         aria-label={`Current group setting: ${currentGroupSettingLabel}. Click to change.`}
@@ -97,7 +98,7 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
                 onBlur={() => handleNameInputBlur(participant.id)}
                 onKeyDown={(e) => handleNameInputKeyDown(e, participant.id)}
                 placeholder="Name"
-                className={`px-[1.2vw] py-[0.6vh] sm:px-[1.5vw] sm:py-[0.8vh] text-[clamp(0.65rem,1.9vh,0.95rem)] bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white w-[18vw] xs:w-[20vw] sm:w-[15vw] md:w-[12vw] max-w-[120px] font-normal ${disabled ? 'cursor-not-allowed opacity-70' : ''}`}
+                className={`px-[1.2vw] py-[0.6vh] sm:px-[1.5vw] sm:py-[0.8vh] text-[clamp(0.58rem,1.7vh,0.88rem)] bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white w-[18vw] xs:w-[20vw] sm:w-[15vw] md:w-[12vw] max-w-[120px] font-normal ${disabled ? 'cursor-not-allowed opacity-70' : ''}`}
                 autoFocus
                 disabled={disabled}
                 title="Enter participant name"
@@ -106,7 +107,7 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
               <button
                 onClick={() => startEditing(participant)}
                 disabled={disabled}
-                className={`px-[1.2vw] py-[0.6vh] sm:px-[1.5vw] sm:py-[0.8vh] text-[clamp(0.65rem,1.9vh,0.95rem)] rounded-md transition-colors duration-150
+                className={`px-[1.2vw] py-[0.6vh] sm:px-[1.5vw] sm:py-[0.8vh] text-[clamp(0.58rem,1.7vh,0.88rem)] rounded-md transition-colors duration-150
                             ${activeParticipantId === participant.id ? 'bg-sky-500 text-white font-bold ring-1 sm:ring-2 ring-sky-300 ring-offset-1 ring-offset-slate-800' : 'bg-slate-600 hover:bg-slate-500 text-slate-200 font-normal'}
                             truncate w-[18vw] xs:w-[20vw] sm:w-[15vw] md:w-[12vw] max-w-[120px] ${disabled ? 'cursor-not-allowed opacity-70' : 'hover:bg-slate-500'}`}
                 title={participant.name.trim() ? `Participant: ${participant.name.trim()}` : "Click to set participant name"}

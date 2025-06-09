@@ -25,6 +25,7 @@ export interface DrawnCardDisplayData {
   themeBeingDrawnNamePlaceholder?: string | null; 
   activeParticipantNameForPlaceholder?: string | null;
   currentDrawingThemeColorForPlaceholder?: string | null; 
+  isFirstEverCardForDisplay?: boolean;
 }
 
 interface DrawnCardProps extends DrawnCardDisplayData {
@@ -75,6 +76,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   currentDrawingThemeColorForPlaceholder,
   activeCardAudio,
   onStopAudio,
+  isFirstEverCardForDisplay = false,
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
   const [showLLMDetailsView, setShowLLMDetailsView] = useState(false);
@@ -82,11 +84,23 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const [showCardBackView, setShowCardBackView] = useState(false);
   const [isLoadingCardBackAudio, setIsLoadingCardBackAudio] = useState(false);
   const [parsedGuidance, setParsedGuidance] = useState<ParsedGuidanceSection[]>([]);
+  const [showInitialButtons, setShowInitialButtons] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [isTextAnimatedIn, setIsTextAnimatedIn] = useState(false);
   const [isTextFullyVisible, setIsTextFullyVisible] = useState(false); 
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isFirstEverCardForDisplay && isNewest) {
+        setShowInitialButtons(true);
+        const timer = setTimeout(() => {
+            setShowInitialButtons(false);
+        }, 10000); // 10 seconds
+        return () => clearTimeout(timer);
+    }
+  }, [isFirstEverCardForDisplay, isNewest, id]);
+
 
   useEffect(() => {
     if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
@@ -167,14 +181,14 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   }, [cardBackNotesText]);
 
   const renderCardBackNotes = () => {
-    if (!parsedGuidance.length) return <p className="text-[clamp(0.75rem,2.1vh,0.9rem)] text-slate-400 font-normal text-center leading-[1.2]">No additional guidance for this card.</p>;
+    if (!parsedGuidance.length) return <p className="text-[clamp(0.65rem,1.8vh,0.85rem)] text-slate-400 font-normal text-center leading-[1.2]">No additional guidance for this card.</p>; // Adjusted size
     return (
       <div className="space-y-[1vh]">
         {parsedGuidance.map((section, index) => (
           section.content.trim() ? (
             <div key={index}>
-              <h6 className="font-bold text-[clamp(0.8rem,2.3vh,1.05rem)] text-slate-300 mb-[0.2vh] leading-[1.2]">{section.heading}</h6>
-              <p className="text-[clamp(0.75rem,2.1vh,0.95rem)] text-slate-200 font-normal whitespace-pre-wrap leading-[1.2]">{section.content}</p>
+              <h6 className="font-bold text-[clamp(0.7rem,2vh,0.9rem)] text-slate-300 mb-[0.2vh] leading-[1.2]">{section.heading}</h6> {/* Adjusted size */}
+              <p className="text-[clamp(0.65rem,1.8vh,0.85rem)] text-slate-200 font-normal whitespace-pre-wrap leading-[1.2]">{section.content}</p> {/* Adjusted size */}
             </div>
           ) : null
         ))}
@@ -206,6 +220,11 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const isThisPromptAudioPlaying = activeCardAudio?.cardId === id && activeCardAudio?.type === 'prompt';
   const isThisNotesAudioPlaying = activeCardAudio?.cardId === id && activeCardAudio?.type === 'notes';
 
+  let actionButtonOpacityClasses = "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100";
+  if (showInitialButtons) {
+      actionButtonOpacityClasses = "opacity-100";
+  }
+  const actionButtonBaseClasses = `rounded-full transition-all duration-500 ease-in-out ${actionButtonOpacityClasses}`;
 
   if (isLoadingPlaceholder) {
     let loadingText = `Drawing from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
@@ -281,7 +300,6 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     else promptTextStyle.transitionDuration = '0ms';
   }
   
-  const actionButtonBaseClasses = `rounded-full transition-all duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100`;
   const actionButtonSizeClasses = isNewest ? "p-[1vh]" : "p-[0.8vh]";
   const actionButtonIconSize = isNewest ? "h-[2.8vh] w-[2.8vh] max-h-6 max-w-6" : "h-[2.2vh] w-[2.2vh] max-h-5 max-w-5";
 

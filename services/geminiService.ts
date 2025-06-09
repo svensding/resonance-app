@@ -14,7 +14,7 @@ if (API_KEY) {
   }
 }
 
-const TEXT_GENERATION_MODEL = 'gemini-2.0-flash-lite'; 
+const TEXT_GENERATION_MODEL = 'gemini-2.5-flash-preview-04-17'; 
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts'; 
 
 // --- New Deck Sets and Micro Decks Architecture ---
@@ -378,16 +378,14 @@ const constructGeminiPayload = (
   
   let historySnippet = "No significant prior interactions this session.";
   if (history.length > 0) {
-      const MAX_HISTORY_FOR_PROMPT = 5;
-      const recentHistoryItems = history.slice(0, MAX_HISTORY_FOR_PROMPT);
-      const historyStrings = recentHistoryItems.map(card => {
+      const historyStrings = history.map(card => { // Use full history
           let feedbackStr = "(Feedback: None)";
           if (card.feedback === 'liked') feedbackStr = "(Feedback: Liked)";
           if (card.feedback === 'disliked') feedbackStr = "(Feedback: Disliked)";
           return `- Card Text: "${card.text}" ${feedbackStr}`;
       });
       if (historyStrings.length > 0) {
-        historySnippet = `Session History (most recent first, up to ${MAX_HISTORY_FOR_PROMPT}):\n${historyStrings.join('\n')}`;
+        historySnippet = `Session History (most recent first):\n${historyStrings.join('\n')}`;
       }
   }
   

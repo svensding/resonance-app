@@ -114,6 +114,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
     </div>
   );
 
+  const isFirstEverCardForDisplay = history.length === 1 && newestCard && !isLoadingNextCard && !isLoadingNewCard;
 
   return (
     <div className="w-full max-w-6xl px-[2vw] flex flex-col items-center font-normal">
@@ -160,6 +161,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
               allCustomDecksForLookup={customDecks}
               activeCardAudio={activeCardAudio}
               onStopAudio={onStopAudio}
+              isFirstEverCardForDisplay={isFirstEverCardForDisplay}
             />
           ) : showEmptyStateCard ? (
             renderEmptyState()
@@ -183,7 +185,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
 
       {olderCards.length > 0 && (
         <div className="mt-[3vh] sm:mt-[4vh] w-full" style={{paddingBottom: 'calc(var(--footer-height-actual) + 2vh)'}}>
-          <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-[1.5vw] sm:gap-[2vw]">
+          <div className="columns-2 sm:columns-2 md:columns-3 lg:columns-4 gap-[1.5vw] sm:gap-[2vw]"> {/* Changed columns-1 to columns-2 */}
             {olderCards.map((card) => (
               <div key={card.id + "-older"} className="mb-[1.5vw] sm:mb-[2vw]">
                 <DrawnCard
