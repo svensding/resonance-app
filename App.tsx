@@ -685,7 +685,7 @@ const App: React.FC = () => {
       <div className="fixed top-0 left-0 right-0 z-20">
         {/* Adjusted height and blur for responsiveness */}
         <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-slate-900/70 via-slate-900/70 via-[67%] to-transparent backdrop-blur-sm sm:backdrop-blur-md shadow-lg 
-                        h-[calc(0.97*7rem)] xs:h-[calc(0.97*8rem)] sm:h-[calc(0.97*9rem)] md:h-[calc(0.97*10rem)] lg:h-[calc(0.97*11rem)]"></div>
+                        h-[calc(0.95*7rem)] xs:h-[calc(0.9*8rem)] sm:h-[calc(0.93*9rem)] md:h-[calc(0.95*10rem)] lg:h-[calc(0.95*11rem)]"></div>
         <div className="relative"> 
           <ThemeDeckSelection 
               onDraw={(itemId) => handleDrawCardInternal(itemId)} 
@@ -703,7 +703,7 @@ const App: React.FC = () => {
         {/* Adjusted top padding for different screen sizes */}
         <div className="w-full flex flex-col items-center 
                         pt-30 xs:pt-34 sm:pt-40 md:pt-44 lg:pt-48 xl:pt-52
-                        pb-24 sm:pb-28 md:pb-32 
+                        pb-28 xs:pb-32 sm:pb-36 md:pb-40 lg:pb-44
                         px-1 xs:px-2 sm:px-4 min-h-0">
           {apiKeyMissing && <div className="my-4 w-full max-w-2xl flex justify-center"><ApiKeyMessage /></div>}
           

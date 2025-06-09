@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { DrawnCard, DrawnCardDisplayData } from './DrawnCard';
 import { DrawnCardData as CardHistoryItemType } from '../App';
@@ -52,8 +53,8 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
 
 
   return (
-    <div className="w-full max-w-6xl px-0.5 xs:px-1 sm:px-2 flex flex-col items-center">
-      <div className="w-full flex flex-row justify-center items-start gap-1 xs:gap-2 sm:gap-4 mb-3 sm:mb-4 md:mb-6">
+    <div className="w-full max-w-6xl px-2 xs:px-3 sm:px-4 md:px-6 flex flex-col items-center">
+      <div className="w-full flex flex-row justify-center items-start gap-1 xs:gap-2 sm:gap-4 mb-3 sm:mb-4 md:mb-6 pt-[10vh] pb-[5vh]">
         {/* Ensure this max-w allows space for the button on smaller screens */}
         <div className="flex-grow w-full max-w-[calc(100%-2.5rem)] xs:max-w-[calc(100%-3rem)] sm:max-w-md">
           {isLoadingNextCard || isLoadingNewCard ? (
