@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resonance ⦾</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600;1,700;1,800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  <style>
+    html {
+      height: 100%;
+    }
+    body {
+      background-color: #0f172a; /* bg-slate-900 */
+      color: #e2e8f0; /* text-slate-200 */
+      overscroll-behavior-y: contain; /* Prevent pull-to-refresh issues on mobile */
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      font-weight: 400; /* Regular */
+      height: 100%;
+      margin: 0;
+      overflow: hidden; /* Prevent body scroll */
+      position: relative; /* For pseudo-element pattern */
+    }
+    body::after { /* Active glyph pattern */
+      content: "⦾ \00a0 \00a0 \00a0 ⋈ \00a0 \00a0 \00a0 ⟁ \00a0 \00a0 \00a0 ⟐";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%; 
+      height: 200%; 
+      font-size: 100px; 
+      color: rgba(203, 213, 225, 0.015); /* Slightly more subtle */
+      line-height: 2.5em; 
+      white-space: pre;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: -1;
+      transform: translate(-25%, -25%) rotate(-15deg); 
+      animation: backgroundPatternScroll 120s linear infinite;
+    }
+
+    @keyframes backgroundPatternScroll {
+      0% { transform: translate(-25%, -25%) rotate(-15deg); }
+      100% { transform: translate(-75%, -75%) rotate(-15deg); } 
+    }
+
+
+    #root {
+      display: flex;
+      flex-direction: column;
+      height: 100%; 
+      width: 100%;
+      overflow: hidden; 
+    }
+    .main-content-area {
+      flex-grow: 1; 
+      overflow-y: auto; 
+      overflow-x: hidden;
+    }
+    .scrollbar-thin { 
+      scrollbar-width: thin;
+      scrollbar-color: #60a5fa #334155; /* blue-400 slate-700 */
+    }
+    .scrollbar-thin::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .scrollbar-thin::-webkit-scrollbar-track {
+      background: rgba(51, 65, 85, 0.5); 
+    }
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+      background-color: #60a5fa; 
+      border-radius: 4px;
+      border: 2px solid rgba(51, 65, 85, 0.1); 
+    }
+    .perspective { perspective: 1000px; }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .font-atkinson-regular { font-weight: 400; }
+    .font-atkinson-medium { font-weight: 500; }
+    .font-atkinson-semibold { font-weight: 600; }
+    .font-atkinson-bold { font-weight: 700; } 
+    .font-atkinson-extrabold { font-weight: 800; }
+
+    .text-balance { text-wrap: balance; }
+
+    .font-playfair {
+      font-family: 'Playfair Display', serif;
+    }
+
+    @keyframes shimmerAnimation {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .shimmer-effect::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        100deg,
+        rgba(255, 255, 255, 0) 20%,
+        rgba(255, 255, 255, 0.07) 50%, /* Reduced shimmer opacity */
+        rgba(255, 255, 255, 0) 80%
+      );
+      background-size: 200% 100%;
+      animation: shimmerAnimation 35s infinite linear; 
+      pointer-events: none;
+      border-radius: inherit; 
+      z-index: 1; 
+    }
+
+    @keyframes pulse {
+      50% {
+        opacity: .5;
+      }
+    }
+    .animate-pulse-slow {
+      animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; 
+    }
+
+    .brand-text-container {
+      display: inline-flex;
+      align-items: baseline;
+    }
+    .brand-text-r {
+      position: relative;
+      top: 0.07em; /* Fine-tune for Atkinson Hyperlegible */
+    }
+
+  </style>
+  <!-- Importmap removed as dependencies will be bundled by esbuild -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.4.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="bg-slate-900 font-atkinson-regular h-full">
+  <div id="root" class="h-full">
+    {/* App will render toolbars and main content area here */}
+  </div>
+  <script defer src="/bundle.js"></script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
