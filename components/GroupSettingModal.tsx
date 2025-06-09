@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { GroupSetting, GroupSettingOption } from '../services/geminiService';
 
@@ -19,18 +20,18 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
 }) => {
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal" // Base font set on body
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal"
       onClick={onClose} 
       aria-modal="true"
       role="dialog"
       aria-labelledby="group-setting-title"
     >
       <div 
-        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[90vw] sm:max-w-[70vw] md:max-w-lg transform transition-all"
+        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[calc(100vw-6vw)] sm:max-w-xs md:max-w-sm transform transition-all"
         onClick={(e) => e.stopPropagation()} 
       >
-        <div className="flex justify-between items-center mb-[2vh] sm:mb-[3vh]">
-          <h2 id="group-setting-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-bold text-sky-400">Choose Group Setting</h2>
+        <div className="flex justify-between items-center mb-[1.5vh] sm:mb-[2.5vh]">
+          <h2 id="group-setting-title" className="text-[clamp(1rem,2.8vh,1.6rem)] font-bold text-sky-400">Choose Group Setting</h2>
           <button 
             onClick={onClose} 
             className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -43,7 +44,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-[1vh] sm:space-y-[1.5vh]">
+        <div className="space-y-[0.8vh] sm:space-y-[1.2vh] max-h-[60vh] overflow-y-auto scrollbar-thin">
           {groupSettingsOptions.map(settingOption => (
             <button
               key={settingOption.id}
@@ -54,7 +55,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
                 }
               }}
               disabled={disabled}
-              className={`w-full px-[2vw] py-[1.2vh] sm:px-[2.5vw] sm:py-[1.5vh] text-[clamp(0.75rem,2.2vh,1rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
+              className={`w-full px-[2vw] py-[1vh] sm:px-[2vw] sm:py-[1.2vh] text-[clamp(0.7rem,2vh,0.95rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
                           flex flex-col
                           ${currentSetting === settingOption.id
                             ? 'bg-sky-500 text-white font-bold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg' 
@@ -65,13 +66,13 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
               aria-pressed={currentSetting === settingOption.id}
               title={settingOption.description}
             >
-              <span className="font-normal">{settingOption.label}</span> {/* Use normal for label, bold for selected button */}
-              <span className={`text-[clamp(0.6rem,1.8vh,0.85rem)] ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-[0.3vh]`}>{settingOption.description}</span>
+              <span className="font-normal">{settingOption.label}</span>
+              <span className={`text-[clamp(0.55rem,1.7vh,0.8rem)] ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-[0.2vh] leading-snug`}>{settingOption.description}</span>
             </button>
           ))}
         </div>
 
-        <div className="mt-[3vh] sm:mt-[4vh] flex justify-end">
+        <div className="mt-[2.5vh] sm:mt-[3.5vh] flex justify-end">
           <button
             type="button"
             onClick={onClose}

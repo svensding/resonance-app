@@ -6,14 +6,14 @@ import {
   generatePromptAndAudioFromGemini, GeminiPromptResponse as GeminiServiceResponse, 
   CustomThemeData, CustomThemeId, ThemeIdentifier, DeckSet, MicroDeck,
   VoiceName, LanguageCode, DEFAULT_VOICE_NAME, DEFAULT_LANGUAGE_CODE, GOOGLE_VOICES, LANGUAGES,
-  GroupSetting, DEFAULT_GROUP_SETTING, GROUP_SETTINGS, SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS,
+  GroupSetting, DEFAULT_GROUP_SETTING, GROUP_SETTINGS,
   DECK_SETS, ALL_MICRO_DECKS,
   getMicroDeckById, getCustomDeckById, getDeckSetById, getDisplayDataForCard,
   generateAudioForText, getStyleDirectiveForMicroDeck
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { 
-    MusicService, MusicSessionState, WeightedPrompt as LyriaWeightedPrompt, LiveMusicGenerationConfig as LyriaConfig, Scale 
+    MusicService, MusicSessionState, WeightedPrompt as LyriaWeightedPrompt, LiveMusicGenerationConfig as LyriaConfig, Scale
 } from './services/musicService';
 import { ApiKeyMessage } from './components/ApiKeyMessage';
 import { ThemeDeckSelection } from './components/ThemeDeckSelection';
@@ -27,7 +27,6 @@ import { SvenAndLisaOnboardingModal } from './components/SvenAndLisaOnboardingMo
 import { PaulinaAndJoeOnboardingModal } from './components/PaulinaAndJoeOnboardingModal';
 
 
-const ECHO_BREATH_PAUSE_MS = 500; 
 const MAX_HISTORY_WITH_AUDIO = 13; 
 
 export interface DrawnCardData extends GeminiServiceResponse { 
@@ -86,6 +85,8 @@ const App: React.FC = () => {
   const [showGroupSettingModal, setShowGroupSettingModal] = useState<boolean>(false);
   
   const [hasPlayedAudioForNewestCard, setHasPlayedAudioForNewestCard] = useState<boolean>(false);
+  const [activeCardAudio, setActiveCardAudio] = useState<{ cardId: string; type: 'prompt' | 'notes' } | null>(null);
+
   const [customDecks, setCustomDecks] = useState<CustomThemeData[]>([]);
   const [showCustomDeckModal, setShowCustomDeckModal] = useState<boolean>(false);
   const [editingCustomDeck, setEditingCustomDeck] = useState<CustomThemeData | null>(null);
@@ -102,7 +103,6 @@ const App: React.FC = () => {
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
   const [showVoiceSettingsModal, setShowVoiceSettingsModal] = useState<boolean>(false);
   
-  const audioPlaybackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Special Modes State
   const [specialModeOnboardingDrawFn, setSpecialModeOnboardingDrawFn] = useState<(() => Promise<void>) | null>(null);
@@ -167,7 +167,6 @@ const App: React.FC = () => {
     const loadedGroupSetting = loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING);
     setSelectedGroupSetting(loadedGroupSetting);
     
-    // Initialize participants if none exist for any setting
     if (participants.length === 0) {
         const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
         setParticipants([defaultParticipant]);
@@ -176,7 +175,6 @@ const App: React.FC = () => {
 
 
     return () => {
-        if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
         stopSpeechServicePlayback();
         if (musicServiceRef.current) {
             musicServiceRef.current.disconnect();
@@ -184,7 +182,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // Effect for initializing/destroying MusicService when isMusicEnabled changes
   useEffect(() => {
     if (isMusicEnabled && process.env.API_KEY) {
         if (!musicServiceRef.current) {
@@ -198,11 +195,10 @@ const App: React.FC = () => {
                 }
             );
             if (musicServiceRef.current) {
-                 musicServiceRef.current.setVolume(musicVolume); // Set initial volume
-                 musicServiceRef.current.connect(); // Attempt to connect immediately
+                 musicServiceRef.current.setVolume(musicVolume); 
+                 musicServiceRef.current.connect(); 
             }
         } else {
-            // Music is enabled, and service exists. Ensure it's connected if it's not in an active/connecting state.
             const currentMusicState = musicServiceRef.current.getCurrentInternalState();
             if (currentMusicState === 'DISCONNECTED' || currentMusicState === 'STOPPED' || currentMusicState === 'ERROR') {
                 console.log(`MusicService: Already enabled, but service was ${currentMusicState}. Re-connecting.`);
@@ -215,9 +211,8 @@ const App: React.FC = () => {
         musicServiceRef.current = null;
         setMusicSessionState('DISCONNECTED'); 
     }
-  }, [isMusicEnabled]); // Only depends on isMusicEnabled
+  }, [isMusicEnabled]); 
 
-  // Effect for updating music volume
   useEffect(() => {
     if (musicServiceRef.current && isMusicEnabled) {
         musicServiceRef.current.setVolume(musicVolume);
@@ -261,15 +256,15 @@ const App: React.FC = () => {
                 const maturity = microDeckForMusic.maturity_rating_hint;
 
                 if (focus.includes("mindfulness") || focus.includes("somatic") || focus.includes("presence")) {
-                    configForMusic = { bpm: 60, density: 0.2, brightness: 0.35, scale: Scale.PENTATONIC_MINOR_SCALE };
+                    configForMusic = { bpm: 60, density: 0.2, brightness: 0.35, scale: Scale.PENTATONIC_MINOR };
                 } else if (focus.includes("playful") || focus.includes("icebreaker") || focus.includes("witty")) {
-                    configForMusic = { bpm: 110, density: 0.6, brightness: 0.65, scale: Scale.BLUES_SCALE };
+                    configForMusic = { bpm: 110, density: 0.6, brightness: 0.65, scale: Scale.BLUES };
                 } else if (focus.includes("authentic relating") || focus.includes("vulnerability") || focus.includes("shadow work") || focus.includes("inner child")) {
-                    configForMusic = { bpm: 70, density: 0.3, brightness: 0.4, scale: Scale.MINOR_SCALE };
+                    configForMusic = { bpm: 70, density: 0.3, brightness: 0.4, scale: Scale.MINOR };
                 } else if (focus.includes("erotic") || focus.includes("sensual") || focus.includes("intimate")) {
-                    configForMusic = { bpm: 85, density: 0.5, brightness: 0.5, scale: Scale.LYDIAN_SCALE, muteDrums: maturity !== "Intimate/Explicit" };
+                    configForMusic = { bpm: 85, density: 0.5, brightness: 0.5, scale: Scale.LYDIAN, muteDrums: maturity !== "Intimate/Explicit" };
                 } else if (focus.includes("provocative") || focus.includes("edgy") || focus.includes("risk")) {
-                     configForMusic = { bpm: 95, density: 0.55, brightness: 0.6, scale: Scale.PHRYGIAN_SCALE };
+                     configForMusic = { bpm: 95, density: 0.55, brightness: 0.6, scale: Scale.PHRYGIAN };
                 } else { 
                     configForMusic = { bpm: 90, density: 0.45, brightness: 0.5 };
                 }
@@ -280,11 +275,10 @@ const App: React.FC = () => {
     try {
         if (currentMusicState === 'CONNECTED' || currentMusicState === 'STOPPED') {
             console.log(`MusicService: State is ${currentMusicState}. Attempting to play music first, then steer.`);
-            await musicServiceRef.current.playMusic(); // Ensure base music is playing
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Allow time for play to initialize stream
+            await musicServiceRef.current.playMusic(); 
+            await new Promise(resolve => setTimeout(resolve, 1000)); 
         }
         
-        // Check state again after attempting play, as it might have changed
         const stateAfterPlayAttempt = musicServiceRef.current.getCurrentInternalState();
         if (stateAfterPlayAttempt === 'PLAYING' || stateAfterPlayAttempt === 'LOADING_BUFFER' || stateAfterPlayAttempt === 'PLAY_REQUESTED') {
             if (promptsForMusic.length > 0) {
@@ -313,9 +307,6 @@ const App: React.FC = () => {
   const handleGroupSettingChange = (newSetting: GroupSetting) => {
     setSelectedGroupSetting(newSetting);
     saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, newSetting);
-    // No automatic participant changes here anymore.
-    // If user selects "SPECIAL", they need to manually enter names.
-    // If they change from "SPECIAL" to "GENERAL", names persist.
   };
 
   const handleOpenGroupSettingModal = () => setShowGroupSettingModal(true);
@@ -377,14 +368,11 @@ const App: React.FC = () => {
     const isSvenLisaCurrentlyActive = isSpecialModeActive("SVEN_LISA", participants);
     const isPaulinaJoeCurrentlyActive = isSpecialModeActive("PAULINA_JOE", participants);
 
-    // Sven & Lisa Onboarding Check
+    // Sven & Lisa Onboarding Check - simplified
     if (isSvenLisaCurrentlyActive && !hasShownSvenAndLisaOnboarding) {
-        const microDeckForOnboarding = getMicroDeckById(selectedThemeIdentifier as MicroDeck['id']);
-        if (microDeckForOnboarding && SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS.includes(microDeckForOnboarding.id)) {
-            setSpecialModeOnboardingDrawFn(() => () => handleDrawNewCard(selectedThemeIdentifier)); 
-            setShowSvenAndLisaOnboardingModal(true);
-            return; 
-        }
+        setSpecialModeOnboardingDrawFn(() => () => handleDrawNewCard(selectedThemeIdentifier)); 
+        setShowSvenAndLisaOnboardingModal(true);
+        return; 
     }
     // Paulina & Joe Onboarding Check
     if (isPaulinaJoeCurrentlyActive && !hasShownPaulinaAndJoeOnboarding) {
@@ -393,9 +381,8 @@ const App: React.FC = () => {
         return;
     }
 
-    setIsLoading(true); setError(null); setHasPlayedAudioForNewestCard(false);
+    setIsLoading(true); setError(null); setHasPlayedAudioForNewestCard(false); setActiveCardAudio(null);
     stopSpeechServicePlayback();
-    if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
     
     let itemName = "Selected Theme";
     let deckSetIdForCard: string | null = null;
@@ -474,12 +461,11 @@ const App: React.FC = () => {
         participants.length,
         participantNamesForPrompt,
         activeParticipantActualName,
-        selectedGroupSetting, // Pass the selectedGroupSetting ("SPECIAL" or other)
+        selectedGroupSetting, 
         drawnCardHistory,
         customDecks, 
         selectedVoiceName,
         selectedLanguageCode
-        // isSvenLisaMode and isPaulinaJoeMode flags are determined within generatePromptAndAudioFromGemini
       );
 
       const newCard: DrawnCardData = {
@@ -506,12 +492,17 @@ const App: React.FC = () => {
       });
 
       if (!isAudioMuted && newCard.audioData && newCard.audioMimeType) {
-        audioPlaybackTimerRef.current = setTimeout(() => {
-          if (!hasPlayedAudioForNewestCard) {
-            playAudioData(newCard.audioData!, newCard.audioMimeType!, isAudioMuted);
+          if (!hasPlayedAudioForNewestCard) { 
+            playAudioData(newCard.audioData!, newCard.audioMimeType!, isAudioMuted, () => setActiveCardAudio(null));
+            setActiveCardAudio({ cardId: newCard.id, type: 'prompt' });
             setHasPlayedAudioForNewestCard(true);
           }
-        }, ECHO_BREATH_PAUSE_MS);
+      } else if (!isAudioMuted && newCard.text) { 
+          if (!hasPlayedAudioForNewestCard) {
+            speakText(newCard.text, selectedLanguageCode, isAudioMuted, () => setActiveCardAudio(null));
+            setActiveCardAudio({ cardId: newCard.id, type: 'prompt' });
+            setHasPlayedAudioForNewestCard(true);
+          }
       }
       handleMusicSteering(newCard);
 
@@ -543,23 +534,25 @@ const App: React.FC = () => {
     setDrawnCardHistory(prev => prev.map(card => card.id === id ? { ...card, feedback: 'disliked' } : card));
   };
   
-  const handlePlayAudioForNewestCard = (audioDetails: { text: string | null; audioData: string | null; audioMimeType: string | null }) => {
-    stopSpeechServicePlayback();
-    if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
+  const handlePlayAudioForNewestCard = (audioDetails: { cardId: string, text: string | null; audioData: string | null; audioMimeType: string | null }) => {
+    stopSpeechServicePlayback(); 
 
     if (isAudioMuted) return;
 
     if (audioDetails.audioData && audioDetails.audioMimeType) {
-        playAudioData(audioDetails.audioData, audioDetails.audioMimeType, isAudioMuted);
+        playAudioData(audioDetails.audioData, audioDetails.audioMimeType, isAudioMuted, () => setActiveCardAudio(null));
+        setActiveCardAudio({ cardId: audioDetails.cardId, type: 'prompt' });
     } else if (audioDetails.text) {
-        speakText(audioDetails.text, selectedLanguageCode, isAudioMuted);
+        speakText(audioDetails.text, selectedLanguageCode, isAudioMuted, () => setActiveCardAudio(null));
+        setActiveCardAudio({ cardId: audioDetails.cardId, type: 'prompt' });
     }
     setHasPlayedAudioForNewestCard(true);
   };
 
   const handleFetchAndPlayCardBackAudio = async (cardId: string, textToSpeak: string) => {
     if (isAudioMuted || !textToSpeak.trim()) return;
-
+    stopSpeechServicePlayback(); 
+    
     const cardIndex = drawnCardHistory.findIndex(c => c.id === cardId);
     if (cardIndex === -1) {
         console.warn("Card not found in history for card back audio.");
@@ -569,7 +562,8 @@ const App: React.FC = () => {
     const card = drawnCardHistory[cardIndex];
     if (card.cardBackAudioData && card.cardBackAudioMimeType) {
         console.log("Using cached card back audio for card:", cardId);
-        playAudioData(card.cardBackAudioData, card.cardBackAudioMimeType, isAudioMuted);
+        playAudioData(card.cardBackAudioData, card.cardBackAudioMimeType, isAudioMuted, () => setActiveCardAudio(null));
+        setActiveCardAudio({ cardId, type: 'notes' });
         return;
     }
 
@@ -586,15 +580,22 @@ const App: React.FC = () => {
                 newHistory[cardIndex] = updatedCard;
                 return newHistory;
             });
-            playAudioData(audioResult.audioData, audioResult.audioMimeType, isAudioMuted);
+            playAudioData(audioResult.audioData, audioResult.audioMimeType, isAudioMuted, () => setActiveCardAudio(null));
+            setActiveCardAudio({ cardId, type: 'notes' });
         } else {
             console.warn(`Failed to generate card back audio: ${audioResult.error}. Speaking text instead.`);
-            speakText(textToSpeak, selectedLanguageCode, isAudioMuted);
+            speakText(textToSpeak, selectedLanguageCode, isAudioMuted, () => setActiveCardAudio(null));
+            setActiveCardAudio({ cardId, type: 'notes' });
         }
     } catch (e: any) {
         console.error("Error fetching/playing card back audio:", e);
-        speakText(textToSpeak, selectedLanguageCode, isAudioMuted); 
+        speakText(textToSpeak, selectedLanguageCode, isAudioMuted, () => setActiveCardAudio(null)); 
+        setActiveCardAudio({ cardId, type: 'notes' });
     }
+  };
+
+  const handleStopCurrentAudio = () => {
+    stopSpeechServicePlayback(); 
   };
 
   const handleSaveCustomDeck = (name: string, description: string) => {
@@ -719,6 +720,8 @@ const App: React.FC = () => {
             activeParticipantNameForPlaceholder={activeParticipantNameForPlaceholder}
             onOpenVoiceSettings={handleOpenVoiceSettingsModal}
             currentDrawingThemeColor={currentDrawingThemeColor}
+            activeCardAudio={activeCardAudio}
+            onStopAudio={handleStopCurrentAudio}
         />
         {error && <p className="text-red-400 mt-4 text-center text-sm px-4">{error}</p>}
 

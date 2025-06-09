@@ -10,7 +10,7 @@ interface DrawnCardsHistoryViewProps {
   history: CardHistoryItemType[];
   onLike: (id: string) => void;
   onDislike: (id: string) => void;
-  onPlayAudioForMainPrompt: (audioDetails: { text: string | null; audioData: string | null; audioMimeType: string | null }) => void;
+  onPlayAudioForMainPrompt: (audioDetails: { cardId: string; text: string | null; audioData: string | null; audioMimeType: string | null }) => void;
   onFetchAndPlayCardBackAudio: (cardId: string, textToSpeak: string) => void;
   isLoadingNewCard: boolean; 
   isLoadingNextCard: boolean; 
@@ -19,8 +19,8 @@ interface DrawnCardsHistoryViewProps {
   activeParticipantNameForPlaceholder?: string | null;
   onOpenVoiceSettings: () => void;
   currentDrawingThemeColor: string | null; 
-  // showCulminationCardButton?: boolean; // Removed
-  // onDrawCulminationCard?: () => void; // Removed
+  activeCardAudio: { cardId: string; type: 'prompt' | 'notes' } | null;
+  onStopAudio: () => void;
 }
 
 interface GlyphPatternRowProps {
@@ -59,8 +59,8 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
   customDecks, themeBeingDrawnName, activeParticipantNameForPlaceholder,
   onOpenVoiceSettings,
   currentDrawingThemeColor,
-  // showCulminationCardButton, // Removed
-  // onDrawCulminationCard // Removed
+  activeCardAudio,
+  onStopAudio,
 }) => {
 
   const newestCard = history[0]; 
@@ -82,44 +82,27 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
   const glyphColor = "text-slate-500"; 
 
   const renderEmptyState = () => (
-    <div className="w-[85vw] sm:w-[70vw] md:w-[60vw] lg:w-[50vw] max-w-lg perspective mx-auto relative font-normal" style={{ height: 'auto' }}>
+    <div className="w-[75vw] sm:w-[65vw] md:w-[55vw] lg:w-[45vw] max-w-md perspective mx-auto relative font-normal" style={{ height: 'auto' }}>
       <div style={{ paddingTop: `${(7 / 5) * 100}%` }} className="relative">
         <div className="absolute inset-0 bg-slate-800/60 border-2 border-dashed border-slate-700 rounded-xl shadow-xl flex flex-col items-center justify-center p-[2vh] text-center shimmer-effect overflow-hidden">
           <CornerGlyphGrid position="top-left" glyphColorClass="text-slate-600" glyphSizeClass="text-[clamp(1rem,2.5vh,1.5rem)]" gridGapClass="gap-[0.5vh]"/>
           
           <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-[0.3em] sm:space-y-[0.5em]">
-            {/* Glyph Pattern Above */}
             <GlyphPatternRow glyphs={[{ char: "⦾", opacity: 0.33 }]} baseSizeClass={glyphBaseSize} colorClass={glyphColor} />
             <GlyphPatternRow glyphs={[
-                { char: "⦾", opacity: 0.33 }, 
-                { char: "⟁", opacity: 0.66 }, 
-                { char: "⦾", opacity: 0.33 }
+                { char: "⦾", opacity: 0.33 }, { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.33 }
             ]} baseSizeClass={glyphBaseSize} colorClass={glyphColor}/>
             <GlyphPatternRow glyphs={[
-                { char: "⦾", opacity: 0.33 }, 
-                { char: "⟁", opacity: 0.66 }, 
-                { char: "⦾", opacity: 0.9 }, 
-                { char: "⟁", opacity: 0.66 }, 
-                { char: "⦾", opacity: 0.33 }
+                { char: "⦾", opacity: 0.33 }, { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.9 }, 
+                { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.33 }
             ]} baseSizeClass={glyphBaseSize} colorClass={glyphColor}/>
-            
-            {/* RESONANCE Text */}
-            <div className="my-[0.5em] sm:my-[0.8em]">
-                <p style={resonanceTextStyle}>RESONANCE</p>
-            </div>
-
-            {/* Glyph Pattern Below */}
+            <div className="my-[0.5em] sm:my-[0.8em]"><p style={resonanceTextStyle}>RESONANCE</p></div>
             <GlyphPatternRow glyphs={[
-                { char: "⟁", opacity: 0.33 }, 
-                { char: "⦾", opacity: 0.66 }, 
-                { char: "⟁", opacity: 0.9 }, 
-                { char: "⦾", opacity: 0.66 }, 
-                { char: "⟁", opacity: 0.33 }
+                { char: "⟁", opacity: 0.33 }, { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.9 }, 
+                { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.33 }
             ]} baseSizeClass={glyphBaseSize} colorClass={glyphColor}/>
             <GlyphPatternRow glyphs={[
-                { char: "⟁", opacity: 0.33 }, 
-                { char: "⦾", opacity: 0.66 }, 
-                { char: "⟁", opacity: 0.33 }
+                { char: "⟁", opacity: 0.33 }, { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.33 }
             ]} baseSizeClass={glyphBaseSize} colorClass={glyphColor}/>
             <GlyphPatternRow glyphs={[{ char: "⟁", opacity: 0.33 }]} baseSizeClass={glyphBaseSize} colorClass={glyphColor} />
           </div>
@@ -150,6 +133,8 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
               themeBeingDrawnNamePlaceholder={themeBeingDrawnName || undefined}
               activeParticipantNameForPlaceholder={activeParticipantNameForPlaceholder}
               allCustomDecksForLookup={customDecks}
+              activeCardAudio={activeCardAudio}
+              onStopAudio={onStopAudio}
             />
           ) : newestCard ? (
             <DrawnCard
@@ -169,36 +154,38 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
               isNewest={true}
               drawnForParticipantName={newestCard.drawnForParticipantName}
               isFaded={newestCard.isFaded}
-              // isCulminationCard={newestCard.isCulminationCard} // Removed
               onLike={onLike} onDislike={onDislike}
               onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
               onFetchAndPlayCardBackAudio={onFetchAndPlayCardBackAudio}
               allCustomDecksForLookup={customDecks}
+              activeCardAudio={activeCardAudio}
+              onStopAudio={onStopAudio}
             />
           ) : showEmptyStateCard ? (
             renderEmptyState()
           ) : null}
         </div>
         
-        {isMainCardAreaActive && ( // Show voice settings if main card area is active
+        {isMainCardAreaActive && (
           <div className="flex-shrink-0 flex flex-col items-center space-y-2 w-auto min-w-[5vh] sm:min-w-[6vh] mt-[1vh] ml-[1vw]">
             <button 
-              onClick={onOpenVoiceSettings}
-              className="p-[1vh] sm:p-[1.2vh] rounded-full bg-slate-700 hover:bg-sky-600 text-slate-300 hover:text-white transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 w-[5vh] h-[5vh] sm:w-[6vh] sm:h-[6vh] flex items-center justify-center"
-              aria-label="Open Voice Settings" title="Voice & Audio Settings"
+                onClick={onOpenVoiceSettings}
+                className="p-1.5 xs:p-2 sm:p-2.5 md:p-3 rounded-full bg-slate-700 hover:bg-sky-600 text-slate-300 hover:text-white transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 w-[5vh] h-[5vh] sm:w-[5.5vh] sm:h-[5.5vh] md:w-[6vh] md:h-[6vh] flex items-center justify-center"
+                aria-label="Open Voice Settings" title="Voice & Audio Settings"
             >
-              <span className="text-2xl sm:text-3xl" style={{ fontFamily: "'Noto Sans Symbols 2', sans-serif" }} aria-hidden="true">🔉</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-full w-full" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z"></path>
+                </svg>
             </button>
-            {/* Culmination button logic removed */}
           </div>
         )}
       </div>
 
       {olderCards.length > 0 && (
-        <div className="mt-[3vh] sm:mt-[4vh] w-full">
+        <div className="mt-[3vh] sm:mt-[4vh] w-full" style={{paddingBottom: 'calc(var(--footer-height-actual) + 2vh)'}}>
           <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-[1.5vw] sm:gap-[2vw]">
             {olderCards.map((card) => (
-              <div key={card.id + "-older"} className="mb-[1.5vw] sm:mb-[2vw]"> {/* Added margin bottom here for spacing between rows in column layout */}
+              <div key={card.id + "-older"} className="mb-[1.5vw] sm:mb-[2vw]">
                 <DrawnCard
                   id={card.id}
                   promptText={card.text}
@@ -215,11 +202,12 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
                   isNewest={false}
                   drawnForParticipantName={card.drawnForParticipantName}
                   isFaded={card.isFaded}
-                  // isCulminationCard={card.isCulminationCard} // Removed
                   onLike={onLike} onDislike={onDislike}
                   onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
                   onFetchAndPlayCardBackAudio={onFetchAndPlayCardBackAudio}
                   allCustomDecksForLookup={customDecks}
+                  activeCardAudio={activeCardAudio}
+                  onStopAudio={onStopAudio}
                 />
               </div>
             ))}

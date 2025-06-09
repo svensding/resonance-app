@@ -1,8 +1,10 @@
 
+
 let audioContext: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
 let currentUtterance: SpeechSynthesisUtterance | null = null;
 let voices: SpeechSynthesisVoice[] = [];
+let activeOnEndedCallback: (() => void) | null = null;
 
 const getAudioContext = (): AudioContext | null => {
   if (!audioContext && typeof window !== 'undefined') {
@@ -16,12 +18,10 @@ const getAudioContext = (): AudioContext | null => {
   return audioContext;
 };
 
-// Function to populate voices. Must be called, possibly after onvoiceschanged.
 const populateVoiceList = () => {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     voices = window.speechSynthesis.getVoices();
     if (voices.length === 0 && 'onvoiceschanged' in window.speechSynthesis) {
-        // Fallback for browsers that load voices asynchronously
         window.speechSynthesis.onvoiceschanged = () => {
             voices = window.speechSynthesis.getVoices();
         };
@@ -29,14 +29,12 @@ const populateVoiceList = () => {
   }
 };
 
-// Call it once to initially attempt to populate
 if (typeof window !== 'undefined' && window.speechSynthesis) {
     populateVoiceList();
     if (window.speechSynthesis.onvoiceschanged !== undefined) {
         window.speechSynthesis.onvoiceschanged = populateVoiceList;
     }
 }
-
 
 const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   const binaryString = window.atob(base64);
@@ -81,8 +79,6 @@ const parseAudioMimeType = (mimeType: string): AudioParams => {
       }
     }
   }
-
-  console.log(`Parsed audio MIME type "${mimeType}":`, { sampleRate, bitsPerSample, numChannels, isRawPcm });
   return { sampleRate, bitsPerSample, numChannels, isRawPcm };
 };
 
@@ -92,15 +88,12 @@ const createWavArrayBuffer = (audioData: ArrayBuffer, params: Omit<AudioParams, 
   const blockAlign = numChannels * bytesPerSample;
   const byteRate = sampleRate * blockAlign;
   const dataSize = audioData.byteLength;
-
   const headerSize = 44;
   const buffer = new ArrayBuffer(headerSize + dataSize);
   const view = new DataView(buffer);
-
   view.setUint32(0, 0x52494646, false); 
   view.setUint32(4, 36 + dataSize, true); 
   view.setUint32(8, 0x57415645, false); 
-
   view.setUint32(12, 0x666d7420, false); 
   view.setUint32(16, 16, true); 
   view.setUint16(20, 1, true); 
@@ -109,123 +102,108 @@ const createWavArrayBuffer = (audioData: ArrayBuffer, params: Omit<AudioParams, 
   view.setUint32(28, byteRate, true); 
   view.setUint16(32, blockAlign, true); 
   view.setUint16(34, bitsPerSample, true); 
-
   view.setUint32(36, 0x64617461, false); 
   view.setUint32(40, dataSize, true); 
-
   const audioBytes = new Uint8Array(audioData);
   for (let i = 0; i < dataSize; i++) {
     view.setUint8(headerSize + i, audioBytes[i]);
   }
-
   return buffer;
 };
 
-// This function is for playing pre-generated audio data (e.g., from a file or different API)
-export const playAudioData = async (base64Audio: string, mimeType: string, isMuted: boolean = false): Promise<void> => {
+export const playAudioData = async (
+    base64Audio: string, 
+    mimeType: string, 
+    isMuted: boolean = false,
+    onEnded?: () => void
+): Promise<void> => {
   if (isMuted) {
-    console.log("Audio is muted. Skipping playback.");
-    stopSpeechServicePlayback(); // Ensure any previously playing audio/speech is stopped.
+    stopSpeechServicePlayback(); 
     return;
   }
 
   const context = getAudioContext();
-  if (!context) {
-    console.warn("AudioContext not available. Cannot play audio.");
-    return;
-  }
+  if (!context) return;
 
   if (context.state === 'suspended') {
-    try {
-      await context.resume();
-    } catch (e) {
-      console.error("Failed to resume AudioContext:", e);
-      return;
-    }
+    try { await context.resume(); } catch (e) { console.error("Failed to resume AudioContext:", e); return; }
   }
   
   stopSpeechServicePlayback(); 
+  activeOnEndedCallback = onEnded || null;
 
   try {
     let audioBufferToDecode: ArrayBuffer = base64ToArrayBuffer(base64Audio);
     const audioParams = parseAudioMimeType(mimeType);
 
-    if (audioParams.isRawPcm) {
-      console.log("Raw PCM detected, creating WAV header.");
-      audioBufferToDecode = createWavArrayBuffer(audioBufferToDecode, audioParams);
-    } else {
-      console.log("Assuming pre-formatted audio, attempting direct decode for MIME:", mimeType);
-    }
+    if (audioParams.isRawPcm) audioBufferToDecode = createWavArrayBuffer(audioBufferToDecode, audioParams);
     
     const audioBuffer = await context.decodeAudioData(audioBufferToDecode);
-
     currentSource = context.createBufferSource();
     currentSource.buffer = audioBuffer;
     currentSource.connect(context.destination);
     currentSource.start();
     
     currentSource.onended = () => {
-      if (currentSource) {
-        currentSource.disconnect();
-      }
+      if (currentSource) currentSource.disconnect();
       currentSource = null;
+      if (activeOnEndedCallback) {
+        activeOnEndedCallback();
+        activeOnEndedCallback = null;
+      }
     };
   } catch (error) {
-    console.error("Error playing audio data:", error);
-    if (error instanceof DOMException && error.name === 'EncodingError') {
-        console.error("Failed to decode audio data. This might be due to an unsupported format or corrupted data. MIME Type provided:", mimeType);
-    }
+    console.error("Error playing audio data:", error, "MIME Type:", mimeType);
     if (currentSource) {
         try { currentSource.disconnect(); } catch(e) {}
         currentSource = null;
     }
+    if (activeOnEndedCallback) {
+        activeOnEndedCallback();
+        activeOnEndedCallback = null;
+    }
   }
 };
 
-
 export const speakText = (
     text: string, 
-    languageCode: string, // e.g., 'en-US'
-    isMuted: boolean = false
+    languageCode: string, 
+    isMuted: boolean = false,
+    onEnded?: () => void
 ): void => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) {
-        console.warn("Speech Synthesis not supported in this browser.");
-        return;
-    }
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+    if (isMuted) { stopSpeechServicePlayback(); return; }
 
-    if (isMuted) {
-        console.log("Speech is muted. Skipping TTS playback.");
-        stopSpeechServicePlayback(); // Ensure any previously playing speech/audio is stopped.
-        return;
-    }
-
-    stopSpeechServicePlayback(); // Stop any ongoing speech or audio
+    stopSpeechServicePlayback(); 
+    activeOnEndedCallback = onEnded || null;
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = languageCode;
 
     if (voices.length > 0) {
         const langSpecificVoices = voices.filter(voice => voice.lang === languageCode);
-        if (langSpecificVoices.length > 0) {
-            utterance.voice = langSpecificVoices[0]; // Use the first available voice for the language
-        } else {
-            // Fallback to a voice that might support the language broadly (e.g., 'en' for 'en-US')
+        if (langSpecificVoices.length > 0) utterance.voice = langSpecificVoices[0];
+        else {
             const broaderLangMatch = languageCode.split('-')[0];
             const broaderVoices = voices.filter(voice => voice.lang.startsWith(broaderLangMatch));
-            if (broaderVoices.length > 0) {
-                utterance.voice = broaderVoices[0];
-            }
-            // If still no match, browser will use its default.
+            if (broaderVoices.length > 0) utterance.voice = broaderVoices[0];
         }
     }
-     // If voices array is empty or no match, browser uses its default voice for the lang.
 
     utterance.onend = () => {
         currentUtterance = null;
+        if (activeOnEndedCallback) {
+          activeOnEndedCallback();
+          activeOnEndedCallback = null;
+        }
     };
     utterance.onerror = (event) => {
         console.error("SpeechSynthesisUtterance.onerror:", event);
         currentUtterance = null;
+        if (activeOnEndedCallback) {
+          activeOnEndedCallback();
+          activeOnEndedCallback = null;
+        }
     };
     
     currentUtterance = utterance;
@@ -236,17 +214,21 @@ export const cancelSpeech = (): void => {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
+  // No direct onended for cancel, so manage activeOnEndedCallback in stopSpeechServicePlayback
+  if (currentUtterance && activeOnEndedCallback) { 
+    // If we are cancelling active speech, it's effectively ended.
+    // However, the 'onend' event for the utterance itself might still fire.
+    // To avoid double-calling, let stopSpeechServicePlayback handle it.
+  }
   currentUtterance = null;
 };
 
 const cancelLegacyAudio = (): void => {
   if (currentSource) {
-    try {
-      currentSource.stop(); 
-    } catch (e) {
-      // This can throw if already stopped or not started.
-    } finally {
+    try { currentSource.stop(); } catch (e) {} 
+    finally {
       try { currentSource.disconnect(); } catch(discErr) {}
+      // No direct onended for stop, so manage activeOnEndedCallback in stopSpeechServicePlayback
       currentSource = null;
     }
   }
@@ -255,4 +237,8 @@ const cancelLegacyAudio = (): void => {
 export const stopSpeechServicePlayback = (): void => {
   cancelLegacyAudio();
   cancelSpeech();
+  if (activeOnEndedCallback) {
+    activeOnEndedCallback();
+    activeOnEndedCallback = null;
+  }
 };

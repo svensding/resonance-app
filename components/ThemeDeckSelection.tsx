@@ -51,13 +51,13 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
   const utilityActionsDisabled = interactionsDisabled;
 
   const itemsToDisplay: (DeckSet | CustomThemeData | "RANDOM")[] = [
+    "RANDOM", // Moved to the beginning
     ...DECK_SETS,
-    "RANDOM",
     ...customDecks
   ];
 
   return (
-    <div className="w-full h-full flex items-end relative bg-transparent" > {/* Ensure parent takes full header height */}
+    <div className="w-full h-full flex items-end relative bg-transparent" > 
       <div 
         ref={scrollContainerRef} 
         className="flex overflow-x-auto hide-scrollbar space-x-[2vw] px-[2vw] pb-[1.5vh] justify-start items-end cursor-grab active:cursor-grabbing bg-transparent w-full"
@@ -84,7 +84,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
             baseColorClass = customDeck.colorClass;
             isCustom = true;
             itemForInfo = customDeck;
-          } else if (typeof item === 'object' && 'colorClass' in item && 'description' in item && Object.values(DECK_SETS).some(ds => ds.id === item.id)) { // DeckSet
+          } else if (typeof item === 'object' && 'colorClass' in item && 'description' in item && Object.values(DECK_SETS).some(ds => ds.id === item.id)) { 
             const deckSet = item as DeckSet;
             itemId = deckSet.id;
             itemName = deckSet.name;

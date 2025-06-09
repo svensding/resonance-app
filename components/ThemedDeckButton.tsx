@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { CustomThemeData, DeckSet } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
@@ -60,7 +61,11 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   const deckGlyphSize = "text-[clamp(0.6rem,1.5vh,1rem)]"; 
   const deckGlyphGap = "gap-[0.2vh]";
   const glyphColor = "text-white/70";
-  const titleTextSize = isRandomButton ? "text-[clamp(0.8rem,2.2vh,1.2rem)]" : "text-[clamp(0.7rem,2vh,1rem)]";
+  
+  const titleTextSize = isRandomButton 
+    ? "text-[clamp(0.64rem,1.76vh,0.96rem)]" 
+    : "text-[clamp(0.56rem,1.6vh,0.8rem)]";  
+
   const titleMarginTop = isRandomButton ? "mt-[1vh]" : "mt-[0.5vh]";
 
   return (
@@ -97,7 +102,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
                       transition-all duration-300 ease-out overflow-hidden
                       `}
         >
-          <div className="absolute inset-0 bg-slate-800/40 rounded-lg z-10"></div>
+          <div className="absolute inset-0 bg-black/15 rounded-lg z-10"></div> 
           <div className={`relative z-20 flex flex-col items-center justify-center flex-grow w-full h-full 
                            ${drawActionDisabled ? 'opacity-70' : ''}
                           `}>
@@ -139,7 +144,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
 
             <div className={`flex flex-col items-center justify-center flex-grow overflow-hidden w-full px-[0.5vw]`}>
               <h3 
-                className={`font-normal ${titleTextSize} ${titleMarginTop} text-white break-words`} // font-normal for Atkinson
+                className={`font-normal ${titleTextSize} ${titleMarginTop} text-white break-words`}
                 style={{ lineHeight: '1.2' }}
               >
                 {itemName}

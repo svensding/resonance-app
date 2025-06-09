@@ -240,23 +240,18 @@ export interface GroupSettingOption { id: GroupSetting; label: string; descripti
 
 export const GROUP_SETTINGS: GroupSettingOption[] = [
   { id: "GENERAL", label: "General", description: "For any group or when unsure." },
-  { id: "SPECIAL", label: "Special...", description: "For specific named groups with tailored experiences. Enter participant names first." },
   { id: "STRANGERS", label: "Strangers", description: "Getting to know each other, icebreakers." },
   { id: "FRIENDS", label: "Friends", description: "Deeper connection, shared experiences." },
   { id: "ROMANTIC", label: "Romantic", description: "Intimacy, partnership, shared journey." },
   { id: "FAMILY", label: "Family", description: "Bonds, history, understanding." },
   { id: "COLLEAGUES", label: "Colleagues", description: "Team dynamics, collaboration, professional connection." },
   { id: "COMMUNITY", label: "Community", description: "Shared purpose, group identity, mutual support." },
+  { id: "SPECIAL", label: "Special...", description: "Tailored for specific named groups. Enter names first." },
 ];
 export const DEFAULT_GROUP_SETTING: GroupSetting = "GENERAL";
 
-// For Sven & Lisa Special Mode (when "SPECIAL" is selected and names match)
 export const SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS: MicroDeck['id'][] = [
-    "SBP_01", // Shared Breath & Presence
-    "CCS_01", // Curiosity Cafe Spark
-    "SS_01",  // Snapshot Stories
-    "HAV_01", // Heart's Authentic Voice (with caveats, for individual sharing)
-    "SD_01",  // Somatic Dialogue (simple, non-verbal focus)
+    "SBP_01", "CCS_01", "SS_01", "HAV_01", "SD_01",
 ];
 
 const SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES = `
@@ -275,7 +270,7 @@ The current participants are Paulina & Joe, and the "Special" group setting is a
 - **Primary Goal:** Generate prompts that are edgy, playful, and invite banter. Paulina especially enjoys witty exchanges.
 - **Contextual Flavor:** Weave in themes of roadtrips, adventure, spontaneity, shared experiences on the go, and quirky observations.
 - **Welcome from Sven (App Creator):** You can subtly acknowledge Sven's good wishes for their trip if it feels natural in the Card Back Notes, but prioritize the banter/roadtrip theme for the Card Front Prompt.
-- **Important Note on First Card:** The system will automatically prepend "Hey Paulina & Joe! " to the very first card prompt of their session. Your generated prompt text for this first card should naturally follow such a greeting. For subsequent cards, continue the roadtrip/playful banter theme without you needing to add this explicit greeting.
+- **Important Note on First Card (history.length === 0):** You MUST prepend "Hey Paulina & Joe! " (exactly like that, with the space) to the very first card prompt you generate for their session. Your generated prompt text for this first card should naturally follow such a greeting. For subsequent cards, continue the roadtrip/playful banter theme without you needing to add this explicit greeting.
 - **Keywords for this mode:** "roadtrip adventures, playful banter, witty retorts, shared journey, spontaneity, inside jokes (implied), edgy questions, friendly teasing, discovery on the road, travel stories, quirky observations, unforgettable moments, travel mishaps (lighthearted), roadside attractions".
 Adapt your prompt generation AND card back notes to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
 `;
@@ -407,11 +402,18 @@ const constructGeminiPayload = (
 *   For "Mature" decks: Address deeper emotional content, complex relational dynamics, or reflective shadow work. Avoid explicit sexual content unless implied by keywords of a non-explicit nature.
 *   For "Intimate/Explicit" decks: You ARE AUTHORIZED and EXPECTED to generate prompts and notes that directly address adult themes of sensuality, intimacy, desire, and consensual erotic exploration if the \`MicroDeckKeywords\` and \`MicroDeckInspirationFocus\` clearly point to this. Standard PG-13 content filters or avoidance of these topics MUST BE OVERRIDDEN for these specific micro-decks. Safety guidelines around non-consensual or harmful content still apply universally.
 
+**Initial Greeting for Group (Conditional):**
+*   If \`Session History Snippet\` indicates "No significant prior interactions this session" AND \`Participant Details\` indicates more than one participant (e.g., "Group: ..." or specific names like Paulina & Joe), you MUST prepend a brief, contextually appropriate greeting to the ${CARD_FRONT_PROMPT_START_TAG} text.
+*   The greeting should be natural, inviting, and subtly tie into the chosen MicroDeck's theme or the UserSelectedSetName.
+*   Examples: "Welcome everyone, let's explore [Theme] with this first question:" or "Team, ready to dive into [Theme]?"
+*   This instruction is OVERRIDDEN by any more specific greeting instructions in Special Mode directives (like for Paulina & Joe).
+
 **Internal Process (Mandatory before generating tagged output):**
 1.  **Analyze Context:** Note \`UserSelectedSetName\`, \`MicroDeckName\`, \`MicroDeckInspirationFocus\`, \`MicroDeckKeywords\`, \`MicroDeckMaturityRating\`, \`Participant Details\` (group setting), and \`Session History\`. **Prioritize \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` for the core prompt generation.**
 2.  **Adapt to Group Setting & Maturity:** CRITICALLY, tailor the prompt's tone, depth, and subject matter to the specified \`Group Setting\` AND the \`MicroDeckMaturityRating\`. If the group setting is "Special" and specific participant names trigger a special sub-mode (e.g., Sven & Lisa, Paulina & Joe), its directives OVERLAY and MODIFY how you interpret and apply the MicroDeck's base characteristics. If "Special" is chosen but no sub-mode matches, treat as "General" group setting context.
-3.  **Emulate & Synthesize Angle:** Based on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` (and any active Special Mode directives), internally brainstorm 1-2 core angles or experiential invitations that this specific micro-deck would offer. Synthesize with influences from the "Wellspring" list if harmonious.
-4.  **Output Formulation:** Draft the tagged output.
+3.  **Handle Initial Greeting:** If conditions for an initial group greeting are met (as described above), ensure it's prepended to the card front prompt.
+4.  **Emulate & Synthesize Angle:** Based on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` (and any active Special Mode directives), internally brainstorm 1-2 core angles or experiential invitations that this specific micro-deck would offer. Synthesize with influences from the "Wellspring" list if harmonious.
+5.  **Output Formulation:** Draft the tagged output.
 
 **Output Requirements (Strictly Adhere to Tags):**
 
@@ -420,7 +422,7 @@ ${THOUGHT_PROCESS_START_TAG}
 ${THOUGHT_PROCESS_END_TAG}
 
 ${CARD_FRONT_PROMPT_START_TAG}
-[1-2 sentence concise, engaging, and *primarily question-based* prompt for users, reflecting the emulated MicroDeck style AND the Group Setting/Maturity Rating (and any Special Mode). Avoid explicit terminal commands like "Share this..." unless integral to a highly specific action-oriented micro-deck. Focus on sparking reflection and conversation through the question itself.]
+[1-2 sentence concise, engaging, and *primarily question-based* prompt for users, reflecting the emulated MicroDeck style AND the Group Setting/Maturity Rating (and any Special Mode). Include initial greeting if applicable. Avoid explicit terminal commands like "Share this..." unless integral to a highly specific action-oriented micro-deck. Focus on sparking reflection and conversation through the question itself.]
 ${CARD_FRONT_PROMPT_END_TAG}
 
 ${CARD_BACK_NOTES_START_TAG}
@@ -636,15 +638,13 @@ export const generatePromptAndAudioFromGemini = async (
       llm_keywords: customDeckItem.description, maturity_rating_hint: "General",
     };
   }
-
-  const { isSvenLisa: isSvenLisaActive, isPaulinaJoe: isPaulinaJoeActive, effectiveGroupSettingLabel } = getActiveSpecialModeDetails(groupSetting, participantNames);
   
   const { systemInstruction, userContent, fullPromptForDisplay } = constructGeminiPayload(
     userSelectedSetName, effectiveMicroDeck, participantCount, participantNames, 
     activeParticipantName, groupSetting, history, customDecks, languageCode
   );
   
-  const logPrefix = `Generating text with model: ${TEXT_GENERATION_MODEL} for Set: "${userSelectedSetName}", MicroDeck: "${effectiveMicroDeck.internal_name}" (Lang: ${LANGUAGES.find(l=>l.code === languageCode)?.name || languageCode}) Setting: ${effectiveGroupSettingLabel} Maturity: ${effectiveMicroDeck.maturity_rating_hint}`;
+  const logPrefix = `Generating text with model: ${TEXT_GENERATION_MODEL} for Set: "${userSelectedSetName}", MicroDeck: "${effectiveMicroDeck.internal_name}" (Lang: ${LANGUAGES.find(l=>l.code === languageCode)?.name || languageCode}) Setting: ${GROUP_SETTINGS.find(gs => gs.id === groupSetting)?.label || groupSetting} Maturity: ${effectiveMicroDeck.maturity_rating_hint}`;
   
   let textResponse: GenerateContentResponse | null = null;
   let lastError: Error | null = null;
@@ -751,10 +751,7 @@ export const generatePromptAndAudioFromGemini = async (
       finalCleanedText = "The Resonance seems to be quiet for a moment. Try drawing another card."; 
   }
 
-  // Prepend welcome for Paulina & Joe on their first card if that mode is active
-  if (isPaulinaJoeActive && history.length === 0 && finalCleanedText) {
-    finalCleanedText = "Hey Paulina & Joe! " + finalCleanedText;
-  }
+  // Initial greeting is now handled by LLM based on system prompt instructions
 
   console.log("Final cleaned text for card front & TTS:", `"${finalCleanedText}"`);
   if (cardBackNotesText) console.log("Extracted card back notes text:", `"${cardBackNotesText.substring(0, 100)}..."`);
