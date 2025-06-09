@@ -199,15 +199,6 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
   }
 ];
 
-export const CULMINATION_MICRO_DECK_PROXY: MicroDeck = {
-    id: "CULMINATION_PROXY",
-    internal_name: "Session Synthesis", 
-    belongs_to_set: null, 
-    description_for_info_button: "A reflection on the journey so far, synthesizing emergent themes from the session history.",
-    deck_inspiration_focus: "Overall Session Reflection & Synthesis",
-    llm_keywords: "emergent themes, key insights, session journey, integration, synthesis, patterns, takeaways",
-    maturity_rating_hint: "General", 
-};
 
 export type VoiceName = 
   | "Aoede" | "Puck" | "Charon" | "Kore" | "Fenrir" | "Leda" | "Orus" | "Zephyr" 
@@ -246,19 +237,20 @@ export const DEFAULT_LANGUAGE_CODE: LanguageCode = "en-US";
 
 export type GroupSetting = "GENERAL" | "STRANGERS" | "FRIENDS" | "ROMANTIC" | "FAMILY" | "COLLEAGUES" | "COMMUNITY" | "SPECIAL";
 export interface GroupSettingOption { id: GroupSetting; label: string; description: string; }
+
 export const GROUP_SETTINGS: GroupSettingOption[] = [
   { id: "GENERAL", label: "General", description: "For any group or when unsure." },
+  { id: "SPECIAL", label: "Special...", description: "For specific named groups with tailored experiences. Enter participant names first." },
   { id: "STRANGERS", label: "Strangers", description: "Getting to know each other, icebreakers." },
   { id: "FRIENDS", label: "Friends", description: "Deeper connection, shared experiences." },
   { id: "ROMANTIC", label: "Romantic", description: "Intimacy, partnership, shared journey." },
   { id: "FAMILY", label: "Family", description: "Bonds, history, understanding." },
   { id: "COLLEAGUES", label: "Colleagues", description: "Team dynamics, collaboration, professional connection." },
   { id: "COMMUNITY", label: "Community", description: "Shared purpose, group identity, mutual support." },
-  { id: "SPECIAL", label: "Special", description: "Curated experiences." },
 ];
 export const DEFAULT_GROUP_SETTING: GroupSetting = "GENERAL";
 
-// For Sven & Lisa Special Mode
+// For Sven & Lisa Special Mode (when "SPECIAL" is selected and names match)
 export const SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS: MicroDeck['id'][] = [
     "SBP_01", // Shared Breath & Presence
     "CCS_01", // Curiosity Cafe Spark
@@ -269,19 +261,27 @@ export const SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS: MicroDeck['id'][] = [
 
 const SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES = `
 **SVEN & LISA SPECIAL MODE - OVERRIDING GUIDANCE:**
-The current "Special" group setting is active for participants Sven and Lisa. This triggers specific interaction goals:
-- **Lower Pressure:** Minimize focus on perfect, immediate, total understanding.
-- **Sharing & Witnessing:** Emphasize each person expressing their own experience/thoughts, and the other simply receiving it as valid.
-- **Individually Grounded:** Prioritize prompts encouraging individual exploration of internal landscapes related to a topic, rather than prompts demanding immediate analysis of the "us" dynamic or intricate joint problem-solving.
-- **Card Back Notes Emphasis:** For your generated Card Back Notes, strongly guide users to practice active listening with curiosity and to validate the act of sharing itself. Emphasize "witnessing" over "fixing" or "fully decoding."
-- **Prioritized Keywords for this mode:** "individual perspectives, personal stories, sensory sharing, active listening, witnessing, curiosity, lighthearted exploration, patient communication, clear expression (simple), non-judgmental space, shared enjoyment"
+The current participants are Sven & Lisa, and the "Special" group setting is active.
+- **Interaction Goal:** Lower pressure, emphasize individual sharing and mutual witnessing over immediate deep understanding or problem-solving.
+- **Focus:** Encourage exploration of internal landscapes related to the chosen MicroDeck's theme.
+- **Card Back Notes Emphasis:** Guide users towards active listening, curiosity, and validating the act of sharing itself. "Witnessing" > "Fixing/Decoding".
+- **Prioritized Keywords for this mode:** "individual perspectives, personal stories, sensory sharing, active listening, witnessing, curiosity, lighthearted exploration, patient communication, clear expression (simple), non-judgmental space, shared enjoyment".
+Adapt your prompt generation AND card back notes to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
+`;
 
-Adapt your prompt generation AND card back notes to strongly reflect these directives.
+const PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES = `
+**PAULINA & JOE SPECIAL MODE - OVERRIDING GUIDANCE:**
+The current participants are Paulina & Joe, and the "Special" group setting is active. They are friends on a roadtrip.
+- **Primary Goal:** Generate prompts that are edgy, playful, and invite banter. Paulina especially enjoys witty exchanges.
+- **Contextual Flavor:** Weave in themes of roadtrips, adventure, spontaneity, shared experiences on the go, and quirky observations.
+- **Welcome from Sven (App Creator):** You can subtly acknowledge Sven's good wishes for their trip if it feels natural in the Card Back Notes, but prioritize the banter/roadtrip theme for the Card Front Prompt.
+- **Important Note on First Card:** The system will automatically prepend "Hey Paulina & Joe! " to the very first card prompt of their session. Your generated prompt text for this first card should naturally follow such a greeting. For subsequent cards, continue the roadtrip/playful banter theme without you needing to add this explicit greeting.
+- **Keywords for this mode:** "roadtrip adventures, playful banter, witty retorts, shared journey, spontaneity, inside jokes (implied), edgy questions, friendly teasing, discovery on the road, travel stories, quirky observations, unforgettable moments, travel mishaps (lighthearted), roadside attractions".
+Adapt your prompt generation AND card back notes to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
 `;
 
 
 export const getMicroDeckById = (microDeckId: MicroDeck['id']): MicroDeck | null => {
-  if (microDeckId === CULMINATION_MICRO_DECK_PROXY.id) return CULMINATION_MICRO_DECK_PROXY;
   return ALL_MICRO_DECKS.find(md => md.id === microDeckId) || null;
 }
 export const getCustomDeckById = (customDeckId: CustomThemeId, customDecks: CustomThemeData[]): CustomThemeData | null => {
@@ -307,9 +307,6 @@ export const getDisplayDataForCard = (
         const parentSet = getDeckSetById(setSourceId);
         if (parentSet) color = parentSet.colorClass;
     }
-    if (microDeck.id === CULMINATION_MICRO_DECK_PROXY.id) {
-        color = DECK_SETS.find(ds => ds.id === "UNVEILING_DEPTHS")?.colorClass || "from-purple-600 to-indigo-700";
-    }
     return { name: microDeck.internal_name, colorClass: color };
   }
   return { name: "Card", colorClass: "from-gray-500 to-gray-600" };
@@ -324,6 +321,33 @@ const CARD_BACK_NOTES_END_TAG = "</card_back_notes>";
 
 interface GeminiPayload { systemInstruction: string; userContent: string; fullPromptForDisplay: string; }
 
+const getActiveSpecialModeDetails = (
+  groupSetting: GroupSetting,
+  participantNames: string[]
+): { isSvenLisa: boolean; isPaulinaJoe: boolean; effectiveGroupSettingLabel: string } => {
+  let isSvenLisa = false;
+  let isPaulinaJoe = false;
+  let effectiveGroupSettingLabel = GROUP_SETTINGS.find(gs => gs.id === groupSetting)?.label || "Unknown Setting";
+
+  if (groupSetting === "SPECIAL") {
+    const lowerCaseNames = participantNames.map(n => n.toLowerCase().trim()).filter(Boolean).sort();
+    const svenLisaNamesSorted = ["lisa", "sven"].sort();
+    const paulinaJoeNamesSorted = ["joe", "paulina"].sort();
+
+    if (lowerCaseNames.length === 2 && JSON.stringify(lowerCaseNames) === JSON.stringify(svenLisaNamesSorted)) {
+      isSvenLisa = true;
+      effectiveGroupSettingLabel = "Special (Sven & Lisa Mode)";
+    } else if (lowerCaseNames.length === 2 && JSON.stringify(lowerCaseNames) === JSON.stringify(paulinaJoeNamesSorted)) {
+      isPaulinaJoe = true;
+      effectiveGroupSettingLabel = "Special (Paulina & Joe Roadtrip Mode)";
+    } else {
+      effectiveGroupSettingLabel = "Special (General Context Applied)";
+    }
+  }
+  return { isSvenLisa, isPaulinaJoe, effectiveGroupSettingLabel };
+};
+
+
 const constructGeminiPayload = (
   userSelectedSetName: string, 
   selectedMicroDeck: MicroDeck, 
@@ -332,16 +356,18 @@ const constructGeminiPayload = (
   activeParticipantName: string | null,
   groupSetting: GroupSetting,
   history: CardHistoryItem[],
-  languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE,
-  isSvenAndLisaSpecialModeActive: boolean = false 
+  customDecks: CustomThemeData[], 
+  languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE
 ): GeminiPayload => {
   
   const selectedLanguageName = LANGUAGES.find(lang => lang.code === languageCode)?.name || "English (US)";
-  const selectedGroupSettingLabel = GROUP_SETTINGS.find(gs => gs.id === groupSetting)?.label || "General";
+  const { isSvenLisa: isSvenLisaActive, isPaulinaJoe: isPaulinaJoeActive, effectiveGroupSettingLabel } = getActiveSpecialModeDetails(groupSetting, participantNames);
 
   let participantInfo = "";
-  if (isSvenAndLisaSpecialModeActive) {
-    participantInfo = `Setting: Special (Sven & Lisa Focus). Participants: Sven, Lisa. Active: ${activeParticipantName || 'N/A'}. `;
+  if (isSvenLisaActive) {
+    participantInfo = `Setting: Sven & Lisa Special Focus. Participants: Sven, Lisa. Active: ${activeParticipantName || 'N/A'}. `;
+  } else if (isPaulinaJoeActive) {
+    participantInfo = `Setting: Paulina & Joe's Roadtrip Special Focus. Participants: Paulina, Joe. Active: ${activeParticipantName || 'N/A'}. `;
   } else {
     const namedParticipantList = participantNames.filter(name => name.trim() !== '');
     if (participantCount > 1) {
@@ -352,53 +378,28 @@ const constructGeminiPayload = (
        const subject = activeParticipantName || (participantCount === 1 && namedParticipantList.length === 1 ? namedParticipantList[0] : 'Individual');
        participantInfo = `Individual: ${subject}. `;
     }
-    participantInfo += `Setting: ${selectedGroupSettingLabel}.`;
-  }
-
-  let historySnippet = "No significant prior interactions this theme or session.";
-  if (selectedMicroDeck.id === CULMINATION_MICRO_DECK_PROXY.id && history.length > 0) {
-    historySnippet = "Entire Session History (newest first, summarize key themes from up to 5-7 cards if possible):\n";
-    const relevantHistory = history.slice(0, 7); 
-    let themesMentioned: string[] = [];
-    relevantHistory.forEach(card => {
-      let cardThemeName = "Unknown Deck";
-      if (card.themeIdentifier.startsWith("CUSTOM_")) {
-        cardThemeName = "Custom Deck"; 
-      } else {
-        const micro = getMicroDeckById(card.themeIdentifier as MicroDeck['id']);
-        cardThemeName = micro?.internal_name || "Micro Deck";
-      }
-      const textPreview = card.text && card.text.length > 40 ? card.text.substring(0, 37) + "..." : card.text;
-      themesMentioned.push(`${cardThemeName} (Prompt: "${textPreview}", Feedback: ${card.feedback || 'none'})`);
-    });
-    if (themesMentioned.length > 0) { historySnippet += themesMentioned.join('\n- '); } 
-    else { historySnippet = "No prior cards in this session to synthesize from."; }
-  } else if (history.length > 0) {
-    const relevantFeedbackCard = history.find(card => card.themeIdentifier === selectedMicroDeck.id && (card.feedback === 'liked' || card.feedback === 'disliked'));
-    if (relevantFeedbackCard) {
-      historySnippet = `Prior interaction with "${selectedMicroDeck.internal_name}" micro-deck: Prompt "${relevantFeedbackCard.text?.substring(0,40)}..." was ${relevantFeedbackCard.feedback}.`;
-    } else if (history.length > 0) {
-        const lastCard = history[0];
-        let lastCardThemeName = "Unknown Deck";
-         if (lastCard.themeIdentifier.startsWith("CUSTOM_")) { lastCardThemeName = "Custom Deck"; } 
-         else { const micro = getMicroDeckById(lastCard.themeIdentifier as MicroDeck['id']); lastCardThemeName = micro?.internal_name || "Micro Deck"; }
-        historySnippet = `Last card (from "${lastCardThemeName}"): "${lastCard.text?.substring(0,40)}..." (Feedback: ${lastCard.feedback || 'none'}).`;
-    }
+    participantInfo += `Setting: ${effectiveGroupSettingLabel}.`;
   }
   
-  let sessionArcCue: string;
-  if (selectedMicroDeck.id === CULMINATION_MICRO_DECK_PROXY.id) sessionArcCue = "culmination_request";
-  else {
-      const historyLength = history.length;
-      if (historyLength <= 2) sessionArcCue = "early_session";
-      else if (historyLength <= 7) sessionArcCue = "mid_session";
-      else sessionArcCue = "late_session";
+  let historySnippet = "No significant prior interactions this session.";
+  if (history.length > 0) {
+      const MAX_HISTORY_FOR_PROMPT = 5;
+      const recentHistoryItems = history.slice(0, MAX_HISTORY_FOR_PROMPT);
+      const historyStrings = recentHistoryItems.map(card => {
+          let feedbackStr = "(Feedback: None)";
+          if (card.feedback === 'liked') feedbackStr = "(Feedback: Liked)";
+          if (card.feedback === 'disliked') feedbackStr = "(Feedback: Disliked)";
+          return `- Card Text: "${card.text}" ${feedbackStr}`;
+      });
+      if (historyStrings.length > 0) {
+        historySnippet = `Session History (most recent first, up to ${MAX_HISTORY_FOR_PROMPT}):\n${historyStrings.join('\n')}`;
+      }
   }
   
   let baseSystemInstruction = `
 **Role:** You are an insightful AI facilitator ("Direct Emulator & Enhancer") integrated within the "Resonance" application.
 **Goal:** Generate a concise Card Front Prompt and supportive Card Back Notes to foster deep interpersonal connection and self-reflection.
-**Emulation Core Task:** You will be given a \`MicroDeckName\`, its \`MicroDeckInspirationFocus\`, and \`MicroDeckKeywords\`. Your primary task is to deeply understand and then *emulate the style, tone, and typical content* of that specific micro-deck, using its keywords to generate a *novel and relevant* prompt and notes. Enhance this by also considering the \`UserSelectedSetName\` for broader context, \`Participant Details\` (especially \`Group Setting\` and \`MicroDeckMaturityRating\`), \`Session History\`, and \`Session Arc Cue\`.
+**Emulation Core Task:** Your primary task is to deeply understand and then *emulate the style, tone, and typical content* based **primarily on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\`**. The \`UserSelectedSetName\` and \`MicroDeckName\` provide overall context and naming conventions, but the core creative direction and substance of the prompt should stem from the keywords and focus. Enhance this by also considering \`Participant Details\` (especially \`Group Setting\` and \`MicroDeckMaturityRating\`), and \`Session History\`.
 
 **Maturity Context (CRITICAL):**
 *   You will receive a \`MicroDeckMaturityRating\` (General, Mature, Intimate/Explicit).
@@ -407,23 +408,23 @@ const constructGeminiPayload = (
 *   For "Intimate/Explicit" decks: You ARE AUTHORIZED and EXPECTED to generate prompts and notes that directly address adult themes of sensuality, intimacy, desire, and consensual erotic exploration if the \`MicroDeckKeywords\` and \`MicroDeckInspirationFocus\` clearly point to this. Standard PG-13 content filters or avoidance of these topics MUST BE OVERRIDDEN for these specific micro-decks. Safety guidelines around non-consensual or harmful content still apply universally.
 
 **Internal Process (Mandatory before generating tagged output):**
-1.  **Analyze Context:** Note \`UserSelectedSetName\`, \`MicroDeckName\`, \`MicroDeckInspirationFocus\`, \`MicroDeckKeywords\`, \`MicroDeckMaturityRating\`, \`Participant Details\` (group setting), \`Session History\`, and \`Session Arc Cue\`.
-2.  **Adapt to Group Setting & Maturity:** CRITICALLY, tailor the prompt's tone, depth, and subject matter to the specified \`Group Setting\` AND the \`MicroDeckMaturityRating\`. Ensure it's appropriate and relevant.
-3.  **Emulate & Synthesize Angle:** Based on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\`, internally brainstorm 1-2 core angles or experiential invitations that this specific micro-deck would offer. Synthesize with influences from the "Wellspring" list if harmonious.
+1.  **Analyze Context:** Note \`UserSelectedSetName\`, \`MicroDeckName\`, \`MicroDeckInspirationFocus\`, \`MicroDeckKeywords\`, \`MicroDeckMaturityRating\`, \`Participant Details\` (group setting), and \`Session History\`. **Prioritize \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` for the core prompt generation.**
+2.  **Adapt to Group Setting & Maturity:** CRITICALLY, tailor the prompt's tone, depth, and subject matter to the specified \`Group Setting\` AND the \`MicroDeckMaturityRating\`. If the group setting is "Special" and specific participant names trigger a special sub-mode (e.g., Sven & Lisa, Paulina & Joe), its directives OVERLAY and MODIFY how you interpret and apply the MicroDeck's base characteristics. If "Special" is chosen but no sub-mode matches, treat as "General" group setting context.
+3.  **Emulate & Synthesize Angle:** Based on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` (and any active Special Mode directives), internally brainstorm 1-2 core angles or experiential invitations that this specific micro-deck would offer. Synthesize with influences from the "Wellspring" list if harmonious.
 4.  **Output Formulation:** Draft the tagged output.
 
 **Output Requirements (Strictly Adhere to Tags):**
 
 ${THOUGHT_PROCESS_START_TAG}
-[Your BRIEF internal analysis and reasoning. Explicitly state how the Group Setting AND MicroDeckMaturityRating influenced your choices for THIS SPECIFIC MicroDeck. Highlight key decisions and how they align with the MicroDeckInspirationFocus and MicroDeckKeywords. This section is for your internal structured thinking and WILL NOT be shown to the user on the card.]
+[Your BRIEF internal analysis and reasoning. Explicitly state how the Group Setting (including any active "Special" sub-mode) AND MicroDeckMaturityRating influenced your choices for THIS SPECIFIC MicroDeck. Highlight key decisions and how they align with the MicroDeckInspirationFocus and MicroDeckKeywords. This section is for your internal structured thinking and WILL NOT be shown to the user on the card.]
 ${THOUGHT_PROCESS_END_TAG}
 
 ${CARD_FRONT_PROMPT_START_TAG}
-[1-2 sentence concise, engaging, and *primarily question-based* prompt for users, reflecting the emulated MicroDeck style AND the Group Setting/Maturity Rating. Avoid explicit terminal commands like "Share this..." unless integral to a highly specific action-oriented micro-deck. Focus on sparking reflection and conversation through the question itself.]
+[1-2 sentence concise, engaging, and *primarily question-based* prompt for users, reflecting the emulated MicroDeck style AND the Group Setting/Maturity Rating (and any Special Mode). Avoid explicit terminal commands like "Share this..." unless integral to a highly specific action-oriented micro-deck. Focus on sparking reflection and conversation through the question itself.]
 ${CARD_FRONT_PROMPT_END_TAG}
 
 ${CARD_BACK_NOTES_START_TAG}
-[REQUIRED: Generate 1-3 sentences for EACH of the following five sections. Use the exact headings provided below, followed by the content for that section. Ensure the overall tone is supportive, accessible, AND appropriate for the Group Setting and emulated MicroDeck.
+[REQUIRED: Generate 1-3 sentences for EACH of the following five sections. Use the exact headings provided below, followed by the content for that section. Ensure the overall tone is supportive, accessible, AND appropriate for the Group Setting (and any Special Mode) and emulated MicroDeck.
 
 **Intent & Invitation:**
 [Your text for Intent & Invitation]
@@ -446,35 +447,37 @@ _INTERNAL USE ONLY - Wellspring Influences (Keywords for your internal inspirati
 _Authentic Relating (curiosity, truth, noticing), Circling (presence, group energy), WANRS-style (layered sharing), Coaching (powerful questions), Mindfulness (non-judgment, sensory awareness), Somatics (body wisdom, embodiment), Creative Expression (metaphor, movement), Systemic Awareness (interconnection), Positive Psychology (strengths, visioning), Modern Relational Insights (boundaries, healing), Depth Psychology (shadow, archetypes), IFS (parts work), Tantra (sensual energy - principles), Erotic Blueprints (desire types - principles)._
 
 _INTERNAL USE ONLY - Feedback Interpretation (In your internal process for \`Session History Snippet\` analysis):_
-_*   If a liked prompt from the *same micro-deck* is noted: Aim for similar *quality of insight and supportive framing* but for a **semantically novel prompt and fresh notes**._
-_*   If a disliked prompt from the *same micro-deck* is noted: Significantly PIVOT your approach (style of prompt and notes) for that micro-deck._
+_*   If the history indicates liked prompts from the *same micro-deck*: Aim for similar *quality of insight and supportive framing* but for a **semantically novel prompt and fresh notes**._
+_*   If the history indicates disliked prompts from the *same micro-deck*: Significantly PIVOT your approach (style of prompt and notes) for that micro-deck._
   `.trim();
 
-  const finalSystemInstruction = isSvenAndLisaSpecialModeActive 
-    ? `${SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES}\n\n${baseSystemInstruction}` 
-    : baseSystemInstruction;
+  let finalSystemInstruction = baseSystemInstruction;
+  if (isSvenLisaActive) {
+    finalSystemInstruction = `${SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES}\n\n${baseSystemInstruction}`;
+  } else if (isPaulinaJoeActive) {
+    finalSystemInstruction = `${PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES}\n\n${baseSystemInstruction}`;
+  }
 
   const userContent = `
 **Dynamic Inputs (User Prompt Section):**
-*   **UserSelectedSetName:** "${userSelectedSetName}"
-*   **MicroDeckName:** "${selectedMicroDeck.internal_name}"
-*   **MicroDeckInspirationFocus:** "${selectedMicroDeck.deck_inspiration_focus}"
-*   **MicroDeckKeywords:** "${selectedMicroDeck.llm_keywords}"
+*   **UserSelectedSetName:** "${userSelectedSetName}" (Provides broad context)
+*   **MicroDeckName:** "${selectedMicroDeck.internal_name}" (Used for naming & context)
+*   **MicroDeckInspirationFocus:** "${selectedMicroDeck.deck_inspiration_focus}" (**Primary Driver for Content & Style**)
+*   **MicroDeckKeywords:** "${selectedMicroDeck.llm_keywords}" (**Primary Driver for Content & Style**)
 *   **MicroDeckMaturityRating:** "${selectedMicroDeck.maturity_rating_hint}"
 *   **Participant Details:** ${participantInfo} 
 *   **Session History Snippet:** ${historySnippet}
-*   **Session Arc Cue:** "${sessionArcCue}"
 *   **Language for Output:** "${selectedLanguageName}"
 
 **Task:**
-Perform your internal "thought process" based on all System Prompt instructions and the dynamic User Prompt data. Then, provide your final output strictly using the ${THOUGHT_PROCESS_START_TAG}...${THOUGHT_PROCESS_END_TAG}, ${CARD_FRONT_PROMPT_START_TAG}...${CARD_FRONT_PROMPT_END_TAG}, and ${CARD_BACK_NOTES_START_TAG}...${CARD_BACK_NOTES_END_TAG} tags. Ensure the final user-facing content is in the requested language and embodies the described facilitative style, critically adapting to the Group Setting and MicroDeck specifics.
+Perform your internal "thought process" based on all System Prompt instructions and the dynamic User Prompt data. Then, provide your final output strictly using the ${THOUGHT_PROCESS_START_TAG}...${THOUGHT_PROCESS_END_TAG}, ${CARD_FRONT_PROMPT_START_TAG}...${CARD_FRONT_PROMPT_END_TAG}, and ${CARD_BACK_NOTES_START_TAG}...${CARD_BACK_NOTES_END_TAG} tags. Ensure the final user-facing content is in the requested language and embodies the described facilitative style, critically adapting to the Group Setting and MicroDeck specifics, with a strong emphasis on the MicroDeck's InspirationFocus and Keywords.
   `.trim();
 
   const fullPromptForDisplay = `
-========== SYSTEM INSTRUCTION (Deck Sets - Direct Emulator & Enhancer): ==========
+=== SYSTEM INSTRUCTION: ===
 ${finalSystemInstruction}
 
-========== USER CONTENT: ==========
+=== USER CONTENT: ===
 ${userContent}
   `.trim();
   
@@ -549,11 +552,7 @@ export const getStyleDirectiveForMicroDeck = (microDeck: MicroDeck | null, isCar
    if (focus.includes("story") || focus.includes("anecdote")) {
       return "Narrate warmly: ";
   }
-  if (microDeck.id === CULMINATION_MICRO_DECK_PROXY.id) {
-    return "Say in a reflective and summarizing tone: "
-  }
 
-  // Default based on maturity if no specific focus match
   switch (maturity) {
     case "Mature":
     case "Intimate/Explicit":
@@ -617,9 +616,9 @@ export const generatePromptAndAudioFromGemini = async (
   activeParticipantName: string | null,
   groupSetting: GroupSetting,
   history: CardHistoryItem[],
+  customDecks: CustomThemeData[], 
   selectedVoiceName: VoiceName = DEFAULT_VOICE_NAME,
-  languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE,
-  isSvenAndLisaSpecialModeActive: boolean = false
+  languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE
 ): Promise<GeminiPromptResponse> => {
   if (!API_KEY) throw new Error("API_KEY for Gemini is not configured.");
   if (!ai) throw new Error("Gemini AI client is not initialized.");
@@ -629,23 +628,23 @@ export const generatePromptAndAudioFromGemini = async (
   if ('internal_name' in chosenItem && 'deck_inspiration_focus' in chosenItem) { 
     effectiveMicroDeck = chosenItem as MicroDeck;
   } else { 
-    const customDeck = chosenItem as CustomThemeData;
+    const customDeckItem = chosenItem as CustomThemeData;
     effectiveMicroDeck = {
-      id: customDeck.id, internal_name: customDeck.name, belongs_to_set: "CUSTOM",
-      description_for_info_button: customDeck.description,
-      deck_inspiration_focus: `Custom user-defined deck: ${customDeck.name}`,
-      llm_keywords: customDeck.description, maturity_rating_hint: "General",
+      id: customDeckItem.id, internal_name: customDeckItem.name, belongs_to_set: "CUSTOM",
+      description_for_info_button: customDeckItem.description,
+      deck_inspiration_focus: `Custom user-defined deck: ${customDeckItem.name}`,
+      llm_keywords: customDeckItem.description, maturity_rating_hint: "General",
     };
   }
+
+  const { isSvenLisa: isSvenLisaActive, isPaulinaJoe: isPaulinaJoeActive, effectiveGroupSettingLabel } = getActiveSpecialModeDetails(groupSetting, participantNames);
   
   const { systemInstruction, userContent, fullPromptForDisplay } = constructGeminiPayload(
     userSelectedSetName, effectiveMicroDeck, participantCount, participantNames, 
-    activeParticipantName, groupSetting, history, languageCode, isSvenAndLisaSpecialModeActive
+    activeParticipantName, groupSetting, history, customDecks, languageCode
   );
-
-  const sessionArcCue = effectiveMicroDeck.id === CULMINATION_MICRO_DECK_PROXY.id ? "culmination_request" : (history.length <= 2 ? "early" : (history.length <= 7 ? "mid" : "late"));
-  const groupSettingLabel = GROUP_SETTINGS.find(gs => gs.id === groupSetting)?.label || "General";
-  const logPrefix = `Generating text with model: ${TEXT_GENERATION_MODEL} for Set: "${userSelectedSetName}", MicroDeck: "${effectiveMicroDeck.internal_name}" (Lang: ${LANGUAGES.find(l=>l.code === languageCode)?.name || languageCode}) Arc: ${sessionArcCue} Setting: ${isSvenAndLisaSpecialModeActive ? "Special (Sven & Lisa)" : groupSettingLabel} Maturity: ${effectiveMicroDeck.maturity_rating_hint}`;
+  
+  const logPrefix = `Generating text with model: ${TEXT_GENERATION_MODEL} for Set: "${userSelectedSetName}", MicroDeck: "${effectiveMicroDeck.internal_name}" (Lang: ${LANGUAGES.find(l=>l.code === languageCode)?.name || languageCode}) Setting: ${effectiveGroupSettingLabel} Maturity: ${effectiveMicroDeck.maturity_rating_hint}`;
   
   let textResponse: GenerateContentResponse | null = null;
   let lastError: Error | null = null;
@@ -669,7 +668,7 @@ export const generatePromptAndAudioFromGemini = async (
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Attempt ${attempt + 1} failed during Gemini text generation:`, lastError);
       if (lastError.message.toLowerCase().includes("api key") || lastError.message.toLowerCase().includes("permission denied") || lastError.message.toLowerCase().includes("authentication")) {
-           throw new Error(`Gemini API Error (Text Gen): Authentication or permission issue. Details: ${lastError.message}`); // Fail fast on auth issues
+           throw new Error(`Gemini API Error (Text Gen): Authentication or permission issue. Details: ${lastError.message}`); 
       }
     }
 
@@ -751,6 +750,12 @@ export const generatePromptAndAudioFromGemini = async (
       console.error("Generated text for card front is empty after parsing/cleaning.");
       finalCleanedText = "The Resonance seems to be quiet for a moment. Try drawing another card."; 
   }
+
+  // Prepend welcome for Paulina & Joe on their first card if that mode is active
+  if (isPaulinaJoeActive && history.length === 0 && finalCleanedText) {
+    finalCleanedText = "Hey Paulina & Joe! " + finalCleanedText;
+  }
+
   console.log("Final cleaned text for card front & TTS:", `"${finalCleanedText}"`);
   if (cardBackNotesText) console.log("Extracted card back notes text:", `"${cardBackNotesText.substring(0, 100)}..."`);
   else console.log("No card back notes text extracted.");

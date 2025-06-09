@@ -24,7 +24,7 @@ export interface DrawnCardDisplayData {
   isFaded?: boolean; 
   themeBeingDrawnNamePlaceholder?: string | null; 
   activeParticipantNameForPlaceholder?: string | null;
-  isCulminationCard?: boolean;
+  // isCulminationCard?: boolean; // Removed
   currentDrawingThemeColorForPlaceholder?: string | null; 
 }
 
@@ -67,10 +67,10 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   onDislike,
   onPlayAudioForMainPrompt,
   onFetchAndPlayCardBackAudio,
-  isFaded = false,
+  isFaded = false, // Prop remains, but rendering effect for opacity changes
   themeBeingDrawnNamePlaceholder,
   activeParticipantNameForPlaceholder,
-  isCulminationCard = false,
+  // isCulminationCard = false, // Removed
   allCustomDecksForLookup = [],
   currentDrawingThemeColorForPlaceholder,
 }) => {
@@ -327,7 +327,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   return (
     <div 
       ref={cardRef} 
-      className={`${baseWidthClass} perspective break-inside-avoid-column mx-auto relative group ${isFaded ? 'transition-opacity duration-500 opacity-75' : 'opacity-100'}`}
+      className={`${baseWidthClass} perspective break-inside-avoid-column mx-auto relative group opacity-100`} // Always opacity-100
       style={{ height: 'auto' }} 
     >
       <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
@@ -384,7 +384,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                     <div className="flex justify-between items-center mb-[0.5vh]">
                         <div className="flex-1 text-center">
                             <h4 className={`${themeNameSizeClasses} text-white/90 font-normal tracking-wide leading-[1.2]`} style={themeDisplayTitleStyle}>{themeDisplayName}</h4>
-                            {drawnForParticipantName && !isCulminationCard && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
+                            {drawnForParticipantName && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
                             <h5 className={`text-[clamp(0.7rem,1.8vh,1rem)] text-slate-300 font-bold tracking-wide mt-[0.5vh] mb-[0.8vh] leading-[1.2]`}>{cardBackTitle}</h5>
                         </div>
                         {cardBackNotesText && cardBackNotesText.trim() !== "" && (
@@ -400,7 +400,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                   <>
                     <div className="mb-[0.5vh] w-full text-center">
                         <h4 className={`${themeNameSizeClasses} text-white/90 font-normal tracking-wide truncate leading-[1.2]`} style={themeDisplayTitleStyle}>{themeDisplayName}</h4>
-                        {drawnForParticipantName && !isCulminationCard && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
+                        {drawnForParticipantName && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
                     </div>
                     <div className={`flex-grow flex items-center justify-center ${promptTextHorizontalPadding}`}>
                         <p className={`${promptTextSizeClasses} text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{promptText}</p>

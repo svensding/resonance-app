@@ -44,7 +44,8 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
     return `hover:${darken(fromColor)} hover:${darken(toColor)}`;
   };
 
-  const deckButtonContainerStyle = "flex-shrink-0 aspect-[5/7] max-h-[calc(var(--header-height-actual)_*_0.85)] max-w-[140px] min-w-[75px] md:max-w-[180px] md:min-w-[100px] lg:max-w-[180px] lg:min-w-[100px]";
+  const deckButtonContainerStyle = "flex-shrink-0 aspect-[5/7] max-h-[calc(var(--header-height-actual)_*_0.85)] min-w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_0.7)] max-w-[calc(var(--header-height-actual)_*_0.85_*_5/7)] w-[calc(var(--header-height-actual)_*_0.85_*_5/7)] sm:w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.1)] sm:max-w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.1)] md:w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.2)] md:max-w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.2)]";
+
 
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;

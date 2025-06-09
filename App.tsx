@@ -7,7 +7,7 @@ import {
   CustomThemeData, CustomThemeId, ThemeIdentifier, DeckSet, MicroDeck,
   VoiceName, LanguageCode, DEFAULT_VOICE_NAME, DEFAULT_LANGUAGE_CODE, GOOGLE_VOICES, LANGUAGES,
   GroupSetting, DEFAULT_GROUP_SETTING, GROUP_SETTINGS, SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS,
-  DECK_SETS, ALL_MICRO_DECKS, CULMINATION_MICRO_DECK_PROXY,
+  DECK_SETS, ALL_MICRO_DECKS,
   getMicroDeckById, getCustomDeckById, getDeckSetById, getDisplayDataForCard,
   generateAudioForText, getStyleDirectiveForMicroDeck
 } from './services/geminiService';
@@ -24,6 +24,7 @@ import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 import { DeckInfoModal } from './components/DeckInfoModal'; 
 import { GroupSettingModal } from './components/GroupSettingModal';
 import { SvenAndLisaOnboardingModal } from './components/SvenAndLisaOnboardingModal';
+import { PaulinaAndJoeOnboardingModal } from './components/PaulinaAndJoeOnboardingModal';
 
 
 const ECHO_BREATH_PAUSE_MS = 500; 
@@ -38,7 +39,6 @@ export interface DrawnCardData extends GeminiServiceResponse {
   drawnForParticipantId?: string | null;
   drawnForParticipantName?: string | null;
   isFaded?: boolean; 
-  isCulminationCard?: boolean;
   cardBackAudioData?: string | null; 
   cardBackAudioMimeType?: string | null;
 }
@@ -50,6 +50,7 @@ const LOCALSTORAGE_KEYS = {
   IS_MUTED: 'resonanceClio_isAudioMuted_v1',
   GROUP_SETTING: 'resonanceClio_groupSetting_v1',
   SVEN_LISA_ONBOARDING_SHOWN: 'resonanceClio_svenLisaOnboardingShown_v1',
+  PAULINA_JOE_ONBOARDING_SHOWN: 'resonanceClio_paulinaJoeOnboardingShown_v1',
   IS_MUSIC_ENABLED: 'resonanceClio_isMusicEnabled_v1',
   MUSIC_VOLUME: 'resonanceClio_musicVolume_v1', 
 };
@@ -93,8 +94,6 @@ const App: React.FC = () => {
   const [activeParticipantNameForPlaceholder, setActiveParticipantNameForPlaceholder] = useState<string | null>(null);
   const [currentDrawingThemeColor, setCurrentDrawingThemeColor] = useState<string | null>(null);
 
-  const [showCulminationCardButton, setShowCulminationCardButton] = useState<boolean>(false);
-
   const [showDeckInfoModal, setShowDeckInfoModal] = useState<boolean>(false);
   const [itemForInfoModal, setItemForInfoModal] = useState<DeckSet | CustomThemeData | null>(null);
 
@@ -105,12 +104,17 @@ const App: React.FC = () => {
   
   const audioPlaybackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sven & Lisa Special Mode State
-  const [svenAndLisaOnboardingDrawFn, setSvenAndLisaOnboardingDrawFn] = useState<(() => Promise<void>) | null>(null);
+  // Special Modes State
+  const [specialModeOnboardingDrawFn, setSpecialModeOnboardingDrawFn] = useState<(() => Promise<void>) | null>(null);
   const [showSvenAndLisaOnboardingModal, setShowSvenAndLisaOnboardingModal] = useState<boolean>(false);
   const [hasShownSvenAndLisaOnboarding, setHasShownSvenAndLisaOnboarding] = useState<boolean>(
       () => loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.SVEN_LISA_ONBOARDING_SHOWN, false)
   );
+  const [showPaulinaAndJoeOnboardingModal, setShowPaulinaAndJoeOnboardingModal] = useState<boolean>(false);
+  const [hasShownPaulinaAndJoeOnboarding, setHasShownPaulinaAndJoeOnboarding] = useState<boolean>(
+      () => loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.PAULINA_JOE_ONBOARDING_SHOWN, false)
+  );
+
 
   // Music Service State
   const musicServiceRef = useRef<MusicService | null>(null);
@@ -131,6 +135,10 @@ const App: React.FC = () => {
   }, [hasShownSvenAndLisaOnboarding]);
 
   useEffect(() => {
+    saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.PAULINA_JOE_ONBOARDING_SHOWN, hasShownPaulinaAndJoeOnboarding);
+  }, [hasShownPaulinaAndJoeOnboarding]);
+
+  useEffect(() => {
     saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.IS_MUSIC_ENABLED, isMusicEnabled);
   }, [isMusicEnabled]);
 
@@ -141,12 +149,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     console.log("App mounted. Resonance (Deck Sets Architecture).");
-    Object.keys(localStorage).forEach(key => {
-      if (key.startsWith("resonanceEchoDeck_") || key.startsWith("resonanceClio_") || key.startsWith("clio")) {
-        // console.log(`LS Key: ${key}`);
-      }
-    });
-
     if (!process.env.API_KEY) {
       setApiKeyMissing(true);
       setError("API_KEY for Gemini is not configured.");
@@ -165,20 +167,11 @@ const App: React.FC = () => {
     const loadedGroupSetting = loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING);
     setSelectedGroupSetting(loadedGroupSetting);
     
-    // Initial participant setup based on group setting (if desired for future)
-    updateParticipantsForGroupSetting(loadedGroupSetting, true);
-
-
-    if (process.env.API_KEY && isMusicEnabled) {
-        musicServiceRef.current = new MusicService(
-            process.env.API_KEY,
-            (state) => setMusicSessionState(state),
-            (err) => {
-                setMusicError(err);
-                console.error("MusicService Error Callback:", err);
-            }
-        );
-        musicServiceRef.current.setVolume(musicVolume); // Ensure initial volume is set
+    // Initialize participants if none exist for any setting
+    if (participants.length === 0) {
+        const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
+        setParticipants([defaultParticipant]);
+        setActiveParticipantId(defaultParticipant.id);
     }
 
 
@@ -189,189 +182,157 @@ const App: React.FC = () => {
             musicServiceRef.current.disconnect();
         }
     };
-  }, []); // Empty dependency array means this runs once on mount
+  }, []);
 
+  // Effect for initializing/destroying MusicService when isMusicEnabled changes
   useEffect(() => {
-    if (isMusicEnabled && process.env.API_KEY && !musicServiceRef.current) {
-        console.log("MusicService: Enabling music, initializing service.");
-        musicServiceRef.current = new MusicService(
-            process.env.API_KEY,
-            (state) => setMusicSessionState(state),
-            (err) => {
-                setMusicError(err);
-                console.error("MusicService Error Callback:", err);
+    if (isMusicEnabled && process.env.API_KEY) {
+        if (!musicServiceRef.current) {
+            console.log("MusicService: Initializing and connecting due to isMusicEnabled=true.");
+            musicServiceRef.current = new MusicService(
+                process.env.API_KEY,
+                (state) => setMusicSessionState(state),
+                (err) => {
+                    setMusicError(err);
+                    console.error("MusicService Error Callback:", err);
+                }
+            );
+            if (musicServiceRef.current) {
+                 musicServiceRef.current.setVolume(musicVolume); // Set initial volume
+                 musicServiceRef.current.connect(); // Attempt to connect immediately
             }
-        );
-        musicServiceRef.current.setVolume(musicVolume);
+        } else {
+            // Music is enabled, and service exists. Ensure it's connected if it's not in an active/connecting state.
+            const currentMusicState = musicServiceRef.current.getCurrentInternalState();
+            if (currentMusicState === 'DISCONNECTED' || currentMusicState === 'STOPPED' || currentMusicState === 'ERROR') {
+                console.log(`MusicService: Already enabled, but service was ${currentMusicState}. Re-connecting.`);
+                musicServiceRef.current.connect();
+            }
+        }
     } else if (!isMusicEnabled && musicServiceRef.current) {
         console.log("MusicService: Disabling music, disconnecting service.");
         musicServiceRef.current.disconnect();
         musicServiceRef.current = null;
-        setMusicSessionState('DISCONNECTED');
+        setMusicSessionState('DISCONNECTED'); 
     }
-  }, [isMusicEnabled, musicVolume]); // React to changes in isMusicEnabled
+  }, [isMusicEnabled]); // Only depends on isMusicEnabled
 
+  // Effect for updating music volume
   useEffect(() => {
-    if (musicServiceRef.current) {
+    if (musicServiceRef.current && isMusicEnabled) {
         musicServiceRef.current.setVolume(musicVolume);
     }
-  }, [musicVolume]);
+  }, [musicVolume, isMusicEnabled]);
 
 
   const handleMusicSteering = useCallback(async (newestCard: DrawnCardData | null) => {
-    if (!isMusicEnabled || !musicServiceRef.current || musicSessionState === 'ERROR' || musicSessionState === 'DISCONNECTED') {
+    if (!isMusicEnabled || !musicServiceRef.current || !process.env.API_KEY) {
         return;
     }
-    if (musicSessionState === 'CONNECTING') {
-        console.log("MusicService: Still connecting, will steer once connected.");
+    
+    const currentMusicState = musicServiceRef.current.getCurrentInternalState();
+    if (currentMusicState === 'ERROR' || currentMusicState === 'DISCONNECTED' || currentMusicState === 'CONNECTING') {
+        console.log(`MusicService: Not in a steerable state (${currentMusicState}). Waiting for connection or resolution.`);
         return;
-    }
-
-    // If music is in a 'STOPPED' state (or other non-active states that passed initial guards),
-    // attempt to connect and play before steering.
-    if (musicSessionState === 'STOPPED') { 
-        try {
-            await musicServiceRef.current.connect();
-             // Wait briefly for connection before playing/steering
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            // Check internal state of music service if possible, or rely on playMusic to handle it.
-            // The musicSessionState (React state) might not be updated yet.
-            if (musicServiceRef.current) { // musicServiceRef.current might have been nulled if an error occurred during connect
-                 await musicServiceRef.current.playMusic();
-                 await new Promise(resolve => setTimeout(resolve, 500)); // Wait for play to initiate
-            } else {
-                console.warn("MusicService: Connection attempt for steering failed or service became unavailable. Current React state:", musicSessionState);
-                return;
-            }
-        } catch (e) {
-            console.error("MusicService: Error connecting/playing music before steering:", e);
-            return; 
-        }
     }
     
     let promptsForMusic: LyriaWeightedPrompt[] = [];
     let configForMusic: Partial<LyriaConfig> = {};
-    let microDeckForMusic: MicroDeck | null = null;
-    let deckSetForMusic: DeckSet | null = null;
 
     if (newestCard) {
         if (newestCard.themeIdentifier.startsWith("CUSTOM_")) {
             const customDeck = getCustomDeckById(newestCard.themeIdentifier as CustomThemeId, customDecks);
             if (customDeck) {
                 promptsForMusic.push({ text: `custom theme, user-defined, ${customDeck.name}, ${customDeck.description.substring(0,100)}`, weight: 0.8 });
-                // Basic config for custom, can be expanded
                 configForMusic = { bpm: 80, density: 0.4, brightness: 0.55 };
             }
         } else {
-            microDeckForMusic = getMicroDeckById(newestCard.themeIdentifier as MicroDeck['id']);
+            const microDeckForMusic = getMicroDeckById(newestCard.themeIdentifier as MicroDeck['id']);
             if (microDeckForMusic) {
                 setCurrentMicroDeckForMusic(microDeckForMusic);
-                if (microDeckForMusic.belongs_to_set) {
-                    deckSetForMusic = getDeckSetById(microDeckForMusic.belongs_to_set);
-                    if (deckSetForMusic) setCurrentDeckSetForMusic(deckSetForMusic);
-                } else {
-                     setCurrentDeckSetForMusic(null); // For culmination or special non-set cards
-                }
+                const deckSetForMusic = microDeckForMusic.belongs_to_set ? getDeckSetById(microDeckForMusic.belongs_to_set) : null;
+                setCurrentDeckSetForMusic(deckSetForMusic);
 
-                // Construct prompts & config from MicroDeck and DeckSet
                 let promptText = microDeckForMusic.llm_keywords;
                 if (deckSetForMusic) promptText += `, ${deckSetForMusic.name.toLowerCase().replace(/\s+/g, '_')}`;
-                
                 promptsForMusic.push({ text: promptText, weight: 0.9 });
                 
-                // Example: Derive config from micro-deck focus or set
                 const focus = microDeckForMusic.deck_inspiration_focus.toLowerCase();
                 const maturity = microDeckForMusic.maturity_rating_hint;
 
                 if (focus.includes("mindfulness") || focus.includes("somatic") || focus.includes("presence")) {
-                    // @ts-ignore
-                    configForMusic = { bpm: 60, density: 0.2, brightness: 0.35, scale: Scale.PENTATONIC_MINOR };
+                    configForMusic = { bpm: 60, density: 0.2, brightness: 0.35, scale: Scale.PENTATONIC_MINOR_SCALE };
                 } else if (focus.includes("playful") || focus.includes("icebreaker") || focus.includes("witty")) {
-                    // @ts-ignore
-                    configForMusic = { bpm: 110, density: 0.6, brightness: 0.65, scale: Scale.BLUES };
+                    configForMusic = { bpm: 110, density: 0.6, brightness: 0.65, scale: Scale.BLUES_SCALE };
                 } else if (focus.includes("authentic relating") || focus.includes("vulnerability") || focus.includes("shadow work") || focus.includes("inner child")) {
-                    // @ts-ignore
-                    configForMusic = { bpm: 70, density: 0.3, brightness: 0.4, scale: Scale.MINOR };
+                    configForMusic = { bpm: 70, density: 0.3, brightness: 0.4, scale: Scale.MINOR_SCALE };
                 } else if (focus.includes("erotic") || focus.includes("sensual") || focus.includes("intimate")) {
-                    // @ts-ignore
-                    configForMusic = { bpm: 85, density: 0.5, brightness: 0.5, scale: Scale.LYDIAN, muteDrums: maturity !== "Intimate/Explicit" };
+                    configForMusic = { bpm: 85, density: 0.5, brightness: 0.5, scale: Scale.LYDIAN_SCALE, muteDrums: maturity !== "Intimate/Explicit" };
                 } else if (focus.includes("provocative") || focus.includes("edgy") || focus.includes("risk")) {
-                     // @ts-ignore
-                     configForMusic = { bpm: 95, density: 0.55, brightness: 0.6, scale: Scale.PHRYGIAN };
-                } else { // Default fallback
+                     configForMusic = { bpm: 95, density: 0.55, brightness: 0.6, scale: Scale.PHRYGIAN_SCALE };
+                } else { 
                     configForMusic = { bpm: 90, density: 0.45, brightness: 0.5 };
-                }
-                 if (newestCard.isCulminationCard) {
-                    // @ts-ignore
-                    configForMusic = { bpm: 75, density: 0.35, brightness: 0.45, scale: Scale.MIXOLYDIAN };
-                    promptsForMusic.push({ text: "reflective, synthesizing, concluding, summary", weight: 0.9 });
                 }
             }
         }
     }
-    // If no specific card (e.g. initial play or after clearing history), it uses base prompts/config.
-    // If there are specific prompts/config, steer to them.
-    if (promptsForMusic.length > 0) {
-       console.log("MusicService: Steering music with new card context. Prompts:", promptsForMusic, "Config changes:", configForMusic);
-       await musicServiceRef.current.steerMusic(promptsForMusic, configForMusic);
-    } else if (!newestCard && musicSessionState === 'PLAYING') { 
-        // No card, but music is playing - gently steer back to base if active layers exist
-        const activeLayers = musicServiceRef.current.getActiveLayerPrompts();
-        if (activeLayers && activeLayers.length > 0) {
-            console.log("MusicService: No card, steering back to base music.");
-            await musicServiceRef.current.steerMusic([], {}); // Empty array steers to base
-            setCurrentMicroDeckForMusic(null);
-            setCurrentDeckSetForMusic(null);
+
+    try {
+        if (currentMusicState === 'CONNECTED' || currentMusicState === 'STOPPED') {
+            console.log(`MusicService: State is ${currentMusicState}. Attempting to play music first, then steer.`);
+            await musicServiceRef.current.playMusic(); // Ensure base music is playing
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Allow time for play to initialize stream
         }
+        
+        // Check state again after attempting play, as it might have changed
+        const stateAfterPlayAttempt = musicServiceRef.current.getCurrentInternalState();
+        if (stateAfterPlayAttempt === 'PLAYING' || stateAfterPlayAttempt === 'LOADING_BUFFER' || stateAfterPlayAttempt === 'PLAY_REQUESTED') {
+            if (promptsForMusic.length > 0) {
+                console.log("MusicService: Steering music with new card context. Prompts:", promptsForMusic, "Config changes:", configForMusic);
+                await musicServiceRef.current.steerMusic(promptsForMusic, configForMusic);
+            } else if (!newestCard && stateAfterPlayAttempt === 'PLAYING') { 
+                const activeLayers = musicServiceRef.current.getActiveLayerPrompts();
+                if (activeLayers && activeLayers.length > 0) {
+                    console.log("MusicService: No card, steering back to base music.");
+                    await musicServiceRef.current.steerMusic([], {}); 
+                    setCurrentMicroDeckForMusic(null);
+                    setCurrentDeckSetForMusic(null);
+                }
+            }
+        } else {
+            console.warn(`MusicService: Could not steer. State after play attempt is ${stateAfterPlayAttempt}.`);
+        }
+    } catch (e: any) {
+        console.error("MusicService: Error during music steering or play initiation:", e);
+        setMusicError(e.message || "Error during music steering");
     }
 
+  }, [isMusicEnabled, customDecks, musicServiceRef]);
 
-  }, [isMusicEnabled, musicSessionState, customDecks, musicServiceRef]); 
 
-
-  const updateParticipantsForGroupSetting = (setting: GroupSetting, isInitialSetup: boolean = false) => {
-    setSelectedGroupSetting(setting);
-    saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, setting);
-    
-    if (setting === "SPECIAL") { // Sven & Lisa mode
-      const sven = { id: 'sven-special', name: 'Sven' };
-      const lisa = { id: 'lisa-special', name: 'Lisa' };
-      setParticipants([sven, lisa]);
-      setActiveParticipantId(sven.id); // Default to Sven
-      
-      if (!isInitialSetup && !hasShownSvenAndLisaOnboarding) {
-        setShowSvenAndLisaOnboardingModal(true);
-      }
-    } else {
-      // If was special mode, clear participants or reset to a default single participant
-      if (participants.some(p => p.id === 'sven-special' || p.id === 'lisa-special')) {
-        const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
-        setParticipants([defaultParticipant]);
-        setActiveParticipantId(defaultParticipant.id);
-      } else if (participants.length === 0 && isInitialSetup) {
-        // If not special mode and no participants, add one default
-        const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
-        setParticipants([defaultParticipant]);
-        setActiveParticipantId(defaultParticipant.id);
-      }
-      // If already has participants and not switching from special, keep them.
-    }
+  const handleGroupSettingChange = (newSetting: GroupSetting) => {
+    setSelectedGroupSetting(newSetting);
+    saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, newSetting);
+    // No automatic participant changes here anymore.
+    // If user selects "SPECIAL", they need to manually enter names.
+    // If they change from "SPECIAL" to "GENERAL", names persist.
   };
 
   const handleOpenGroupSettingModal = () => setShowGroupSettingModal(true);
   const handleCloseGroupSettingModal = () => setShowGroupSettingModal(false);
-  const handleGroupSettingChange = (newSetting: GroupSetting) => {
-    updateParticipantsForGroupSetting(newSetting);
-    // Potentially trigger a redraw or clear history if setting change implies new context
-    // setDrawnCardHistory([]); // Example: Clear history on major context change
-  };
 
-  const handleSvenAndLisaOnboardingConfirm = () => {
-    setShowSvenAndLisaOnboardingModal(false);
-    setHasShownSvenAndLisaOnboarding(true);
-    if (svenAndLisaOnboardingDrawFn) {
-        svenAndLisaOnboardingDrawFn();
-        setSvenAndLisaOnboardingDrawFn(null); 
+  const handleSpecialModeOnboardingConfirm = () => {
+    if (showSvenAndLisaOnboardingModal) {
+        setHasShownSvenAndLisaOnboarding(true);
+        setShowSvenAndLisaOnboardingModal(false);
+    }
+    if (showPaulinaAndJoeOnboardingModal) {
+        setHasShownPaulinaAndJoeOnboarding(true);
+        setShowPaulinaAndJoeOnboardingModal(false);
+    }
+    if (specialModeOnboardingDrawFn) {
+        specialModeOnboardingDrawFn();
+        setSpecialModeOnboardingDrawFn(null); 
     }
   };
   
@@ -381,11 +342,31 @@ const App: React.FC = () => {
     if (activeParticipantId === participantIdToRemove) {
       setActiveParticipantId(newParticipants.length > 0 ? newParticipants[0].id : null);
     }
-    if (newParticipants.length === 0) { // If all removed, add one back
+    if (newParticipants.length === 0) { 
         const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
         setParticipants([defaultParticipant]);
         setActiveParticipantId(defaultParticipant.id);
     }
+  };
+
+  const isSpecialModeActive = (
+    mode: "SVEN_LISA" | "PAULINA_JOE",
+    currentParticipants: Participant[]
+  ): boolean => {
+    if (selectedGroupSetting !== "SPECIAL") return false;
+
+    const lowerCaseNames = currentParticipants.map(p => p.name.toLowerCase().trim()).filter(Boolean).sort();
+    if (lowerCaseNames.length !== 2) return false;
+
+    if (mode === "SVEN_LISA") {
+      const svenLisaNamesSorted = ["lisa", "sven"].sort();
+      return JSON.stringify(lowerCaseNames) === JSON.stringify(svenLisaNamesSorted);
+    }
+    if (mode === "PAULINA_JOE") {
+      const paulinaJoeNamesSorted = ["joe", "paulina"].sort();
+      return JSON.stringify(lowerCaseNames) === JSON.stringify(paulinaJoeNamesSorted);
+    }
+    return false;
   };
 
 
@@ -393,18 +374,24 @@ const App: React.FC = () => {
     if (isLoading) return;
     if (!process.env.API_KEY) { setError("API_KEY for Gemini is not configured."); return; }
     
-    // Sven & Lisa Special Mode Onboarding Check
-    if (selectedGroupSetting === "SPECIAL" && !hasShownSvenAndLisaOnboarding && 
-        (selectedThemeIdentifier.startsWith("SBP_") || selectedThemeIdentifier.startsWith("CCS_") || selectedThemeIdentifier.startsWith("SS_"))) {
-        
+    const isSvenLisaCurrentlyActive = isSpecialModeActive("SVEN_LISA", participants);
+    const isPaulinaJoeCurrentlyActive = isSpecialModeActive("PAULINA_JOE", participants);
+
+    // Sven & Lisa Onboarding Check
+    if (isSvenLisaCurrentlyActive && !hasShownSvenAndLisaOnboarding) {
         const microDeckForOnboarding = getMicroDeckById(selectedThemeIdentifier as MicroDeck['id']);
         if (microDeckForOnboarding && SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS.includes(microDeckForOnboarding.id)) {
-            setSvenAndLisaOnboardingDrawFn(() => () => handleDrawNewCard(selectedThemeIdentifier)); 
+            setSpecialModeOnboardingDrawFn(() => () => handleDrawNewCard(selectedThemeIdentifier)); 
             setShowSvenAndLisaOnboardingModal(true);
             return; 
         }
     }
-
+    // Paulina & Joe Onboarding Check
+    if (isPaulinaJoeCurrentlyActive && !hasShownPaulinaAndJoeOnboarding) {
+        setSpecialModeOnboardingDrawFn(() => () => handleDrawNewCard(selectedThemeIdentifier));
+        setShowPaulinaAndJoeOnboardingModal(true);
+        return;
+    }
 
     setIsLoading(true); setError(null); setHasPlayedAudioForNewestCard(false);
     stopSpeechServicePlayback();
@@ -421,16 +408,16 @@ const App: React.FC = () => {
         const randomIndex = Math.floor(Math.random() * allPossibleItems.length);
         chosenItemForGemini = allPossibleItems[randomIndex];
         
-        if ('internal_name' in chosenItemForGemini) { // It's a MicroDeck
+        if ('internal_name' in chosenItemForGemini) { 
             itemName = chosenItemForGemini.internal_name;
             const parentSet = chosenItemForGemini.belongs_to_set ? getDeckSetById(chosenItemForGemini.belongs_to_set) : null;
             setNameForGemini = parentSet ? parentSet.name : "Assorted";
             deckSetIdForCard = parentSet?.id || null;
             setCurrentDrawingThemeColor(parentSet?.colorClass || "from-slate-600 to-slate-700");
-        } else { // It's a CustomThemeData
+        } else { 
             itemName = chosenItemForGemini.name;
             setNameForGemini = "Custom Decks";
-            deckSetIdForCard = null; // Custom decks don't belong to a DeckSet
+            deckSetIdForCard = null; 
             setCurrentDrawingThemeColor(chosenItemForGemini.colorClass);
         }
     } else if (selectedThemeIdentifier.startsWith("CUSTOM_")) {
@@ -440,8 +427,8 @@ const App: React.FC = () => {
             setNameForGemini = "Custom Decks";
             setCurrentDrawingThemeColor(chosenItemForGemini.colorClass);
         }
-    } else { // It's a MicroDeck from a specific DeckSet (or a direct MicroDeck ID if we support that later)
-        const deckSet = DECK_SETS.find(ds => ds.id === selectedThemeIdentifier); // User might click a DeckSet
+    } else { 
+        const deckSet = DECK_SETS.find(ds => ds.id === selectedThemeIdentifier); 
         if (deckSet) {
             const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === deckSet.id);
             if (microDecksInSet.length > 0) {
@@ -454,7 +441,7 @@ const App: React.FC = () => {
             } else {
                  setError(`No micro-decks found for DeckSet "${deckSet.name}".`); setIsLoading(false); return;
             }
-        } else { // Could be a direct MicroDeck ID if UI allows drawing from individual micro-decks
+        } else { 
              const microDeck = getMicroDeckById(selectedThemeIdentifier as MicroDeck['id']);
              if (microDeck) {
                 chosenItemForGemini = microDeck;
@@ -478,10 +465,6 @@ const App: React.FC = () => {
 
 
     try {
-      const isSpecialMode = selectedGroupSetting === "SPECIAL" && 
-                            participants.some(p => p.id === 'sven-special') &&
-                            participants.some(p => p.id === 'lisa-special');
-
       const participantNamesForPrompt = participants.map(p => p.name).filter(name => name && name.trim() !== "");
       const activeParticipantActualName = participants.find(p => p.id === activeParticipantId)?.name || null;
       
@@ -491,11 +474,12 @@ const App: React.FC = () => {
         participants.length,
         participantNamesForPrompt,
         activeParticipantActualName,
-        selectedGroupSetting,
+        selectedGroupSetting, // Pass the selectedGroupSetting ("SPECIAL" or other)
         drawnCardHistory,
+        customDecks, 
         selectedVoiceName,
-        selectedLanguageCode,
-        isSpecialMode
+        selectedLanguageCode
+        // isSvenLisaMode and isPaulinaJoeMode flags are determined within generatePromptAndAudioFromGemini
       );
 
       const newCard: DrawnCardData = {
@@ -514,7 +498,6 @@ const App: React.FC = () => {
         cardBackAudioMimeType: response.cardBackAudioMimeType,
         drawnForParticipantId: activeParticipantId,
         drawnForParticipantName: activeParticipantActualName,
-        isCulminationCard: chosenItemForGemini.id === CULMINATION_MICRO_DECK_PROXY.id,
       };
 
       setDrawnCardHistory(prevHistory => {
@@ -536,38 +519,22 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error("Error drawing card:", err);
       setError(err.message || "Failed to draw card.");
-      handleMusicSteering(null); // Clear music steering on error
+      handleMusicSteering(null); 
     } finally {
       setIsLoading(false);
       setThemeBeingDrawnName(null);
       setActiveParticipantNameForPlaceholder(null);
       setCurrentDrawingThemeColor(null);
       
-      // Rotate active participant if more than one
       if (participants.length > 1 && activeParticipantId) {
         const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
         const nextIndex = (currentIndex + 1) % participants.length;
         setActiveParticipantId(participants[nextIndex].id);
       } else if (participants.length === 1 && !activeParticipantId) {
-        setActiveParticipantId(participants[0].id); // Ensure one is active if only one exists
+        setActiveParticipantId(participants[0].id); 
       }
     }
   };
-
-
-  const handleDrawCulminationCard = () => {
-    handleDrawNewCard(CULMINATION_MICRO_DECK_PROXY.id);
-  };
-  useEffect(() => {
-    const culmMicroDeck = getMicroDeckById(CULMINATION_MICRO_DECK_PROXY.id);
-    if (!culmMicroDeck) { setShowCulminationCardButton(false); return; }
-
-    const nonCulmCards = drawnCardHistory.filter(c => c.themeIdentifier !== CULMINATION_MICRO_DECK_PROXY.id);
-    const hasDrawnCulmRecently = drawnCardHistory.length > 0 && drawnCardHistory[0].themeIdentifier === CULMINATION_MICRO_DECK_PROXY.id;
-    
-    setShowCulminationCardButton(nonCulmCards.length >= 3 && !hasDrawnCulmRecently);
-  }, [drawnCardHistory]);
-
 
   const handleLikeCard = (id: string) => {
     setDrawnCardHistory(prev => prev.map(card => card.id === id ? { ...card, feedback: 'liked' } : card));
@@ -593,14 +560,12 @@ const App: React.FC = () => {
   const handleFetchAndPlayCardBackAudio = async (cardId: string, textToSpeak: string) => {
     if (isAudioMuted || !textToSpeak.trim()) return;
 
-    // Find the card in history
     const cardIndex = drawnCardHistory.findIndex(c => c.id === cardId);
     if (cardIndex === -1) {
         console.warn("Card not found in history for card back audio.");
         return;
     }
     
-    // Check if audio already exists
     const card = drawnCardHistory[cardIndex];
     if (card.cardBackAudioData && card.cardBackAudioMimeType) {
         console.log("Using cached card back audio for card:", cardId);
@@ -628,7 +593,7 @@ const App: React.FC = () => {
         }
     } catch (e: any) {
         console.error("Error fetching/playing card back audio:", e);
-        speakText(textToSpeak, selectedLanguageCode, isAudioMuted); // Fallback to basic TTS
+        speakText(textToSpeak, selectedLanguageCode, isAudioMuted); 
     }
   };
 
@@ -688,13 +653,13 @@ const App: React.FC = () => {
     setIsAudioMuted(muted); 
     saveToLocalStorage(LOCALSTORAGE_KEYS.IS_MUTED, muted);
     if (muted) {
-        stopSpeechServicePlayback(); // Stop any current speech
-        if (musicServiceRef.current && musicSessionState === 'PLAYING') {
-            musicServiceRef.current.pauseMusic(); // Pause music if it's playing
+        stopSpeechServicePlayback(); 
+        if (musicServiceRef.current && musicServiceRef.current.getCurrentInternalState() === 'PLAYING') { 
+            musicServiceRef.current.pauseMusic(); 
         }
     } else {
-        if (musicServiceRef.current && musicSessionState === 'PAUSED' && isMusicEnabled) {
-             musicServiceRef.current.playMusic(); // Resume music if it was paused due to mute
+        if (musicServiceRef.current && musicServiceRef.current.getCurrentInternalState() === 'PAUSED' && isMusicEnabled) { 
+             musicServiceRef.current.playMusic(); 
         }
     }
   };
@@ -717,7 +682,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Header Area */}
       <header 
         className="fixed top-0 left-0 right-0 z-30 flex items-end justify-center bg-gradient-to-b from-slate-900 via-slate-900/70 via-[45%] to-transparent backdrop-blur-md" 
         style={{ height: 'var(--header-height-actual)' }}
@@ -734,7 +698,6 @@ const App: React.FC = () => {
         />
       </header>
 
-      {/* Main Content Area */}
       <main 
         className="flex-grow flex flex-col items-center justify-start w-full"
         style={{ 
@@ -756,14 +719,11 @@ const App: React.FC = () => {
             activeParticipantNameForPlaceholder={activeParticipantNameForPlaceholder}
             onOpenVoiceSettings={handleOpenVoiceSettingsModal}
             currentDrawingThemeColor={currentDrawingThemeColor}
-            showCulminationCardButton={showCulminationCardButton && !isLoading}
-            onDrawCulminationCard={handleDrawCulminationCard}
         />
         {error && <p className="text-red-400 mt-4 text-center text-sm px-4">{error}</p>}
 
       </main>
 
-      {/* Footer Area */}
       <footer 
         className="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/80 backdrop-blur-md border-t border-slate-700/60"
         style={{ height: 'var(--footer-height-actual)' }}
@@ -781,7 +741,6 @@ const App: React.FC = () => {
         />
       </footer>
 
-      {/* Modals */}
       {showCustomDeckModal && (
         <CustomDeckModal 
             onClose={handleCloseCustomDeckModal} 
@@ -822,8 +781,14 @@ const App: React.FC = () => {
       )}
        {showSvenAndLisaOnboardingModal && (
         <SvenAndLisaOnboardingModal
-            onClose={() => { setShowSvenAndLisaOnboardingModal(false); setSvenAndLisaOnboardingDrawFn(null); }}
-            onConfirm={handleSvenAndLisaOnboardingConfirm}
+            onClose={() => { setShowSvenAndLisaOnboardingModal(false); setSpecialModeOnboardingDrawFn(null); }}
+            onConfirm={handleSpecialModeOnboardingConfirm}
+        />
+      )}
+      {showPaulinaAndJoeOnboardingModal && (
+        <PaulinaAndJoeOnboardingModal
+            onClose={() => { setShowPaulinaAndJoeOnboardingModal(false); setSpecialModeOnboardingDrawFn(null); }}
+            onConfirm={handleSpecialModeOnboardingConfirm}
         />
       )}
     </div>

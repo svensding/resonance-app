@@ -19,8 +19,8 @@ interface DrawnCardsHistoryViewProps {
   activeParticipantNameForPlaceholder?: string | null;
   onOpenVoiceSettings: () => void;
   currentDrawingThemeColor: string | null; 
-  showCulminationCardButton?: boolean;
-  onDrawCulminationCard?: () => void;
+  // showCulminationCardButton?: boolean; // Removed
+  // onDrawCulminationCard?: () => void; // Removed
 }
 
 interface GlyphPatternRowProps {
@@ -59,8 +59,8 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
   customDecks, themeBeingDrawnName, activeParticipantNameForPlaceholder,
   onOpenVoiceSettings,
   currentDrawingThemeColor,
-  showCulminationCardButton,
-  onDrawCulminationCard
+  // showCulminationCardButton, // Removed
+  // onDrawCulminationCard // Removed
 }) => {
 
   const newestCard = history[0]; 
@@ -169,7 +169,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
               isNewest={true}
               drawnForParticipantName={newestCard.drawnForParticipantName}
               isFaded={newestCard.isFaded}
-              isCulminationCard={newestCard.isCulminationCard}
+              // isCulminationCard={newestCard.isCulminationCard} // Removed
               onLike={onLike} onDislike={onDislike}
               onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
               onFetchAndPlayCardBackAudio={onFetchAndPlayCardBackAudio}
@@ -180,26 +180,16 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
           ) : null}
         </div>
         
-        {(isMainCardAreaActive || (showCulminationCardButton && onDrawCulminationCard)) && (
+        {isMainCardAreaActive && ( // Show voice settings if main card area is active
           <div className="flex-shrink-0 flex flex-col items-center space-y-2 w-auto min-w-[5vh] sm:min-w-[6vh] mt-[1vh] ml-[1vw]">
-            {isMainCardAreaActive && (
-              <button 
-                onClick={onOpenVoiceSettings}
-                className="p-[1vh] sm:p-[1.2vh] rounded-full bg-slate-700 hover:bg-sky-600 text-slate-300 hover:text-white transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 w-[5vh] h-[5vh] sm:w-[6vh] sm:h-[6vh] flex items-center justify-center"
-                aria-label="Open Voice Settings" title="Voice & Audio Settings"
-              >
-                <span className="text-2xl sm:text-3xl" aria-hidden="true">🔊</span>
-              </button>
-            )}
-            {showCulminationCardButton && onDrawCulminationCard && (
-              <button
-                onClick={onDrawCulminationCard}
-                className="px-3 py-2 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 text-white font-semibold rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900 text-sm"
-                title="Reflect on the session and draw a synthesis card"
-              >
-                Synthesize
-              </button>
-            )}
+            <button 
+              onClick={onOpenVoiceSettings}
+              className="p-[1vh] sm:p-[1.2vh] rounded-full bg-slate-700 hover:bg-sky-600 text-slate-300 hover:text-white transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900 w-[5vh] h-[5vh] sm:w-[6vh] sm:h-[6vh] flex items-center justify-center"
+              aria-label="Open Voice Settings" title="Voice & Audio Settings"
+            >
+              <span className="text-2xl sm:text-3xl" style={{ fontFamily: "'Noto Sans Symbols 2', sans-serif" }} aria-hidden="true">🔉</span>
+            </button>
+            {/* Culmination button logic removed */}
           </div>
         )}
       </div>
@@ -225,7 +215,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
                   isNewest={false}
                   drawnForParticipantName={card.drawnForParticipantName}
                   isFaded={card.isFaded}
-                  isCulminationCard={card.isCulminationCard}
+                  // isCulminationCard={card.isCulminationCard} // Removed
                   onLike={onLike} onDislike={onDislike}
                   onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
                   onFetchAndPlayCardBackAudio={onFetchAndPlayCardBackAudio}
