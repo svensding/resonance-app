@@ -4,7 +4,7 @@
   "description": "Resonance Echo Deck application for Netlify",
   "private": true,
   "scripts": {
-    "build": "rm -rf dist && mkdir -p dist && cp index.html metadata.json dist/ && cp -R components services hooks dist/ && esbuild index.tsx --bundle --outfile=dist/bundle.js --define:process.env.API_KEY=\\\"$GEMINI_API_KEY\\\" --loader:.ts=tsx --loader:.js=jsx --jsx=automatic --platform=browser --format=esm && cp -R public/* dist/ 2>/dev/null || true",
+    "build": "rimraf dist && mkdirp dist && copyfiles index.html metadata.json dist && copyfiles components services hooks dist && esbuild index.tsx --bundle --outfile=dist/bundle.js --define:process.env.API_KEY=\\\"$GEMINI_API_KEY\\\" --loader:.ts=tsx --loader:.js=jsx --jsx=automatic --platform=browser --format=esm && copyfiles \"public/**\" dist",
     "lint": "echo 'Linting not yet configured'"
   },
   "dependencies": {
@@ -15,7 +15,10 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.1",
     "esbuild": "^0.25.5",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "rimraf": "^5.0.0",
+    "mkdirp": "^3.0.0",
+    "copyfiles": "^2.4.1"
   },
   "engines": {
     "node": ">=18"

@@ -1,14 +1,20 @@
 
-import { GoogleGenAI, Scale as GoogleLibraryScale } from "@google/genai"; // Scale imported as value
+import { GoogleGenAI } from "@google/genai"; // Removed Scale as GoogleLibraryScale alias, will re-export Scale directly
 import type { 
     LiveMusicSession, WeightedPrompt, LiveMusicGenerationConfig, LiveMusicServerMessage, 
     LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating 
 } from "@google/genai"; 
 
+// Re-export Scale directly from @google/genai
+// This makes the original Scale enum available to consumers of musicService.ts
+export { Scale } from "@google/genai"; 
+
 export type { WeightedPrompt, LiveMusicGenerationConfig };
 
-// Export the enum value directly.
-export const Scale = GoogleLibraryScale;
+// The old way that was in the file:
+// import { GoogleGenAI, Scale as GoogleLibraryScale } from "@google/genai";
+// export const Scale = GoogleLibraryScale;
+
 
 const LYRIA_MODEL_NAME = 'models/lyria-realtime-exp';
 const TARGET_SAMPLE_RATE = 48000; 
