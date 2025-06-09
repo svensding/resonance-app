@@ -181,7 +181,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   };
 
   if (isLoadingPlaceholder) {
-    const baseWidthClass = isNewest ? "w-full max-w-[calc(100vw-2rem)] xs:max-w-sm sm:max-w-md" : "w-full max-w-xs";
+    const baseWidthClass = isNewest ? "w-full max-w-[calc(100vw-6rem)] xs:max-w-xs sm:max-w-sm md:max-w-md" : "w-full max-w-xs";
     let loadingText = `Drawing from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
     if (activeParticipantNameForPlaceholder) loadingText = `Drawing for ${activeParticipantNameForPlaceholder} from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
     
@@ -211,7 +211,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const { name: themeDisplayName, colorClass: themeColor } = getDisplayDataForCard(themeIdentifier, deckSetId || null, allCustomDecksForLookup);
   
   const baseWidthClass = isNewest 
-    ? "w-full max-w-[calc(100vw-2rem)] xs:max-w-sm sm:max-w-md" 
+    ? "w-full max-w-[calc(100vw-6rem)] xs:max-w-xs sm:max-w-sm md:max-w-md" 
     : "w-full max-w-[140px] xs:max-w-[160px] sm:max-w-[180px] md:max-w-xs"; 
   const themeNameSizeClasses = isNewest ? "text-[0.6rem] xs:text-xs sm:text-sm" : "text-[0.55rem] xs:text-[0.6rem] sm:text-[0.65rem]";
   const participantNameSizeClasses = isNewest ? "text-[0.55rem] xs:text-[0.65rem] sm:text-xs" : "text-[0.5rem] xs:text-[0.55rem] sm:text-[0.6rem]";

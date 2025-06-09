@@ -37,7 +37,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
 
 
   const renderEmptyState = () => (
-    <div className="w-full max-w-[calc(100vw-2rem)] xs:max-w-sm sm:max-w-md perspective mx-auto relative" style={{ height: 'auto' }}>
+    <div className="w-full max-w-[calc(100vw-6rem)] xs:max-w-xs sm:max-w-sm md:max-w-md perspective mx-auto relative" style={{ height: 'auto' }}>
       <div style={{ paddingTop: `${(7 / 5) * 100}%` }} className="relative">
         <div className="absolute inset-0 bg-slate-800/50 border-2 border-dashed border-slate-700 rounded-xl shadow-xl flex flex-col items-center justify-center p-3 sm:p-4 text-center shimmer-effect overflow-hidden">
           <CornerGlyphGrid position="top-left" glyphColorClass="text-white/70" glyphSizeClass="text-base xs:text-lg sm:text-xl md:text-2xl" gridGapClass="gap-0.5 xs:gap-1 sm:gap-1.5"/>
@@ -54,9 +54,9 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
 
   return (
     <div className="w-full max-w-6xl px-2 xs:px-3 sm:px-4 md:px-6 flex flex-col items-center">
-      <div className="w-full flex flex-row justify-center items-start gap-1 xs:gap-2 sm:gap-4 mb-3 sm:mb-4 md:mb-6 pt-[10vh] pb-[5vh]">
-        {/* Ensure this max-w allows space for the button on smaller screens */}
-        <div className="flex-grow w-full max-w-[calc(100%-2.5rem)] xs:max-w-[calc(100%-3rem)] sm:max-w-md">
+      <div className="w-full flex flex-row justify-center items-start gap-1 xs:gap-2 sm:gap-4 mb-3 sm:mb-4 md:mb-6">
+        {/* Ensure this max-w allows space for the button on smaller screens. Padding moved to child. */}
+        <div className="flex-grow w-full max-w-[calc(100%-2.5rem)] xs:max-w-[calc(100%-3rem)] sm:max-w-md pt-[10vh] pb-[5vh]">
           {isLoadingNextCard || isLoadingNewCard ? (
             <DrawnCard
               id="loading-placeholder"
@@ -102,7 +102,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
         </div>
         
         {isMainCardAreaActive ? (
-           <div className="flex-shrink-0 w-8 h-8 xs:w-9 xs:h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 mt-1 sm:mt-1.5 md:mt-2 ml-1 xs:ml-0">
+           <div className="flex-shrink-0 w-8 h-8 xs:w-9 xs:h-9 sm:w-10 sm:h-10 md:w-12 md:h-12 mt-[10vh] sm:mt-[calc(10vh+0.375rem)] md:mt-[calc(10vh+0.5rem)] ml-1 xs:ml-0"> {/* Adjusted margin-top to align with padded content */}
              <button 
                 onClick={onOpenVoiceSettings}
                 className="p-1.5 xs:p-2 sm:p-2.5 md:p-3 rounded-full bg-slate-700 hover:bg-sky-600 text-slate-300 hover:text-white transition-colors duration-200 shadow-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900"
