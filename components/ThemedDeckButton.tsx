@@ -55,10 +55,10 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   const mainButtonLabel = isRandomButton ? "Draw a Random Card" : `Draw a card from ${itemName}`;
   const mainButtonTitle = isRandomButton ? "Draw a Random Card" : `Draw from: ${itemName}`;
 
-  const utilityButtonBaseClasses = "p-1 rounded-full text-white/70 hover:text-white z-30 transition-all duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 bg-black/40 hover:bg-black/60";
-  const utilityButtonIconSize = "h-3.5 w-3.5 sm:h-4 sm:w-4";
-  const deckGlyphSize = "text-sm sm:text-base"; 
-  const deckGlyphGap = "gap-px sm:gap-0.5";
+  const utilityButtonBaseClasses = "p-0.5 xs:p-1 rounded-full text-white/70 hover:text-white z-30 transition-all duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 bg-black/40 hover:bg-black/60";
+  const utilityButtonIconSize = "h-3 w-3 xs:h-3.5 sm:h-4";
+  const deckGlyphSize = "text-xs sm:text-sm md:text-base"; 
+  const deckGlyphGap = "gap-px xs:gap-0.5 sm:gap-1";
   const glyphColor = "text-white/70";
 
   return (
@@ -90,7 +90,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
        
         <div 
           className={`relative w-full h-full rounded-lg bg-gradient-to-br ${colorClass} shadow-lg group-hover:shadow-xl
-                      flex flex-col justify-center items-center text-center p-2 sm:p-2.5 
+                      flex flex-col justify-center items-center text-center p-1.5 sm:p-2 md:p-2.5 
                       border ${isRandomButton ? 'border-dashed border-indigo-300' : 'border-white/80'} 
                       transition-all duration-300 ease-out overflow-hidden
                       `}
@@ -111,7 +111,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
               <button
                 onClick={handleEditClick}
                 disabled={utilityActionsDisabled}
-                className={`absolute top-1 right-1 ${utilityButtonBaseClasses} ${utilityActionsDisabled ? 'cursor-not-allowed !opacity-50' : ''}`}
+                className={`absolute top-0.5 right-0.5 xs:top-1 xs:right-1 ${utilityButtonBaseClasses} ${utilityActionsDisabled ? 'cursor-not-allowed !opacity-50' : ''}`}
                 aria-label={`Edit ${itemName} deck`}
                 title={`Edit ${itemName}`}
               >
@@ -125,7 +125,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
                <button
                 onClick={handleInfoClick}
                 disabled={utilityActionsDisabled}
-                className={`absolute ${customDeckData ? 'top-1 left-1' : 'top-1 right-1'} ${utilityButtonBaseClasses} ${utilityActionsDisabled ? 'cursor-not-allowed !opacity-50' : ''}`}
+                className={`absolute ${customDeckData ? 'top-0.5 left-0.5 xs:top-1 xs:left-1' : 'top-0.5 right-0.5 xs:top-1 xs:right-1'} ${utilityButtonBaseClasses} ${utilityActionsDisabled ? 'cursor-not-allowed !opacity-50' : ''}`}
                 aria-label={`Info about ${itemName}`}
                 title={`Info: ${itemName}`}
               >
@@ -135,9 +135,9 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
               </button>
             )}
 
-            <div className={`flex flex-col items-center justify-center flex-grow overflow-hidden w-full px-1`}>
+            <div className={`flex flex-col items-center justify-center flex-grow overflow-hidden w-full px-0.5 sm:px-1`}>
               <h3 
-                className={`font-semibold ${isRandomButton ? 'text-lg sm:text-xl mt-4' : 'text-sm sm:text-base md:text-lg mt-2'} text-white break-words`}
+                className={`font-semibold ${isRandomButton ? 'text-base xs:text-lg sm:text-xl mt-3 sm:mt-4' : 'text-xs xs:text-sm sm:text-base md:text-lg mt-1 sm:mt-2'} text-white break-words`}
                 style={{ lineHeight: '1.2' }}
               >
                 {itemName}
@@ -145,7 +145,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
             </div>
             
             {isRandomButton && (
-              <div className={`absolute bottom-1.5 left-1.5 sm:bottom-2 sm:left-2 text-lg sm:text-xl font-playfair font-normal select-none text-white/40`} aria-hidden="true">
+              <div className={`absolute bottom-1 left-1 xs:bottom-1.5 xs:left-1.5 sm:bottom-2 sm:left-2 text-base xs:text-lg sm:text-xl font-playfair font-normal select-none text-white/40`} aria-hidden="true">
                 ⦾ 
               </div>
             )}

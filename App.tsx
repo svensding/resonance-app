@@ -51,6 +51,7 @@ const LOCALSTORAGE_KEYS = {
   GROUP_SETTING: 'resonanceClio_groupSetting_v1',
   SVEN_LISA_ONBOARDING_SHOWN: 'resonanceClio_svenLisaOnboardingShown_v1',
   IS_MUSIC_ENABLED: 'resonanceClio_isMusicEnabled_v1',
+  MUSIC_VOLUME: 'resonanceClio_musicVolume_v1', // New key for music volume
 };
 
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -120,6 +121,9 @@ const App: React.FC = () => {
   const [musicError, setMusicError] = useState<string | null>(null);
   const [currentDeckSetForMusic, setCurrentDeckSetForMusic] = useState<DeckSet | null>(null);
   const [currentMicroDeckForMusic, setCurrentMicroDeckForMusic] = useState<MicroDeck | null>(null);
+  const [musicVolume, setMusicVolume] = useState<number>(
+    () => loadFromLocalStorage<number>(LOCALSTORAGE_KEYS.MUSIC_VOLUME, 0.5) // Default volume 50%
+  );
 
 
   useEffect(() => {
@@ -129,6 +133,11 @@ const App: React.FC = () => {
   useEffect(() => {
     saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.IS_MUSIC_ENABLED, isMusicEnabled);
   }, [isMusicEnabled]);
+
+  useEffect(() => {
+    saveToLocalStorage<number>(LOCALSTORAGE_KEYS.MUSIC_VOLUME, musicVolume);
+  }, [musicVolume]);
+
 
   useEffect(() => {
     console.log("App mounted. Resonance (Deck Sets Architecture).");
@@ -223,14 +232,17 @@ const App: React.FC = () => {
     useEffect(() => { 
         if (musicServiceRef.current && musicSessionState === 'CONNECTED' && isMusicEnabled) {
             console.log("Music connected, MusicService will play its base theme.");
+            musicServiceRef.current.setVolume(isAudioMuted ? 0 : musicVolume); // Set volume before playing
             musicServiceRef.current.playMusic(); 
         } else if (musicServiceRef.current && musicSessionState === 'ERROR' && isMusicEnabled) {
             console.warn("Music service in ERROR state. Consider toggling music off/on to reinitialize.");
         }
-    }, [musicSessionState, isMusicEnabled]);
+    }, [musicSessionState, isMusicEnabled, musicVolume, isAudioMuted]);
 
     useEffect(() => { 
         if (musicServiceRef.current && (musicSessionState === 'PLAYING' || musicSessionState === 'LOADING_BUFFER' || musicSessionState === 'PLAY_REQUESTED') && isMusicEnabled) {
+            musicServiceRef.current.setVolume(isAudioMuted ? 0 : musicVolume); // Ensure volume is current
+
             const layerPrompts: LyriaWeightedPrompt[] = [];
             const layerConfigChanges: Partial<LyriaConfig> = {};
 
@@ -254,7 +266,7 @@ const App: React.FC = () => {
                         layerConfigChanges.bpm = 80; layerConfigChanges.density = 0.3; layerConfigChanges.brightness = 0.45;
                         break;
                 }
-                if (deckSetThemeText) layerPrompts.push({ text: deckSetThemeText, weight: 0.8 }); // DeckSet layers slightly less than MicroDeck energy
+                if (deckSetThemeText) layerPrompts.push({ text: deckSetThemeText, weight: 0.8 }); 
             }
 
             if (currentMicroDeckForMusic) {
@@ -272,17 +284,15 @@ const App: React.FC = () => {
                 }
             }
             
-            // Only steer if there are actual layer prompts or config changes to apply on top of base
             if (layerPrompts.length > 0 || Object.keys(layerConfigChanges).length > 0) {
                  console.log("App: Steering music with layer prompts:", layerPrompts, "and layer config changes:", layerConfigChanges);
                  musicServiceRef.current.steerMusic(layerPrompts, layerConfigChanges);
             } else if (currentDeckSetForMusic === null && currentMicroDeckForMusic === null) {
-                // If both are null, it means we want to revert to only base theme
                 console.log("App: Reverting music to base theme (no layers).");
-                musicServiceRef.current.steerMusic([], {}); // Empty layers, empty config changes
+                musicServiceRef.current.steerMusic([], {}); 
             }
         }
-    }, [currentDeckSetForMusic, currentMicroDeckForMusic, musicSessionState, isMusicEnabled]);
+    }, [currentDeckSetForMusic, currentMicroDeckForMusic, musicSessionState, isMusicEnabled, musicVolume, isAudioMuted]);
 
     const stopAllCurrentPlayback = useCallback(() => {
         stopSpeechServicePlayback();
@@ -633,20 +643,38 @@ const App: React.FC = () => {
       if (muted) {
           stopSpeechServicePlayback(); 
           if (musicServiceRef.current && isMusicEnabled) {
-              musicServiceRef.current.pauseMusic(); 
+              musicServiceRef.current.setVolume(0); 
           }
       } else {
-          if (musicServiceRef.current && isMusicEnabled && musicSessionState === 'PAUSED') {
-              try {
-                  await musicServiceRef.current.playMusic(); 
-              } catch (e) {
-                  console.error("Error resuming music on unmute:", e);
-                  setMusicError("Failed to resume music. You might need to toggle music off/on.");
+          if (musicServiceRef.current && isMusicEnabled) {
+              musicServiceRef.current.setVolume(musicVolume);
+              if (musicSessionState === 'PAUSED') {
+                 try {
+                    await musicServiceRef.current.playMusic(); 
+                } catch (e) {
+                    console.error("Error resuming music on unmute:", e);
+                    setMusicError("Failed to resume music. You might need to toggle music off/on.");
+                }
               }
           }
       }
   };
-  const handleMusicEnableToggle = (enabled: boolean) => setIsMusicEnabled(enabled);
+
+  const handleMusicEnableToggle = (enabled: boolean) => {
+      setIsMusicEnabled(enabled);
+      if (enabled && musicServiceRef.current) {
+          musicServiceRef.current.setVolume(isAudioMuted ? 0 : musicVolume);
+      } else if (!enabled && musicServiceRef.current) {
+          // MusicService disconnect logic already handles pausing/stopping.
+      }
+  };
+
+  const handleMusicVolumeChange = (newVolume: number) => {
+    setMusicVolume(newVolume);
+    if (musicServiceRef.current && isMusicEnabled && !isAudioMuted) {
+      musicServiceRef.current.setVolume(newVolume);
+    }
+  };
 
   const handleOpenGroupSettingModal = () => setShowGroupSettingModal(true);
   const handleCloseGroupSettingModal = () => setShowGroupSettingModal(false);
@@ -655,7 +683,9 @@ const App: React.FC = () => {
   return (
     <>
       <div className="fixed top-0 left-0 right-0 z-20">
-        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-slate-900/70 via-slate-900/70 via-[67%] to-transparent backdrop-blur-md shadow-lg h-[calc(0.97*9rem)] sm:h-[calc(0.97*10rem)] md:h-[calc(0.97*11rem)]"></div>
+        {/* Adjusted height and blur for responsiveness */}
+        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-slate-900/70 via-slate-900/70 via-[67%] to-transparent backdrop-blur-sm sm:backdrop-blur-md shadow-lg 
+                        h-[calc(0.97*7rem)] xs:h-[calc(0.97*8rem)] sm:h-[calc(0.97*9rem)] md:h-[calc(0.97*10rem)] lg:h-[calc(0.97*11rem)]"></div>
         <div className="relative"> 
           <ThemeDeckSelection 
               onDraw={(itemId) => handleDrawCardInternal(itemId)} 
@@ -670,16 +700,20 @@ const App: React.FC = () => {
       </div>
 
       <main className="main-content-area flex flex-col items-center w-full hide-scrollbar">
-        <div className="w-full flex flex-col items-center pt-56 pb-72 px-2 sm:px-4 min-h-0">
+        {/* Adjusted top padding for different screen sizes */}
+        <div className="w-full flex flex-col items-center 
+                        pt-30 xs:pt-34 sm:pt-40 md:pt-44 lg:pt-48 xl:pt-52
+                        pb-24 sm:pb-28 md:pb-32 
+                        px-1 xs:px-2 sm:px-4 min-h-0">
           {apiKeyMissing && <div className="my-4 w-full max-w-2xl flex justify-center"><ApiKeyMessage /></div>}
           
           {!isLoading && error && !apiKeyMissing && (
-            <div className="w-full max-w-xl bg-red-500 p-4 rounded-lg shadow-xl text-center my-4">
+            <div className="w-full max-w-xl bg-red-500 p-3 sm:p-4 rounded-lg shadow-xl text-center my-4">
               <p className="font-semibold">Error:</p> <p>{error}</p>
             </div>
           )}
           {musicError && isMusicEnabled && ( 
-            <div className="w-full max-w-xl bg-orange-600 p-3 rounded-lg shadow-lg text-center my-2 text-sm">
+            <div className="w-full max-w-xl bg-orange-600 p-2 sm:p-3 rounded-lg shadow-lg text-center my-2 text-xs sm:text-sm">
                 <p className="font-semibold">Music System Note:</p> <p>{musicError}</p>
             </div>
            )}
@@ -688,10 +722,10 @@ const App: React.FC = () => {
              <button
                 onClick={() => handleDrawCardInternal("CULMINATION_CARD")}
                 disabled={isLoading || apiKeyMissing}
-                className="my-4 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-semibold rounded-lg shadow-xl hover:from-purple-500 hover:to-indigo-600 transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="my-3 sm:my-4 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-semibold rounded-lg shadow-xl hover:from-purple-500 hover:to-indigo-600 transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="A Moment of Synthesis?"
               >
-                <span className="font-playfair text-lg">⦾</span> A Moment of Synthesis? <span className="font-playfair text-lg">⦾</span>
+                <span className="font-playfair text-base sm:text-lg">⦾</span> <span className="text-sm sm:text-base">A Moment of Synthesis?</span> <span className="font-playfair text-base sm:text-lg">⦾</span>
               </button>
           )}
 
@@ -726,6 +760,7 @@ const App: React.FC = () => {
           currentVoice={selectedVoiceName} currentLanguage={selectedLanguageCode} 
           isMuted={isAudioMuted} onMuteChange={handleMuteToggle}
           isMusicEnabled={isMusicEnabled} onMusicEnableChange={handleMusicEnableToggle}
+          musicVolume={musicVolume} onMusicVolumeChange={handleMusicVolumeChange}
           musicSessionState={musicSessionState}
           onVoiceChange={handleVoiceChange} onLanguageChange={handleLanguageChange} 
           onClose={handleCloseVoiceSettingsModal} voicesList={GOOGLE_VOICES} languagesList={LANGUAGES}
@@ -764,7 +799,8 @@ const App: React.FC = () => {
         />
       )}
       
-      <footer className="bg-slate-800/70 backdrop-blur-sm shadow-top z-20 fixed bottom-0 left-0 right-0 py-1 flex items-center justify-between px-2 sm:px-4">
+      {/* Adjusted footer padding for responsiveness */}
+      <footer className="bg-slate-800/70 backdrop-blur-sm shadow-top z-20 fixed bottom-0 left-0 right-0 py-0.5 sm:py-1 flex items-center justify-between px-1 xs:px-2 sm:px-4">
         <BottomToolbar 
             participants={participants} setParticipants={setParticipants}
             activeParticipantId={activeParticipantId} setActiveParticipantId={setActiveParticipantId}

@@ -253,7 +253,7 @@ export const GROUP_SETTINGS: GroupSettingOption[] = [
   { id: "FAMILY", label: "Family", description: "Bonds, history, understanding." },
   { id: "COLLEAGUES", label: "Colleagues", description: "Team dynamics, collaboration, professional connection." },
   { id: "COMMUNITY", label: "Community", description: "Shared purpose, group identity, mutual support." },
-  { id: "SPECIAL", label: "Special", description: "Curated experience for specific known users (e.g., Sven & Lisa focus)." },
+  { id: "SPECIAL", label: "Special", description: "Curated experiences." },
 ];
 export const DEFAULT_GROUP_SETTING: GroupSetting = "GENERAL";
 

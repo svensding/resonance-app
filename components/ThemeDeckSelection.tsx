@@ -43,8 +43,8 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
     return `hover:${darken(fromColor)} hover:${darken(toColor)}`;
   };
 
-  const deckHeight = "h-36 sm:h-40 md:h-44"; 
-  const deckWidth = "w-24 sm:w-28 md:w-32";
+  const deckHeight = "h-28 xs:h-32 sm:h-36 md:h-40 lg:h-44"; 
+  const deckWidth = "w-20 xs:w-24 sm:w-28 md:w-32";
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;
 
@@ -56,10 +56,10 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
   ];
 
   return (
-    <div className="w-full py-2 sm:py-3 relative bg-transparent"> 
+    <div className="w-full py-1.5 sm:py-2 md:py-3 relative bg-transparent"> 
       <div 
         ref={scrollContainerRef} 
-        className="flex overflow-x-auto hide-scrollbar pb-3 sm:pb-4 space-x-3 sm:space-x-4 px-2 sm:px-4 justify-start items-end cursor-grab active:cursor-grabbing bg-transparent"
+        className="flex overflow-x-auto hide-scrollbar pb-2 sm:pb-3 md:pb-4 space-x-2 xs:space-x-3 sm:space-x-4 px-1.5 xs:px-2 sm:px-4 justify-start items-end cursor-grab active:cursor-grabbing bg-transparent"
         style={{ isolation: 'isolate' }} 
       >
         {itemsToDisplay.map(item => {
@@ -118,15 +118,15 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
             <button
                 onClick={onAddCustomDeck}
                 disabled={drawActionDisabled} // Add deck can be considered a draw-like setup action
-                className={`w-full h-full flex flex-col items-center justify-center bg-slate-700 rounded-lg border-2 border-dashed border-slate-500 text-slate-400 transition-all duration-200 p-2 focus:outline-none 
+                className={`w-full h-full flex flex-col items-center justify-center bg-slate-700 rounded-lg border-2 border-dashed border-slate-500 text-slate-400 transition-all duration-200 p-1.5 sm:p-2 focus:outline-none 
                             ${drawActionDisabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-slate-600 hover:border-sky-400 hover:text-sky-300 focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 focus:ring-offset-slate-900'}`}
                 aria-label="Add new custom deck"
                 title="Add a new custom deck"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 sm:h-10 sm:w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 xs:h-8 xs:w-8 sm:h-10 sm:w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-xs sm:text-sm font-semibold mt-1 sm:mt-2 text-center">Add Deck</span>
+                <span className="text-[0.6rem] xs:text-xs sm:text-sm font-semibold mt-1 sm:mt-1.5 text-center">Add Deck</span>
             </button>
         </div>
       </div>

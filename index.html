@@ -30,9 +30,9 @@
       left: 0;
       width: 200%; 
       height: 200%; 
-      font-size: 100px; 
-      color: rgba(203, 213, 225, 0.015); /* Slightly more subtle */
-      line-height: 2.5em; 
+      font-size: 70px; /* Base size for mobile */
+      color: rgba(203, 213, 225, 0.008); /* Base opacity for mobile */
+      line-height: 3em; /* Adjusted line height */
       white-space: pre;
       overflow: hidden;
       pointer-events: none;
@@ -40,6 +40,26 @@
       transform: translate(-25%, -25%) rotate(-15deg); 
       animation: backgroundPatternScroll 120s linear infinite;
     }
+
+    @media (min-width: 640px) { /* sm breakpoint */
+      body::after {
+        font-size: 80px;
+        color: rgba(203, 213, 225, 0.01);
+      }
+    }
+    @media (min-width: 768px) { /* md breakpoint */
+      body::after {
+        font-size: 90px;
+        color: rgba(203, 213, 225, 0.012);
+      }
+    }
+     @media (min-width: 1024px) { /* lg breakpoint */
+      body::after {
+        font-size: 100px;
+        color: rgba(203, 213, 225, 0.015);
+      }
+    }
+
 
     @keyframes backgroundPatternScroll {
       0% { transform: translate(-25%, -25%) rotate(-15deg); }
@@ -145,7 +165,9 @@
     "react": "https://esm.sh/react@^19.1.0",
     "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
     "react/": "https://esm.sh/react@^19.1.0/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.4.0"
+    "@google/genai": "https://esm.sh/@google/genai@^1.4.0",
+    "path": "https://esm.sh/path@^0.12.7",
+    "vite": "https://esm.sh/vite@^6.3.5"
   }
 }
 </script>
@@ -153,7 +175,15 @@
 </head>
 <body class="bg-slate-900 font-atkinson-regular h-full">
   <div id="root" class="h-full">
-    {/* App will render toolbars and main content area here */}
+    <!-- Initial Loading Placeholder -->
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: #cbd5e1; /* slate-300 */ padding-bottom: 5vh;">
+      <h1 style="font-family: 'Playfair Display', serif; font-size: 2.25rem; /* ~text-4xl */ line-height: 2.5rem; font-weight: 600; margin-bottom: 0.75rem;">
+        <span style="position: relative; top: 0.07em;">R</span>esonance <span style="font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 400; font-size: 2rem;">⦾</span>
+      </h1>
+      <p style="font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 0.875rem; /* text-sm */ color: #94a3b8; /* slate-400 */ margin-top: 0.25rem;">
+        Evoking connection...
+      </p>
+    </div>
   </div>
   <script defer src="/bundle.js"></script>
 <script type="module" src="/index.tsx"></script>

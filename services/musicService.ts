@@ -3,7 +3,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { 
     LiveMusicSession, WeightedPrompt, LiveMusicGenerationConfig, LiveMusicServerMessage, 
-    Scale, LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating // Assuming Scale might be used for BASE_MUSIC_CONFIG_INTERNAL
+    Scale, LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating 
 } from "@google/genai"; 
 
 export type { WeightedPrompt, LiveMusicGenerationConfig };
@@ -50,7 +50,7 @@ const BASE_MUSIC_CONFIG_INTERNAL: LiveMusicGenerationConfig = {
 
 
 export class MusicService {
-    private apiKeyInternal: string | null; // Renamed to avoid conflict if class member `apiKey` is used
+    private apiKeyInternal: string | null; 
     private aiClient: GoogleGenAI | null = null; 
     private session: LiveMusicSession | null = null;
     private audioContext: AudioContext | null = null;
@@ -77,22 +77,20 @@ export class MusicService {
 
 
     constructor(
-        apiKeyParam: string, // Parameter explicitly passed
+        apiKeyParam: string, 
         onStateChange: (state: MusicSessionState) => void,
         onError: (error: string) => void
     ) {
-        this.apiKeyInternal = apiKeyParam; // Store the passed API key
+        this.apiKeyInternal = apiKeyParam; 
         this.onStateChange = onStateChange;
         this.onError = onError;
 
-        // Use the passed apiKeyParam for initialization
         if (!this.apiKeyInternal) {
             this.onError("API Key not provided for MusicService initialization.");
             this.setState('ERROR');
             return;
         }
         try {
-            // Ensure httpOptions is correctly structured if needed by this SDK version for v1alpha
             this.aiClient = new GoogleGenAI({ apiKey: this.apiKeyInternal, httpOptions: { apiVersion: 'v1alpha'} });
         } catch (error) {
             console.error("Failed to initialize GoogleGenAI for MusicService:", error);
@@ -115,7 +113,8 @@ export class MusicService {
             try {
                 this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: TARGET_SAMPLE_RATE });
                 this.gainNode = this.audioContext.createGain();
-                this.gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime);
+                // Default volume, App.tsx will typically override this with user's preference.
+                this.gainNode.gain.setValueAtTime(0.5, this.audioContext.currentTime); 
                 this.gainNode.connect(this.audioContext.destination);
             } catch (e) {
                 console.error("Failed to initialize AudioContext for music:", e);
@@ -139,7 +138,7 @@ export class MusicService {
     }
     
     async connect() {
-        if (!this.aiClient || !this.apiKeyInternal) { // Check internal key
+        if (!this.aiClient || !this.apiKeyInternal) { 
             this.onError("Gemini AI client or API Key not properly initialized for music service.");
             this.setState('ERROR');
             return;
@@ -177,32 +176,17 @@ export class MusicService {
             console.log("MusicService: Lyria setup complete. Connection established.");
             this.setState('CONNECTED');
         }
+
+        // Handle prompt filtering information if available
+        // message.promptFeedback is not available on LiveMusicServerMessage in the current SDK version.
+        // We can only rely on message.filteredPrompt if it exists.
         if (message.filteredPrompt) {
             const filteredPromptText = message.filteredPrompt.text;
-            const isBlocked = message.filteredPrompt.blocked;
-            const safetyRatings = message.filteredPrompt.safetyRatings;
+            const warningMessage = `MusicService: Lyria prompt was filtered. Text (approx.): "${filteredPromptText.substring(0, 50)}...". Detailed block/safety reasons via a 'promptFeedback' object are not available in the current message structure.`;
+            const userFacingError = `A music prompt (starting with "${filteredPromptText.substring(0, 30)}...") was modified by the service.`;
             
-            let reasonMessage = "Filtered";
-            if (isBlocked) {
-                reasonMessage = "Blocked by safety filter";
-            }
-
-            if (safetyRatings && safetyRatings.length > 0) {
-                const specificReasons = safetyRatings
-                    .filter(r => r.blocked && r.category) 
-                    .map(r => `${r.category}${r.probability ? ` (${r.probability})` : ''}`)
-                    .join(', ');
-                if (specificReasons) {
-                    reasonMessage += `: ${specificReasons}`;
-                } else if (isBlocked) {
-                    reasonMessage += " (general safety policy)";
-                }
-            } else if (isBlocked) {
-                 reasonMessage += " (no specific safety ratings provided)";
-            }
-
-            console.warn(`MusicService: Prompt filtered by Lyria. Status: ${reasonMessage}. Prompt: "${filteredPromptText || 'N/A'}". Blocked: ${isBlocked}. Safety Ratings: ${JSON.stringify(safetyRatings || [])}`);
-            this.onError(`A music prompt was filtered: "${(filteredPromptText || 'N/A').substring(0,30)}...". Status: ${reasonMessage}`);
+            console.warn(warningMessage);
+            this.onError(userFacingError);
         }
         
         const audioDataString = message.audioChunk?.data;
