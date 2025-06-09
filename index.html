@@ -1,165 +1,3 @@
-<!DOCTYPE html>
-<html lang="en" class="h-full">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resonance ⦾</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600;1,700;1,800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
-  <style>
-    html {
-      height: 100%;
-    }
-    body {
-      background-color: #0f172a; /* bg-slate-900 */
-      color: #e2e8f0; /* text-slate-200 */
-      overscroll-behavior-y: contain; /* Prevent pull-to-refresh issues on mobile */
-      font-family: 'Atkinson Hyperlegible', sans-serif;
-      font-weight: 400; /* Regular */
-      height: 100%;
-      margin: 0;
-      overflow: hidden; /* Prevent body scroll */
-      position: relative; /* For pseudo-element pattern */
-    }
-    body::after { /* Active glyph pattern */
-      content: "⦾ \00a0 \00a0 \00a0 ⋈ \00a0 \00a0 \00a0 ⟁ \00a0 \00a0 \00a0 ⟐";
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 200%; 
-      height: 200%; 
-      font-size: 70px; /* Base size for mobile */
-      color: rgba(203, 213, 225, 0.008); /* Base opacity for mobile */
-      line-height: 3em; /* Adjusted line height */
-      white-space: pre;
-      overflow: hidden;
-      pointer-events: none;
-      z-index: -1;
-      transform: translate(-25%, -25%) rotate(-15deg); 
-      animation: backgroundPatternScroll 120s linear infinite;
-    }
-
-    @media (min-width: 640px) { /* sm breakpoint */
-      body::after {
-        font-size: 80px;
-        color: rgba(203, 213, 225, 0.01);
-      }
-    }
-    @media (min-width: 768px) { /* md breakpoint */
-      body::after {
-        font-size: 90px;
-        color: rgba(203, 213, 225, 0.012);
-      }
-    }
-     @media (min-width: 1024px) { /* lg breakpoint */
-      body::after {
-        font-size: 100px;
-        color: rgba(203, 213, 225, 0.015);
-      }
-    }
-
-
-    @keyframes backgroundPatternScroll {
-      0% { transform: translate(-25%, -25%) rotate(-15deg); }
-      100% { transform: translate(-75%, -75%) rotate(-15deg); } 
-    }
-
-
-    #root {
-      display: flex;
-      flex-direction: column;
-      height: 100%; 
-      width: 100%;
-      overflow: hidden; 
-    }
-    .main-content-area {
-      flex-grow: 1; 
-      overflow-y: auto; 
-      overflow-x: hidden;
-    }
-    .scrollbar-thin { 
-      scrollbar-width: thin;
-      scrollbar-color: #60a5fa #334155; /* blue-400 slate-700 */
-    }
-    .scrollbar-thin::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    .scrollbar-thin::-webkit-scrollbar-track {
-      background: rgba(51, 65, 85, 0.5); 
-    }
-    .scrollbar-thin::-webkit-scrollbar-thumb {
-      background-color: #60a5fa; 
-      border-radius: 4px;
-      border: 2px solid rgba(51, 65, 85, 0.1); 
-    }
-    .perspective { perspective: 1000px; }
-    .hide-scrollbar {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-    .hide-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .font-atkinson-regular { font-weight: 400; }
-    .font-atkinson-medium { font-weight: 500; }
-    .font-atkinson-semibold { font-weight: 600; }
-    .font-atkinson-bold { font-weight: 700; } 
-    .font-atkinson-extrabold { font-weight: 800; }
-
-    .text-balance { text-wrap: balance; }
-
-    .font-playfair {
-      font-family: 'Playfair Display', serif;
-    }
-
-    @keyframes shimmerAnimation {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    .shimmer-effect::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(
-        100deg,
-        rgba(255, 255, 255, 0) 20%,
-        rgba(255, 255, 255, 0.07) 50%, /* Reduced shimmer opacity */
-        rgba(255, 255, 255, 0) 80%
-      );
-      background-size: 200% 100%;
-      animation: shimmerAnimation 35s infinite linear; 
-      pointer-events: none;
-      border-radius: inherit; 
-      z-index: 1; 
-    }
-
-    @keyframes pulse {
-      50% {
-        opacity: .5;
-      }
-    }
-    .animate-pulse-slow {
-      animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; 
-    }
-
-    .brand-text-container {
-      display: inline-flex;
-      align-items: baseline;
-    }
-    .brand-text-r {
-      position: relative;
-      top: 0.07em; /* Fine-tune for Atkinson Hyperlegible */
-    }
-
-  </style>
-  <!-- Importmap removed as dependencies will be bundled by esbuild -->
-  <!-- <link rel="stylesheet" href="/index.css"> Assuming Tailwind handles all styles or it's part of the bundle process -->
 <script type="importmap">
 {
   "imports": {
@@ -172,21 +10,134 @@
   }
 }
 </script>
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resonance ⦾</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600;1,700;1,800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Base (Mobile) Viewport Heights */
+      --header-height-actual: 15vh;
+      --footer-height-actual: 7.5vh; /* Was 10vh, reduced by 25% */
+
+      /* Calculated Padding for Main Content Area */
+      --main-content-top-padding: calc(var(--header-height-actual) + 3vh);
+      --main-content-bottom-padding: calc(var(--footer-height-actual) + 7vh); /* Was +8vh, adjusted for shorter footer */
+    }
+
+    @media (min-width: 768px) { /* md breakpoint and up */
+      :root {
+        --header-height-actual: 14vh;
+        --footer-height-actual: 6.75vh; /* Was 9vh, reduced by 25% */
+      }
+    }
+    @media (min-width: 1024px) { /* lg breakpoint and up */
+      :root {
+        --header-height-actual: 13vh;
+        --footer-height-actual: 6vh; /* Was 8vh, reduced by 25% */
+      }
+    }
+
+    html, body {
+      height: 100vh; /* Use viewport height */
+      overflow: hidden; /* Prevent body scroll, #root will handle it */
+    }
+    body {
+      background-color: #0f172a; /* bg-slate-900 */
+      color: #e2e8f0; /* text-slate-200 */
+      overscroll-behavior-y: contain; /* Prevent pull-to-refresh issues on mobile */
+      font-family: 'Atkinson Hyperlegible', sans-serif;
+      font-weight: 400; /* Regular */
+      margin: 0;
+      position: relative; /* For pseudo-element pattern */
+    }
+    #root {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    body::after { /* Active glyph pattern */
+      content: "⦾ \00a0 \00a0 \00a0 ⋈ \00a0 \00a0 \00a0 ⟁ \00a0 \00a0 \00a0 ⟐";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 200%; 
+      height: 200%; 
+      font-size: clamp(50px, 10vw, 100px); /* Responsive font size for pattern */
+      color: rgba(203, 213, 225, 0.008); 
+      line-height: 1.8em; /* Adjusted line height */
+      white-space: pre;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: -1;
+      transform: translate(-25%, -25%) rotate(-15deg); 
+      animation: backgroundPatternScroll 120s linear infinite;
+    }
+
+    @media (min-width: 640px) { /* sm breakpoint */
+      body::after {
+        color: rgba(203, 213, 225, 0.01);
+      }
+    }
+
+    @keyframes backgroundPatternScroll {
+      0% { transform: translate(-25%, -25%) rotate(-15deg); }
+      100% { transform: translate(-75%, -75%) rotate(-15deg); } /* Adjust scroll amount */
+    }
+    
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.5); border-radius: 3px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.7); }
+    .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgba(100, 116, 139, 0.5) transparent; }
+
+    /* Perspective and 3D styles for card flip */
+    .perspective { perspective: 1000px; }
+    .preserve-3d { transform-style: preserve-3d; }
+    .backface-hidden { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+    .rotate-y-180 { transform: rotateY(180deg); }
+    
+    /* Shimmer effect for loading/new cards */
+    .shimmer-effect {
+      position: relative;
+      overflow: hidden;
+    }
+    .shimmer-effect::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+      animation: shimmer 2.5s infinite linear;
+    }
+    @keyframes shimmer {
+      0% { left: -100%; }
+      50% { left: 100%; }
+      100% { left: 100%; } /* Hold at end briefly */
+    }
+    .animate-pulse-slow {
+      animation: pulse-slow 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 1; }
+    }
+  </style>
 <link rel="stylesheet" href="/index.css">
 </head>
-<body class="bg-slate-900 font-atkinson-regular h-full">
-  <div id="root" class="h-full">
-    <!-- Initial Loading Placeholder -->
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: #cbd5e1; /* slate-300 */ padding-bottom: 5vh;">
-      <h1 style="font-family: 'Playfair Display', serif; font-size: 2.25rem; /* ~text-4xl */ line-height: 2.5rem; font-weight: 600; margin-bottom: 0.75rem;">
-        <span style="position: relative; top: 0.07em;">R</span>esonance <span style="font-family: 'Atkinson Hyperlegible', sans-serif; font-weight: 400; font-size: 2rem;">⦾</span>
-      </h1>
-      <p style="font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 0.875rem; /* text-sm */ color: #94a3b8; /* slate-400 */ margin-top: 0.25rem;">
-        Evoking connection...
-      </p>
-    </div>
-  </div>
-  <script defer src="/bundle.js"></script>
-<script type="module" src="/index.tsx"></script>
+<body class="font-atkinson-regular">
+  <div id="root" class="hide-scrollbar"></div>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>

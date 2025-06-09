@@ -3,10 +3,11 @@
 import { GoogleGenAI } from "@google/genai";
 import type { 
     LiveMusicSession, WeightedPrompt, LiveMusicGenerationConfig, LiveMusicServerMessage, 
-    Scale, LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating 
+    Scale as GenAIScale, LiveMusicSetConfigParameters, LiveMusicFilteredPrompt, SafetyRating 
 } from "@google/genai"; 
 
 export type { WeightedPrompt, LiveMusicGenerationConfig };
+export { GenAIScale as Scale }; // Re-export Scale for use in App.tsx
 
 const LYRIA_MODEL_NAME = 'models/lyria-realtime-exp';
 const TARGET_SAMPLE_RATE = 48000; 
@@ -499,5 +500,13 @@ export class MusicService {
             this.gainNode.gain.setValueAtTime(clampedVolume, this.audioContext.currentTime);
             console.log("MusicService: Volume set to", clampedVolume);
         }
+    }
+
+    public getActiveLayerPrompts(): WeightedPrompt[] {
+        return this.activeLayerPrompts;
+    }
+
+    public getCurrentInternalState(): MusicSessionState { // Added for debugging or specific checks if absolutely needed, prefer onStateChange
+        return this.internalState;
     }
 }

@@ -13,7 +13,7 @@ import {
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { 
-    MusicService, MusicSessionState, WeightedPrompt as LyriaWeightedPrompt, LiveMusicGenerationConfig as LyriaConfig 
+    MusicService, MusicSessionState, WeightedPrompt as LyriaWeightedPrompt, LiveMusicGenerationConfig as LyriaConfig, Scale 
 } from './services/musicService';
 import { ApiKeyMessage } from './components/ApiKeyMessage';
 import { ThemeDeckSelection } from './components/ThemeDeckSelection';
@@ -51,7 +51,7 @@ const LOCALSTORAGE_KEYS = {
   GROUP_SETTING: 'resonanceClio_groupSetting_v1',
   SVEN_LISA_ONBOARDING_SHOWN: 'resonanceClio_svenLisaOnboardingShown_v1',
   IS_MUSIC_ENABLED: 'resonanceClio_isMusicEnabled_v1',
-  MUSIC_VOLUME: 'resonanceClio_musicVolume_v1', // New key for music volume
+  MUSIC_VOLUME: 'resonanceClio_musicVolume_v1', 
 };
 
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -122,7 +122,7 @@ const App: React.FC = () => {
   const [currentDeckSetForMusic, setCurrentDeckSetForMusic] = useState<DeckSet | null>(null);
   const [currentMicroDeckForMusic, setCurrentMicroDeckForMusic] = useState<MicroDeck | null>(null);
   const [musicVolume, setMusicVolume] = useState<number>(
-    () => loadFromLocalStorage<number>(LOCALSTORAGE_KEYS.MUSIC_VOLUME, 0.5) // Default volume 50%
+    () => loadFromLocalStorage<number>(LOCALSTORAGE_KEYS.MUSIC_VOLUME, 0.5) 
   );
 
 
@@ -142,674 +142,688 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log("App mounted. Resonance (Deck Sets Architecture).");
     Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('resonanceClio_') && !Object.values(LOCALSTORAGE_KEYS).includes(key) && key !== 'resonanceClio_hiddenDeckIds_v2') {
-            localStorage.removeItem(key); console.log(`Removed old localStorage key: ${key}`);
-        } else if (key.startsWith('resonanceEcho_')) {
-            localStorage.removeItem(key); console.log(`Removed old localStorage key: ${key}`);
-        }
+      if (key.startsWith("resonanceEchoDeck_") || key.startsWith("resonanceClio_") || key.startsWith("clio")) {
+        // console.log(`LS Key: ${key}`);
+      }
     });
 
-    setDrawnCardHistory([]);
-    const defaultParticipant = { id: `participant-${Date.now()}-fresh-load`, name: '' };
-    setParticipants([defaultParticipant]);
-    setActiveParticipantId(defaultParticipant.id);
-    
-    setSelectedVoiceName(loadFromLocalStorage<VoiceName>(LOCALSTORAGE_KEYS.VOICE_NAME, DEFAULT_VOICE_NAME));
-    setSelectedLanguageCode(loadFromLocalStorage<LanguageCode>(LOCALSTORAGE_KEYS.LANGUAGE_CODE, DEFAULT_LANGUAGE_CODE));
-    setIsAudioMuted(loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.IS_MUTED, false));
-    setCustomDecks(loadFromLocalStorage<CustomThemeData[]>(LOCALSTORAGE_KEYS.CUSTOM_DECKS, []));
-    setSelectedGroupSetting(loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING));
-    
-  }, []);
-
-  useEffect(() => { saveToLocalStorage<CustomThemeData[]>(LOCALSTORAGE_KEYS.CUSTOM_DECKS, customDecks); }, [customDecks]);
-  useEffect(() => { saveToLocalStorage<VoiceName>(LOCALSTORAGE_KEYS.VOICE_NAME, selectedVoiceName); }, [selectedVoiceName]);
-  useEffect(() => { saveToLocalStorage<LanguageCode>(LOCALSTORAGE_KEYS.LANGUAGE_CODE, selectedLanguageCode); }, [selectedLanguageCode]);
-  useEffect(() => { saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.IS_MUTED, isAudioMuted); }, [isAudioMuted]);
-  useEffect(() => { saveToLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, selectedGroupSetting); }, [selectedGroupSetting]);
-
-  const customDeckColorPool: string[] = [ 
-    "from-lime-400 to-green-500", "from-cyan-400 to-blue-500", "from-fuchsia-400 to-purple-500",
-    "from-orange-400 to-red-500", "from-yellow-300 to-amber-400", "from-indigo-400 to-violet-500",
-    "from-pink-400 to-rose-500", "from-teal-300 to-emerald-400",
-  ];
-
-  useEffect(() => {
     if (!process.env.API_KEY) {
       setApiKeyMissing(true);
-      setError("Gemini API Key is missing. Please configure it in your environment variables.");
+      setError("API_KEY for Gemini is not configured.");
     }
-  }, []); 
 
-  useEffect(() => {
-    if (participants.length > 0) {
-        const activeParticipantStillExists = activeParticipantId && participants.some(p => p.id === activeParticipantId);
-        if (!activeParticipantStillExists && participants[0]) setActiveParticipantId(participants[0].id);
-        else if (participants.length > 0 && !activeParticipantId && participants[0]) setActiveParticipantId(participants[0].id);
-    } else if (participants.length === 0 && activeParticipantId !== null) setActiveParticipantId(null); 
-  }, [participants, activeParticipantId]);
+    const loadedDecks = loadFromLocalStorage<CustomThemeData[]>(LOCALSTORAGE_KEYS.CUSTOM_DECKS, []);
+    setCustomDecks(loadedDecks);
+
+    const loadedVoice = loadFromLocalStorage<VoiceName>(LOCALSTORAGE_KEYS.VOICE_NAME, DEFAULT_VOICE_NAME);
+    setSelectedVoiceName(loadedVoice);
+    const loadedLang = loadFromLocalStorage<LanguageCode>(LOCALSTORAGE_KEYS.LANGUAGE_CODE, DEFAULT_LANGUAGE_CODE);
+    setSelectedLanguageCode(loadedLang);
+    const loadedMute = loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.IS_MUTED, false);
+    setIsAudioMuted(loadedMute);
+
+    const loadedGroupSetting = loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING);
+    setSelectedGroupSetting(loadedGroupSetting);
+    
+    // Initial participant setup based on group setting (if desired for future)
+    updateParticipantsForGroupSetting(loadedGroupSetting, true);
 
 
-  useEffect(() => {
-    if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
-    if (drawnCardHistory.length > 0 && !isLoading && !hasPlayedAudioForNewestCard) {
-      const newestCard = drawnCardHistory[0];
-      if (!newestCard.isFaded) {
-        audioPlaybackTimerRef.current = setTimeout(() => {
-          if (newestCard.audioData && newestCard.audioMimeType) {
-            playAudioData(newestCard.audioData, newestCard.audioMimeType, isAudioMuted);
-          } else if (newestCard.text) {
-            speakText(newestCard.text, selectedLanguageCode, isAudioMuted); 
-          }
-          setHasPlayedAudioForNewestCard(true);
-        }, ECHO_BREATH_PAUSE_MS);
-      } else {
-        setHasPlayedAudioForNewestCard(true); 
-      }
+    if (process.env.API_KEY && isMusicEnabled) {
+        musicServiceRef.current = new MusicService(
+            process.env.API_KEY,
+            (state) => setMusicSessionState(state),
+            (err) => {
+                setMusicError(err);
+                console.error("MusicService Error Callback:", err);
+            }
+        );
+        musicServiceRef.current.setVolume(musicVolume); // Ensure initial volume is set
     }
-    return () => { if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current); }
-  }, [drawnCardHistory, isLoading, hasPlayedAudioForNewestCard, isAudioMuted, selectedLanguageCode]);
 
-    // Music Service Effects
-    useEffect(() => {
-        if (isMusicEnabled && !musicServiceRef.current && process.env.API_KEY) {
-            console.log("Music enabled, initializing MusicService.");
-            setMusicError(null); 
-            musicServiceRef.current = new MusicService(
-                process.env.API_KEY,
-                (state) => { setMusicSessionState(state); },
-                (err) => { setMusicError(err); }
-            );
-            musicServiceRef.current.connect();
-        } else if ((!isMusicEnabled || apiKeyMissing) && musicServiceRef.current) {
-            console.log("Music disabled or API key missing, disconnecting MusicService.");
-            musicServiceRef.current.disconnect();
-            musicServiceRef.current = null;
-            setMusicSessionState('DISCONNECTED');
-        }
-    }, [isMusicEnabled, apiKeyMissing]);
 
-    useEffect(() => { 
-        if (musicServiceRef.current && musicSessionState === 'CONNECTED' && isMusicEnabled) {
-            console.log("Music connected, MusicService will play its base theme.");
-            musicServiceRef.current.setVolume(isAudioMuted ? 0 : musicVolume); // Set volume before playing
-            musicServiceRef.current.playMusic(); 
-        } else if (musicServiceRef.current && musicSessionState === 'ERROR' && isMusicEnabled) {
-            console.warn("Music service in ERROR state. Consider toggling music off/on to reinitialize.");
-        }
-    }, [musicSessionState, isMusicEnabled, musicVolume, isAudioMuted]);
-
-    useEffect(() => { 
-        if (musicServiceRef.current && (musicSessionState === 'PLAYING' || musicSessionState === 'LOADING_BUFFER' || musicSessionState === 'PLAY_REQUESTED') && isMusicEnabled) {
-            musicServiceRef.current.setVolume(isAudioMuted ? 0 : musicVolume); // Ensure volume is current
-
-            const layerPrompts: LyriaWeightedPrompt[] = [];
-            const layerConfigChanges: Partial<LyriaConfig> = {};
-
-            if (currentDeckSetForMusic) {
-                let deckSetThemeText = "";
-                switch (currentDeckSetForMusic.id) {
-                    case "KINDLING_CONNECTION": 
-                        deckSetThemeText = "playful, light, acoustic, warm, marimba, ukulele, gentle rhythm, bright chords"; 
-                        layerConfigChanges.bpm = 90; layerConfigChanges.density = 0.45; layerConfigChanges.brightness = 0.65;
-                        break;
-                    case "UNVEILING_DEPTHS": 
-                        deckSetThemeText = "introspective, deep, cello, piano, thoughtful, evolving pads, atmospheric synth"; 
-                        layerConfigChanges.bpm = 70; layerConfigChanges.density = 0.3; layerConfigChanges.brightness = 0.4;
-                        break;
-                    case "RELATIONAL_ALCHEMY": 
-                        deckSetThemeText = "dynamic, connecting, flowing, rhythmic, subtle electronic elements, warm synths, arpeggios"; 
-                        layerConfigChanges.bpm = 100; layerConfigChanges.density = 0.5; layerConfigChanges.brightness = 0.55;
-                        break;
-                    case "ADVENTUROUS_RESONANCE": 
-                        deckSetThemeText = "mysterious, sensual underscore, sparse textures, atmospheric, downtempo electronic, kalimba, subtle tension"; 
-                        layerConfigChanges.bpm = 80; layerConfigChanges.density = 0.3; layerConfigChanges.brightness = 0.45;
-                        break;
-                }
-                if (deckSetThemeText) layerPrompts.push({ text: deckSetThemeText, weight: 0.8 }); 
-            }
-
-            if (currentMicroDeckForMusic) {
-                let energyStyleText = "";
-                switch (currentMicroDeckForMusic.maturity_rating_hint) {
-                    case "General": energyStyleText = "gentle melody, clear harmony, positive feeling"; break;
-                    case "Mature": energyStyleText = "reflective chords, nuanced progression, deeper tones"; break;
-                    case "Intimate/Explicit": energyStyleText = "sensual rhythm, subtle warmth, soft pads, intimate melody"; break;
-                }
-                if (currentMicroDeckForMusic.id === CULMINATION_MICRO_DECK_PROXY.id) {
-                    energyStyleText = "synthesizing harmony, reflective cadence, concluding theme, hopeful resolution, evolving chords";
-                    layerPrompts.push({ text: energyStyleText, weight: 1.0 }); 
-                } else if (energyStyleText) {
-                    layerPrompts.push({ text: energyStyleText, weight: 0.9 });
-                }
-            }
-            
-            if (layerPrompts.length > 0 || Object.keys(layerConfigChanges).length > 0) {
-                 console.log("App: Steering music with layer prompts:", layerPrompts, "and layer config changes:", layerConfigChanges);
-                 musicServiceRef.current.steerMusic(layerPrompts, layerConfigChanges);
-            } else if (currentDeckSetForMusic === null && currentMicroDeckForMusic === null) {
-                console.log("App: Reverting music to base theme (no layers).");
-                musicServiceRef.current.steerMusic([], {}); 
-            }
-        }
-    }, [currentDeckSetForMusic, currentMicroDeckForMusic, musicSessionState, isMusicEnabled, musicVolume, isAudioMuted]);
-
-    const stopAllCurrentPlayback = useCallback(() => {
+    return () => {
+        if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
         stopSpeechServicePlayback();
-    }, []);
+        if (musicServiceRef.current) {
+            musicServiceRef.current.disconnect();
+        }
+    };
+  }, []); // Empty dependency array means this runs once on mount
 
-
-  const rotateActiveParticipant = useCallback(() => {
-    if (participants.length <= 1) return;
-    const namedParticipantsToConsider = participants.filter(p => p.name.trim() !== '');
-    const targetParticipants = namedParticipantsToConsider.length > 0 ? namedParticipantsToConsider : participants;
-    if (targetParticipants.length === 0) return;
-
-    const currentIndex = targetParticipants.findIndex(p => p.id === activeParticipantId);
-    let nextIndex = (currentIndex + 1) % targetParticipants.length;
-    if (currentIndex === -1 && targetParticipants[0] ) setActiveParticipantId(targetParticipants[0].id);
-    else if (targetParticipants[nextIndex]) setActiveParticipantId(targetParticipants[nextIndex].id);
-  }, [participants, activeParticipantId]);
-
-
-  const executeDrawLogic = useCallback(async (
-    userSelectedSetNameForGemini: string,
-    itemForGemini: MicroDeck | CustomThemeData,
-    finalThemeIdentifierForHistory: ThemeIdentifier,
-    deckSetIdForHistory: string | null,
-    isCulminationRequest: boolean,
-    isSvenAndLisaSpecialModeActive: boolean 
-  ) => {
-    const currentParticipant = participants.find(p => p.id === activeParticipantId);
-    setActiveParticipantNameForPlaceholder(currentParticipant?.name.trim() || null);
-    
-    setIsLoading(true);
-    setError(null);
-    stopAllCurrentPlayback(); 
-    setHasPlayedAudioForNewestCard(false);
-    setShowCulminationCardButton(false); 
-
-    const activeParticipant = participants.find(p => p.id === activeParticipantId);
-    const participantCount = participants.filter(p => p.name.trim() !== '').length || participants.length;
-
-    const microDeckForMusicContext = 'internal_name' in itemForGemini ? itemForGemini as MicroDeck : null;
-    setCurrentMicroDeckForMusic(microDeckForMusicContext);
-    if (deckSetIdForHistory) {
-        setCurrentDeckSetForMusic(getDeckSetById(deckSetIdForHistory));
-    } else if (microDeckForMusicContext?.belongs_to_set) {
-        setCurrentDeckSetForMusic(getDeckSetById(microDeckForMusicContext.belongs_to_set));
-    } else { 
-        setCurrentDeckSetForMusic(null); 
-    }
-
-
-    try {
-      const geminiResponse = await generatePromptAndAudioFromGemini(
-        userSelectedSetNameForGemini,
-        itemForGemini, 
-        participantCount,
-        participants.filter(p => p.name.trim() !== '').map(p => p.name),
-        activeParticipant?.name.trim() ? activeParticipant.name : null,
-        selectedGroupSetting,
-        drawnCardHistory,
-        selectedVoiceName,
-        selectedLanguageCode,
-        isSvenAndLisaSpecialModeActive 
-      );
-
-      const newCard: DrawnCardData = {
-        ...geminiResponse, 
-        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        themeIdentifier: finalThemeIdentifierForHistory, 
-        deckSetId: deckSetIdForHistory,
-        feedback: null,
-        timestamp: Date.now(),
-        drawnForParticipantId: activeParticipantId,
-        drawnForParticipantName: activeParticipant?.name.trim() || null,
-        isFaded: false, 
-        isCulminationCard: isCulminationRequest,
-        cardBackAudioData: null, 
-        cardBackAudioMimeType: null,
-      };
-      
-      setDrawnCardHistory(prevHistory => {
-        const updatedHistory = [newCard, ...prevHistory.map(card => ({...card, isFaded: card.isFaded || card.feedback === 'disliked'}))];
-        if (updatedHistory.length > MAX_HISTORY_WITH_AUDIO) {
-          for (let i = MAX_HISTORY_WITH_AUDIO; i < updatedHistory.length; i++) {
-            if (updatedHistory[i]) {
-              updatedHistory[i].audioData = null; 
-              updatedHistory[i].audioMimeType = null;
+  useEffect(() => {
+    if (isMusicEnabled && process.env.API_KEY && !musicServiceRef.current) {
+        console.log("MusicService: Enabling music, initializing service.");
+        musicServiceRef.current = new MusicService(
+            process.env.API_KEY,
+            (state) => setMusicSessionState(state),
+            (err) => {
+                setMusicError(err);
+                console.error("MusicService Error Callback:", err);
             }
-          }
-        }
-        return updatedHistory;
-      });
-      
-      if (!isCulminationRequest) rotateActiveParticipant();
-      
-      const historyLength = drawnCardHistory.length + 1; 
-      if (!isCulminationRequest && historyLength >= 5 && historyLength <= 10 && Math.random() < 0.30) { 
-          setShowCulminationCardButton(true);
-      } else {
-          setShowCulminationCardButton(false);
-      }
-
-    } catch (e: any) { 
-      console.error("Failed to generate prompt and/or audio:", e);
-      const errorMessage = e instanceof Error ? e.message : "An unknown error occurred while fetching the prompt.";
-      if (errorMessage.includes("API_KEY") || errorMessage.includes("API Key") || errorMessage.includes("authentication")) {
-        setApiKeyMissing(true);
-      }
-      setError(errorMessage);
-      setHasPlayedAudioForNewestCard(true); 
-    } finally {
-      setIsLoading(false);
+        );
+        musicServiceRef.current.setVolume(musicVolume);
+    } else if (!isMusicEnabled && musicServiceRef.current) {
+        console.log("MusicService: Disabling music, disconnecting service.");
+        musicServiceRef.current.disconnect();
+        musicServiceRef.current = null;
+        setMusicSessionState('DISCONNECTED');
     }
-  }, [apiKeyMissing, participants, activeParticipantId, selectedGroupSetting, drawnCardHistory, selectedVoiceName, selectedLanguageCode, rotateActiveParticipant, stopAllCurrentPlayback]);
+  }, [isMusicEnabled, musicVolume]); // React to changes in isMusicEnabled
+
+  useEffect(() => {
+    if (musicServiceRef.current) {
+        musicServiceRef.current.setVolume(musicVolume);
+    }
+  }, [musicVolume]);
 
 
-  const handleDrawCardInternal = useCallback(async (
-    identifier: DeckSet['id'] | CustomThemeId | "RANDOM" | "CULMINATION_CARD", 
-  ) => {
-    if (apiKeyMissing || isLoading) return;
-    
-    const svenAndLisaNames = ["sven", "lisa"];
-    const participantNamesLower = participants.map(p => p.name.trim().toLowerCase());
-    const isSvenAndLisaSpecialModeActive =
-        selectedGroupSetting === "SPECIAL" &&
-        participants.length === 2 &&
-        svenAndLisaNames.every(name => participantNamesLower.includes(name)) &&
-        participantNamesLower.every(name => svenAndLisaNames.includes(name));
+  const handleMusicSteering = useCallback(async (newestCard: DrawnCardData | null) => {
+    if (!isMusicEnabled || !musicServiceRef.current || musicSessionState === 'ERROR' || musicSessionState === 'DISCONNECTED') {
+        return;
+    }
+    if (musicSessionState === 'CONNECTING') {
+        console.log("MusicService: Still connecting, will steer once connected.");
+        return;
+    }
 
-    const svenLisaPrioritizedMicroDecks = ALL_MICRO_DECKS.filter(md =>
-        SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS.includes(md.id)
-    );
-    
-    let itemForGemini: MicroDeck | CustomThemeData;
-    let userSelectedSetNameForGemini: string;
-    let finalThemeIdentifierForHistory: ThemeIdentifier; 
-    let deckSetIdForHistory: string | null = null;
-    let displayThemeName: string; 
-    let displayThemeColor: string;
-    let isCulminationRequest = identifier === "CULMINATION_CARD";
-
-    if (isCulminationRequest) {
-        itemForGemini = CULMINATION_MICRO_DECK_PROXY;
-        userSelectedSetNameForGemini = "Session Reflection";
-        finalThemeIdentifierForHistory = CULMINATION_MICRO_DECK_PROXY.id;
-        displayThemeName = CULMINATION_MICRO_DECK_PROXY.internal_name;
-        displayThemeColor = getDeckSetById("UNVEILING_DEPTHS")?.colorClass || "from-purple-600 to-indigo-700";
-    } else if (identifier === "RANDOM") {
-      let deckPoolForRandom = ALL_MICRO_DECKS;
-      if (isSvenAndLisaSpecialModeActive) {
-        deckPoolForRandom = svenLisaPrioritizedMicroDecks;
-        if (deckPoolForRandom.length === 0) {
-          setError("No prioritized micro-decks available for random selection in Sven & Lisa mode. Try 'Kindling Connection' or adjust settings.");
-          return;
+    if (musicSessionState !== 'PLAYING' && musicSessionState !== 'PAUSED' && musicSessionState !== 'LOADING_BUFFER' && musicSessionState !== 'CONNECTED' && musicSessionState !== 'PLAY_REQUESTED') {
+        try {
+            await musicServiceRef.current.connect();
+             // Wait briefly for connection before playing/steering
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            if (musicServiceRef.current && musicSessionState === 'CONNECTED') { 
+                 await musicServiceRef.current.playMusic();
+                 await new Promise(resolve => setTimeout(resolve, 500)); // Wait for play to initiate
+            } else {
+                console.warn("MusicService: Connection attempt for steering did not reach CONNECTED state quickly. Current state:", musicSessionState);
+                return;
+            }
+        } catch (e) {
+            console.error("MusicService: Error connecting/playing music before steering:", e);
+            return; 
         }
-      }
-      if (deckPoolForRandom.length === 0) {
-        setError("No micro-decks available for random selection."); return;
-      }
-      const randomMicroDeck = deckPoolForRandom[Math.floor(Math.random() * deckPoolForRandom.length)];
-      itemForGemini = randomMicroDeck;
-      const parentSet = randomMicroDeck.belongs_to_set ? getDeckSetById(randomMicroDeck.belongs_to_set) : null;
-      userSelectedSetNameForGemini = parentSet?.name || "Random Selection";
-      finalThemeIdentifierForHistory = randomMicroDeck.id;
-      deckSetIdForHistory = randomMicroDeck.belongs_to_set;
-      displayThemeName = randomMicroDeck.internal_name;
-      displayThemeColor = parentSet?.colorClass || "from-gray-500 to-gray-600";
-    } else if (identifier.startsWith("CUSTOM_")) {
-      const customDeck = getCustomDeckById(identifier as CustomThemeId, customDecks);
-      if (!customDeck) { setError(`Custom deck "${identifier}" not found.`); return; }
-      itemForGemini = customDeck;
-      userSelectedSetNameForGemini = "Custom Deck";
-      finalThemeIdentifierForHistory = customDeck.id;
-      displayThemeName = customDeck.name;
-      displayThemeColor = customDeck.colorClass;
-    } else { 
-      const selectedDeckSet = getDeckSetById(identifier as DeckSet['id']);
-      if (!selectedDeckSet) { setError(`Deck Set "${identifier}" not found.`); return; }
-      
-      let microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === selectedDeckSet.id);
-      if (isSvenAndLisaSpecialModeActive) {
-        microDecksInSet = microDecksInSet.filter(md => SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS.includes(md.id));
-        if (microDecksInSet.length === 0) {
-          setError(`Deck Set "${selectedDeckSet.name}" has no prioritized micro-decks for Sven & Lisa mode. Try "Kindling Connection", "Random", or check settings.`);
-          return;
-        }
-      }
-      if (microDecksInSet.length === 0) { 
-        setError(`Deck Set "${selectedDeckSet.name}" has no micro-decks (or none that fit the current mode filter).`); return; 
-      }
-      
-      itemForGemini = microDecksInSet[Math.floor(Math.random() * microDecksInSet.length)];
-      userSelectedSetNameForGemini = selectedDeckSet.name;
-      finalThemeIdentifierForHistory = itemForGemini.id;
-      deckSetIdForHistory = selectedDeckSet.id;
-      displayThemeName = (itemForGemini as MicroDeck).internal_name;
-      displayThemeColor = selectedDeckSet.colorClass;
     }
     
-    setThemeBeingDrawnName(displayThemeName); 
-    setCurrentDrawingThemeColor(displayThemeColor);
-    
-    const drawFn = () => executeDrawLogic(
-        userSelectedSetNameForGemini,
-        itemForGemini,
-        finalThemeIdentifierForHistory,
-        deckSetIdForHistory,
-        isCulminationRequest,
-        isSvenAndLisaSpecialModeActive 
-    );
+    let promptsForMusic: LyriaWeightedPrompt[] = [];
+    let configForMusic: Partial<LyriaConfig> = {};
+    let microDeckForMusic: MicroDeck | null = null;
+    let deckSetForMusic: DeckSet | null = null;
 
-    if (isSvenAndLisaSpecialModeActive && !hasShownSvenAndLisaOnboarding && identifier !== "CULMINATION_CARD" && !identifier.startsWith("CUSTOM_")) {
-        setSvenAndLisaOnboardingDrawFn(() => drawFn);
-        setShowSvenAndLisaOnboardingModal(true);
-    } else {
-        await drawFn();
-    }
-
-  }, [
-    apiKeyMissing, isLoading, participants, activeParticipantId, customDecks, 
-    selectedVoiceName, selectedLanguageCode, selectedGroupSetting, 
-    executeDrawLogic, hasShownSvenAndLisaOnboarding, 
-    drawnCardHistory 
-  ]);
-
-
-  const handleLikeCard = useCallback((cardId: string) => {
-    setDrawnCardHistory(prevHistory =>
-      prevHistory.map(card => card.id === cardId ? { ...card, feedback: card.feedback === 'liked' ? null : 'liked' } : card)
-    );
-  }, []);
-
-  const handleDislikeCard = useCallback((cardId: string) => {
-    setDrawnCardHistory(prevHistory =>
-      prevHistory.map((card, index) => {
-        if (card.id === cardId) {
-          const newFeedback = card.feedback === 'disliked' ? null : 'disliked';
-          const isNewestCard = index === 0;
-          if (isNewestCard && newFeedback === 'disliked' && card.drawnForParticipantId) {
-            setActiveParticipantId(card.drawnForParticipantId);
-          }
-          return { ...card, feedback: newFeedback, isFaded: newFeedback === 'disliked' };
-        }
-        return card;
-      })
-    );
-  }, []); 
-  
-  const handlePlayAudioForMainPrompt = useCallback((audioDetails: { text: string | null, audioData: string | null, audioMimeType: string | null }) => {
-    stopAllCurrentPlayback(); 
-    if (audioDetails.audioData && audioDetails.audioMimeType) {
-      playAudioData(audioDetails.audioData, audioDetails.audioMimeType, isAudioMuted);
-    } else if (audioDetails.text) {
-      speakText(audioDetails.text, selectedLanguageCode, isAudioMuted);
-    }
-  }, [selectedLanguageCode, isAudioMuted, stopAllCurrentPlayback]);
-
-  const handleFetchAndPlayCardBackAudio = useCallback(async (cardId: string, textToSpeak: string) => {
-    if ((isAudioMuted && textToSpeak && textToSpeak.trim() !== "") || (!textToSpeak || textToSpeak.trim() === "")) { 
-        stopAllCurrentPlayback(); return;
-    }
-    stopAllCurrentPlayback();
-    const cardIndex = drawnCardHistory.findIndex(c => c.id === cardId);
-    if (cardIndex === -1) return;
-
-    const cardData = drawnCardHistory[cardIndex];
-    let styleDirective = "";
-    if (cardData && !cardData.themeIdentifier.startsWith("CUSTOM_")) {
-        const microDeck = getMicroDeckById(cardData.themeIdentifier as MicroDeck['id']);
-        styleDirective = getStyleDirectiveForMicroDeck(microDeck, true); // true for cardBackNotes
-    } else {
-        styleDirective = getStyleDirectiveForMicroDeck(null, true); // Default for custom or unknown
-    }
-
-    try {
-        const { audioData, audioMimeType, error: audioError } = await generateAudioForText(textToSpeak, selectedVoiceName, styleDirective);
-        if (audioError) { console.warn(`Failed to generate audio for card back (ID: ${cardId}): ${audioError}`); return; }
-        if (audioData && audioMimeType) {
-            setDrawnCardHistory(prev => prev.map(c => c.id === cardId ? { ...c, cardBackAudioData: audioData, cardBackAudioMimeType: audioMimeType } : c));
-            playAudioData(audioData, audioMimeType, isAudioMuted);
-        }
-    } catch (e: any) { console.error(`Error fetching or playing card back audio (ID: ${cardId}):`, e); }
-  }, [selectedVoiceName, isAudioMuted, drawnCardHistory, stopAllCurrentPlayback]);
-
-
-  const handleOpenCustomDeckModal = (deckToEdit?: CustomThemeData) => {
-    setEditingCustomDeck(deckToEdit || null);
-    setShowCustomDeckModal(true);
-  };
-  
-  const handleShowDeckInfo = (itemId: DeckSet['id'] | CustomThemeId) => {
-    let itemToShow: DeckSet | CustomThemeData | null = null;
-    if (itemId.startsWith("CUSTOM_")) {
-      itemToShow = getCustomDeckById(itemId as CustomThemeId, customDecks);
-    } else {
-      itemToShow = getDeckSetById(itemId as DeckSet['id']);
-    }
-    
-    if (itemToShow) {
-      setItemForInfoModal(itemToShow);
-      setShowDeckInfoModal(true);
-    }
-  };
-
-  const handleSaveCustomDeck = (name: string, description: string) => {
-    if (editingCustomDeck) {
-      setCustomDecks(prev => prev.map(deck => deck.id === editingCustomDeck.id ? { ...deck, name, description } : deck));
-    } else {
-      const newCustomDeck: CustomThemeData = {
-        id: `CUSTOM_${Date.now()}_${Math.random().toString(36).substr(2, 5)}` as CustomThemeId,
-        name, description, 
-        colorClass: customDeckColorPool[customDecks.length % customDeckColorPool.length] || "from-gray-500 to-gray-600",
-      };
-      setCustomDecks(prev => [...prev, newCustomDeck]);
-    }
-    setShowCustomDeckModal(false);
-    setEditingCustomDeck(null);
-  };
-
-  const handleRemoveParticipant = useCallback((participantIdToRemove: string) => {
-    setParticipants(prevParticipants => {
-      const remainingParticipants = prevParticipants.filter(p => p.id !== participantIdToRemove);
-      if (remainingParticipants.length === 0) {
-        const newParticipant = { id: `participant-${Date.now()}-default-remove`, name: '' };
-        setActiveParticipantId(newParticipant.id); 
-        return [newParticipant];
-      } else {
-        if (activeParticipantId === participantIdToRemove) {
-          const removedParticipantIndex = prevParticipants.findIndex(p => p.id === participantIdToRemove);
-          let newActiveParticipantIndex = Math.max(0, removedParticipantIndex -1); 
-          if (prevParticipants.length > 1 && removedParticipantIndex === 0) newActiveParticipantIndex = 0; 
-          newActiveParticipantIndex = Math.min(newActiveParticipantIndex, remainingParticipants.length -1);
-          if (remainingParticipants[newActiveParticipantIndex]) setActiveParticipantId(remainingParticipants[newActiveParticipantIndex].id);
-          else if (remainingParticipants[0]) setActiveParticipantId(remainingParticipants[0].id);
-          else setActiveParticipantId(null); 
-        }
-        return remainingParticipants;
-      }
-    });
-  }, [activeParticipantId]); 
-
-  const handleOpenVoiceSettingsModal = () => setShowVoiceSettingsModal(true);
-  const handleCloseVoiceSettingsModal = () => setShowVoiceSettingsModal(false);
-  const handleVoiceChange = (newVoice: VoiceName) => setSelectedVoiceName(newVoice);
-  const handleLanguageChange = (newLang: LanguageCode) => setSelectedLanguageCode(newLang);
-  
-  const handleMuteToggle = async (muted: boolean) => { 
-      setIsAudioMuted(muted); 
-      if (muted) {
-          stopSpeechServicePlayback(); 
-          if (musicServiceRef.current && isMusicEnabled) {
-              musicServiceRef.current.setVolume(0); 
-          }
-      } else {
-          if (musicServiceRef.current && isMusicEnabled) {
-              musicServiceRef.current.setVolume(musicVolume);
-              if (musicSessionState === 'PAUSED') {
-                 try {
-                    await musicServiceRef.current.playMusic(); 
-                } catch (e) {
-                    console.error("Error resuming music on unmute:", e);
-                    setMusicError("Failed to resume music. You might need to toggle music off/on.");
+    if (newestCard) {
+        if (newestCard.themeIdentifier.startsWith("CUSTOM_")) {
+            const customDeck = getCustomDeckById(newestCard.themeIdentifier as CustomThemeId, customDecks);
+            if (customDeck) {
+                promptsForMusic.push({ text: `custom theme, user-defined, ${customDeck.name}, ${customDeck.description.substring(0,100)}`, weight: 0.8 });
+                // Basic config for custom, can be expanded
+                configForMusic = { bpm: 80, density: 0.4, brightness: 0.55 };
+            }
+        } else {
+            microDeckForMusic = getMicroDeckById(newestCard.themeIdentifier as MicroDeck['id']);
+            if (microDeckForMusic) {
+                setCurrentMicroDeckForMusic(microDeckForMusic);
+                if (microDeckForMusic.belongs_to_set) {
+                    deckSetForMusic = getDeckSetById(microDeckForMusic.belongs_to_set);
+                    if (deckSetForMusic) setCurrentDeckSetForMusic(deckSetForMusic);
+                } else {
+                     setCurrentDeckSetForMusic(null); // For culmination or special non-set cards
                 }
-              }
-          }
-      }
-  };
 
-  const handleMusicEnableToggle = (enabled: boolean) => {
-      setIsMusicEnabled(enabled);
-      if (enabled && musicServiceRef.current) {
-          musicServiceRef.current.setVolume(isAudioMuted ? 0 : musicVolume);
-      } else if (!enabled && musicServiceRef.current) {
-          // MusicService disconnect logic already handles pausing/stopping.
-      }
-  };
+                // Construct prompts & config from MicroDeck and DeckSet
+                let promptText = microDeckForMusic.llm_keywords;
+                if (deckSetForMusic) promptText += `, ${deckSetForMusic.name.toLowerCase().replace(/\s+/g, '_')}`;
+                
+                promptsForMusic.push({ text: promptText, weight: 0.9 });
+                
+                // Example: Derive config from micro-deck focus or set
+                const focus = microDeckForMusic.deck_inspiration_focus.toLowerCase();
+                const maturity = microDeckForMusic.maturity_rating_hint;
 
-  const handleMusicVolumeChange = (newVolume: number) => {
-    setMusicVolume(newVolume);
-    if (musicServiceRef.current && isMusicEnabled && !isAudioMuted) {
-      musicServiceRef.current.setVolume(newVolume);
+                if (focus.includes("mindfulness") || focus.includes("somatic") || focus.includes("presence")) {
+                    configForMusic = { bpm: 60, density: 0.2, brightness: 0.35, scale: Scale.MINOR_PENTATONIC };
+                } else if (focus.includes("playful") || focus.includes("icebreaker") || focus.includes("witty")) {
+                    configForMusic = { bpm: 110, density: 0.6, brightness: 0.65, scale: Scale.MAJOR_BLUES };
+                } else if (focus.includes("authentic relating") || focus.includes("vulnerability") || focus.includes("shadow work") || focus.includes("inner child")) {
+                    configForMusic = { bpm: 70, density: 0.3, brightness: 0.4, scale: Scale.AEOLIAN };
+                } else if (focus.includes("erotic") || focus.includes("sensual") || focus.includes("intimate")) {
+                    configForMusic = { bpm: 85, density: 0.5, brightness: 0.5, scale: Scale.LYDIAN, muteDrums: maturity !== "Intimate/Explicit" };
+                } else if (focus.includes("provocative") || focus.includes("edgy") || focus.includes("risk")) {
+                     configForMusic = { bpm: 95, density: 0.55, brightness: 0.6, scale: Scale.PHRYGIAN };
+                } else { // Default fallback
+                    configForMusic = { bpm: 90, density: 0.45, brightness: 0.5 };
+                }
+                 if (newestCard.isCulminationCard) {
+                    configForMusic = { bpm: 75, density: 0.35, brightness: 0.45, scale: Scale.MIXOLYDIAN };
+                    promptsForMusic.push({ text: "reflective, synthesizing, concluding, summary", weight: 0.9 });
+                }
+            }
+        }
+    }
+    // If no specific card (e.g. initial play or after clearing history), it uses base prompts/config.
+    // If there are specific prompts/config, steer to them.
+    if (promptsForMusic.length > 0) {
+       console.log("MusicService: Steering music with new card context. Prompts:", promptsForMusic, "Config changes:", configForMusic);
+       await musicServiceRef.current.steerMusic(promptsForMusic, configForMusic);
+    } else if (!newestCard && musicSessionState === 'PLAYING') { 
+        // No card, but music is playing - gently steer back to base if active layers exist
+        const activeLayers = musicServiceRef.current.getActiveLayerPrompts();
+        if (activeLayers && activeLayers.length > 0) {
+            console.log("MusicService: No card, steering back to base music.");
+            await musicServiceRef.current.steerMusic([], {}); // Empty array steers to base
+            setCurrentMicroDeckForMusic(null);
+            setCurrentDeckSetForMusic(null);
+        }
+    }
+
+
+  }, [isMusicEnabled, musicSessionState, customDecks, musicServiceRef]); 
+
+
+  const updateParticipantsForGroupSetting = (setting: GroupSetting, isInitialSetup: boolean = false) => {
+    setSelectedGroupSetting(setting);
+    saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, setting);
+    
+    if (setting === "SPECIAL") { // Sven & Lisa mode
+      const sven = { id: 'sven-special', name: 'Sven' };
+      const lisa = { id: 'lisa-special', name: 'Lisa' };
+      setParticipants([sven, lisa]);
+      setActiveParticipantId(sven.id); // Default to Sven
+      
+      if (!isInitialSetup && !hasShownSvenAndLisaOnboarding) {
+        setShowSvenAndLisaOnboardingModal(true);
+      }
+    } else {
+      // If was special mode, clear participants or reset to a default single participant
+      if (participants.some(p => p.id === 'sven-special' || p.id === 'lisa-special')) {
+        const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
+        setParticipants([defaultParticipant]);
+        setActiveParticipantId(defaultParticipant.id);
+      } else if (participants.length === 0 && isInitialSetup) {
+        // If not special mode and no participants, add one default
+        const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
+        setParticipants([defaultParticipant]);
+        setActiveParticipantId(defaultParticipant.id);
+      }
+      // If already has participants and not switching from special, keep them.
     }
   };
 
   const handleOpenGroupSettingModal = () => setShowGroupSettingModal(true);
   const handleCloseGroupSettingModal = () => setShowGroupSettingModal(false);
-  const handleGroupSettingChange = (newSetting: GroupSetting) => setSelectedGroupSetting(newSetting);
+  const handleGroupSettingChange = (newSetting: GroupSetting) => {
+    updateParticipantsForGroupSetting(newSetting);
+    // Potentially trigger a redraw or clear history if setting change implies new context
+    // setDrawnCardHistory([]); // Example: Clear history on major context change
+  };
+
+  const handleSvenAndLisaOnboardingConfirm = () => {
+    setShowSvenAndLisaOnboardingModal(false);
+    setHasShownSvenAndLisaOnboarding(true);
+    if (svenAndLisaOnboardingDrawFn) {
+        svenAndLisaOnboardingDrawFn();
+        setSvenAndLisaOnboardingDrawFn(null); 
+    }
+  };
   
+  const handleRemoveParticipant = (participantIdToRemove: string) => {
+    const newParticipants = participants.filter(p => p.id !== participantIdToRemove);
+    setParticipants(newParticipants);
+    if (activeParticipantId === participantIdToRemove) {
+      setActiveParticipantId(newParticipants.length > 0 ? newParticipants[0].id : null);
+    }
+    if (newParticipants.length === 0) { // If all removed, add one back
+        const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
+        setParticipants([defaultParticipant]);
+        setActiveParticipantId(defaultParticipant.id);
+    }
+  };
+
+
+  const handleDrawNewCard = async (selectedThemeIdentifier: ThemeIdentifier) => {
+    if (isLoading) return;
+    if (!process.env.API_KEY) { setError("API_KEY for Gemini is not configured."); return; }
+    
+    // Sven & Lisa Special Mode Onboarding Check
+    if (selectedGroupSetting === "SPECIAL" && !hasShownSvenAndLisaOnboarding && 
+        (selectedThemeIdentifier.startsWith("SBP_") || selectedThemeIdentifier.startsWith("CCS_") || selectedThemeIdentifier.startsWith("SS_"))) {
+        
+        const microDeckForOnboarding = getMicroDeckById(selectedThemeIdentifier as MicroDeck['id']);
+        if (microDeckForOnboarding && SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS.includes(microDeckForOnboarding.id)) {
+            setSvenAndLisaOnboardingDrawFn(() => () => handleDrawNewCard(selectedThemeIdentifier)); 
+            setShowSvenAndLisaOnboardingModal(true);
+            return; 
+        }
+    }
+
+
+    setIsLoading(true); setError(null); setHasPlayedAudioForNewestCard(false);
+    stopSpeechServicePlayback();
+    if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
+    
+    let itemName = "Selected Theme";
+    let deckSetIdForCard: string | null = null;
+    let chosenItemForGemini: MicroDeck | CustomThemeData | null = null;
+    let setNameForGemini: string = "User Selection";
+
+
+    if (selectedThemeIdentifier === "RANDOM") {
+        const allPossibleItems: (MicroDeck | CustomThemeData)[] = [...ALL_MICRO_DECKS, ...customDecks];
+        const randomIndex = Math.floor(Math.random() * allPossibleItems.length);
+        chosenItemForGemini = allPossibleItems[randomIndex];
+        
+        if ('internal_name' in chosenItemForGemini) { // It's a MicroDeck
+            itemName = chosenItemForGemini.internal_name;
+            const parentSet = chosenItemForGemini.belongs_to_set ? getDeckSetById(chosenItemForGemini.belongs_to_set) : null;
+            setNameForGemini = parentSet ? parentSet.name : "Assorted";
+            deckSetIdForCard = parentSet?.id || null;
+            setCurrentDrawingThemeColor(parentSet?.colorClass || "from-slate-600 to-slate-700");
+        } else { // It's a CustomThemeData
+            itemName = chosenItemForGemini.name;
+            setNameForGemini = "Custom Decks";
+            deckSetIdForCard = null; // Custom decks don't belong to a DeckSet
+            setCurrentDrawingThemeColor(chosenItemForGemini.colorClass);
+        }
+    } else if (selectedThemeIdentifier.startsWith("CUSTOM_")) {
+        chosenItemForGemini = getCustomDeckById(selectedThemeIdentifier as CustomThemeId, customDecks);
+        if (chosenItemForGemini) {
+            itemName = chosenItemForGemini.name;
+            setNameForGemini = "Custom Decks";
+            setCurrentDrawingThemeColor(chosenItemForGemini.colorClass);
+        }
+    } else { // It's a MicroDeck from a specific DeckSet (or a direct MicroDeck ID if we support that later)
+        const deckSet = DECK_SETS.find(ds => ds.id === selectedThemeIdentifier); // User might click a DeckSet
+        if (deckSet) {
+            const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === deckSet.id);
+            if (microDecksInSet.length > 0) {
+                const randomIndex = Math.floor(Math.random() * microDecksInSet.length);
+                chosenItemForGemini = microDecksInSet[randomIndex];
+                itemName = chosenItemForGemini.internal_name;
+                setNameForGemini = deckSet.name;
+                deckSetIdForCard = deckSet.id;
+                setCurrentDrawingThemeColor(deckSet.colorClass);
+            } else {
+                 setError(`No micro-decks found for DeckSet "${deckSet.name}".`); setIsLoading(false); return;
+            }
+        } else { // Could be a direct MicroDeck ID if UI allows drawing from individual micro-decks
+             const microDeck = getMicroDeckById(selectedThemeIdentifier as MicroDeck['id']);
+             if (microDeck) {
+                chosenItemForGemini = microDeck;
+                itemName = microDeck.internal_name;
+                const parentSet = microDeck.belongs_to_set ? getDeckSetById(microDeck.belongs_to_set) : null;
+                setNameForGemini = parentSet ? parentSet.name : "Assorted";
+                deckSetIdForCard = parentSet?.id || null;
+                setCurrentDrawingThemeColor(parentSet?.colorClass || "from-slate-600 to-slate-700");
+             } else {
+                setError(`Theme "${selectedThemeIdentifier}" not found.`); setIsLoading(false); return;
+             }
+        }
+    }
+    
+    if (!chosenItemForGemini) {
+        setError("Could not determine a theme to draw from."); setIsLoading(false); return;
+    }
+    setThemeBeingDrawnName(itemName);
+    const currentActiveParticipant = participants.find(p => p.id === activeParticipantId);
+    setActiveParticipantNameForPlaceholder(currentActiveParticipant?.name || null);
+
+
+    try {
+      const isSpecialMode = selectedGroupSetting === "SPECIAL" && 
+                            participants.some(p => p.id === 'sven-special') &&
+                            participants.some(p => p.id === 'lisa-special');
+
+      const participantNamesForPrompt = participants.map(p => p.name).filter(name => name && name.trim() !== "");
+      const activeParticipantActualName = participants.find(p => p.id === activeParticipantId)?.name || null;
+      
+      const response = await generatePromptAndAudioFromGemini(
+        setNameForGemini,
+        chosenItemForGemini,
+        participants.length,
+        participantNamesForPrompt,
+        activeParticipantActualName,
+        selectedGroupSetting,
+        drawnCardHistory,
+        selectedVoiceName,
+        selectedLanguageCode,
+        isSpecialMode
+      );
+
+      const newCard: DrawnCardData = {
+        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        themeIdentifier: chosenItemForGemini.id,
+        deckSetId: deckSetIdForCard,
+        text: response.text,
+        audioData: response.audioData,
+        audioMimeType: response.audioMimeType,
+        feedback: null,
+        timestamp: Date.now(),
+        llmPromptForTextGeneration: response.llmPromptForTextGeneration,
+        rawLlmOutput: response.rawLlmOutput,
+        cardBackNotesText: response.cardBackNotesText,
+        cardBackAudioData: response.cardBackAudioData,
+        cardBackAudioMimeType: response.cardBackAudioMimeType,
+        drawnForParticipantId: activeParticipantId,
+        drawnForParticipantName: activeParticipantActualName,
+        isCulminationCard: chosenItemForGemini.id === CULMINATION_MICRO_DECK_PROXY.id,
+      };
+
+      setDrawnCardHistory(prevHistory => {
+        const updatedHistory = prevHistory.map(card => ({ ...card, isFaded: true }));
+        return [newCard, ...updatedHistory].slice(0, MAX_HISTORY_WITH_AUDIO + 5); 
+      });
+
+      if (!isAudioMuted && newCard.audioData && newCard.audioMimeType) {
+        audioPlaybackTimerRef.current = setTimeout(() => {
+          if (!hasPlayedAudioForNewestCard) {
+            playAudioData(newCard.audioData!, newCard.audioMimeType!, isAudioMuted);
+            setHasPlayedAudioForNewestCard(true);
+          }
+        }, ECHO_BREATH_PAUSE_MS);
+      }
+      handleMusicSteering(newCard);
+
+
+    } catch (err: any) {
+      console.error("Error drawing card:", err);
+      setError(err.message || "Failed to draw card.");
+      handleMusicSteering(null); // Clear music steering on error
+    } finally {
+      setIsLoading(false);
+      setThemeBeingDrawnName(null);
+      setActiveParticipantNameForPlaceholder(null);
+      setCurrentDrawingThemeColor(null);
+      
+      // Rotate active participant if more than one
+      if (participants.length > 1 && activeParticipantId) {
+        const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
+        const nextIndex = (currentIndex + 1) % participants.length;
+        setActiveParticipantId(participants[nextIndex].id);
+      } else if (participants.length === 1 && !activeParticipantId) {
+        setActiveParticipantId(participants[0].id); // Ensure one is active if only one exists
+      }
+    }
+  };
+
+
+  const handleDrawCulminationCard = () => {
+    handleDrawNewCard(CULMINATION_MICRO_DECK_PROXY.id);
+  };
+  useEffect(() => {
+    const culmMicroDeck = getMicroDeckById(CULMINATION_MICRO_DECK_PROXY.id);
+    if (!culmMicroDeck) { setShowCulminationCardButton(false); return; }
+
+    const nonCulmCards = drawnCardHistory.filter(c => c.themeIdentifier !== CULMINATION_MICRO_DECK_PROXY.id);
+    const hasDrawnCulmRecently = drawnCardHistory.length > 0 && drawnCardHistory[0].themeIdentifier === CULMINATION_MICRO_DECK_PROXY.id;
+    
+    setShowCulminationCardButton(nonCulmCards.length >= 3 && !hasDrawnCulmRecently);
+  }, [drawnCardHistory]);
+
+
+  const handleLikeCard = (id: string) => {
+    setDrawnCardHistory(prev => prev.map(card => card.id === id ? { ...card, feedback: 'liked' } : card));
+  };
+  const handleDislikeCard = (id: string) => {
+    setDrawnCardHistory(prev => prev.map(card => card.id === id ? { ...card, feedback: 'disliked' } : card));
+  };
+  
+  const handlePlayAudioForNewestCard = (audioDetails: { text: string | null; audioData: string | null; audioMimeType: string | null }) => {
+    stopSpeechServicePlayback();
+    if (audioPlaybackTimerRef.current) clearTimeout(audioPlaybackTimerRef.current);
+
+    if (isAudioMuted) return;
+
+    if (audioDetails.audioData && audioDetails.audioMimeType) {
+        playAudioData(audioDetails.audioData, audioDetails.audioMimeType, isAudioMuted);
+    } else if (audioDetails.text) {
+        speakText(audioDetails.text, selectedLanguageCode, isAudioMuted);
+    }
+    setHasPlayedAudioForNewestCard(true);
+  };
+
+  const handleFetchAndPlayCardBackAudio = async (cardId: string, textToSpeak: string) => {
+    if (isAudioMuted || !textToSpeak.trim()) return;
+
+    // Find the card in history
+    const cardIndex = drawnCardHistory.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) {
+        console.warn("Card not found in history for card back audio.");
+        return;
+    }
+    
+    // Check if audio already exists
+    const card = drawnCardHistory[cardIndex];
+    if (card.cardBackAudioData && card.cardBackAudioMimeType) {
+        console.log("Using cached card back audio for card:", cardId);
+        playAudioData(card.cardBackAudioData, card.cardBackAudioMimeType, isAudioMuted);
+        return;
+    }
+
+    console.log("Fetching new card back audio for card:", cardId);
+    const microDeck = getMicroDeckById(card.themeIdentifier as MicroDeck['id']);
+    const styleDirective = getStyleDirectiveForMicroDeck(microDeck, true);
+
+    try {
+        const audioResult = await generateAudioForText(textToSpeak, selectedVoiceName, styleDirective);
+        if (audioResult.audioData && audioResult.audioMimeType) {
+            setDrawnCardHistory(prev => {
+                const newHistory = [...prev];
+                const updatedCard = { ...newHistory[cardIndex], cardBackAudioData: audioResult.audioData, cardBackAudioMimeType: audioResult.audioMimeType };
+                newHistory[cardIndex] = updatedCard;
+                return newHistory;
+            });
+            playAudioData(audioResult.audioData, audioResult.audioMimeType, isAudioMuted);
+        } else {
+            console.warn(`Failed to generate card back audio: ${audioResult.error}. Speaking text instead.`);
+            speakText(textToSpeak, selectedLanguageCode, isAudioMuted);
+        }
+    } catch (e: any) {
+        console.error("Error fetching/playing card back audio:", e);
+        speakText(textToSpeak, selectedLanguageCode, isAudioMuted); // Fallback to basic TTS
+    }
+  };
+
+  const handleSaveCustomDeck = (name: string, description: string) => {
+    const newDeck: CustomThemeData = {
+      id: `CUSTOM_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      name,
+      description,
+      colorClass: "from-gray-500 to-gray-600" 
+    };
+    const updatedDecks = [...customDecks, newDeck];
+    setCustomDecks(updatedDecks);
+    saveToLocalStorage(LOCALSTORAGE_KEYS.CUSTOM_DECKS, updatedDecks);
+    setShowCustomDeckModal(false);
+  };
+  const handleUpdateCustomDeck = (id: CustomThemeId, name: string, description: string) => {
+    const updatedDecks = customDecks.map(deck => 
+      deck.id === id ? { ...deck, name, description } : deck
+    );
+    setCustomDecks(updatedDecks);
+    saveToLocalStorage(LOCALSTORAGE_KEYS.CUSTOM_DECKS, updatedDecks);
+    setShowCustomDeckModal(false);
+    setEditingCustomDeck(null);
+  };
+  const handleEditCustomDeck = (deck: CustomThemeData) => {
+    setEditingCustomDeck(deck);
+    setShowCustomDeckModal(true);
+  };
+  const handleOpenCustomDeckModal = () => {
+    setEditingCustomDeck(null);
+    setShowCustomDeckModal(true);
+  };
+  const handleCloseCustomDeckModal = () => {
+    setShowCustomDeckModal(false);
+    setEditingCustomDeck(null);
+  };
+
+  const handleOpenDeckInfoModal = (itemId: DeckSet['id'] | CustomThemeData['id']) => {
+    let itemToShow: DeckSet | CustomThemeData | null = null;
+    if (typeof itemId === 'string' && itemId.startsWith("CUSTOM_")) {
+        itemToShow = getCustomDeckById(itemId as CustomThemeId, customDecks);
+    } else {
+        itemToShow = getDeckSetById(itemId as DeckSet['id']);
+    }
+    if (itemToShow) {
+        setItemForInfoModal(itemToShow);
+        setShowDeckInfoModal(true);
+    }
+  };
+  const handleCloseDeckInfoModal = () => setShowDeckInfoModal(false);
+
+  const handleOpenVoiceSettingsModal = () => setShowVoiceSettingsModal(true);
+  const handleCloseVoiceSettingsModal = () => setShowVoiceSettingsModal(false);
+  const handleVoiceChange = (voice: VoiceName) => { setSelectedVoiceName(voice); saveToLocalStorage(LOCALSTORAGE_KEYS.VOICE_NAME, voice); };
+  const handleLanguageChange = (lang: LanguageCode) => { setSelectedLanguageCode(lang); saveToLocalStorage(LOCALSTORAGE_KEYS.LANGUAGE_CODE, lang); };
+  const handleMuteChange = (muted: boolean) => { 
+    setIsAudioMuted(muted); 
+    saveToLocalStorage(LOCALSTORAGE_KEYS.IS_MUTED, muted);
+    if (muted) {
+        stopSpeechServicePlayback(); // Stop any current speech
+        if (musicServiceRef.current && musicSessionState === 'PLAYING') {
+            musicServiceRef.current.pauseMusic(); // Pause music if it's playing
+        }
+    } else {
+        if (musicServiceRef.current && musicSessionState === 'PAUSED' && isMusicEnabled) {
+             musicServiceRef.current.playMusic(); // Resume music if it was paused due to mute
+        }
+    }
+  };
+  const handleMusicEnableChange = (enabled: boolean) => {
+    setIsMusicEnabled(enabled);
+  };
+  const handleMusicVolumeChange = (volume: number) => {
+    setMusicVolume(volume);
+  };
+
+
+  const interactionsDisabled = isLoading;
+
   return (
-    <>
-      <div className="fixed top-0 left-0 right-0 z-20">
-        {/* Adjusted height and blur for responsiveness */}
-        <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-slate-900/70 via-slate-900/70 via-[67%] to-transparent backdrop-blur-sm sm:backdrop-blur-md shadow-lg 
-                        h-[calc(0.95*7rem)] xs:h-[calc(0.9*8rem)] sm:h-[calc(0.93*9rem)] md:h-[calc(0.95*10rem)] lg:h-[calc(0.95*11rem)]"></div>
-        <div className="relative"> 
-          <ThemeDeckSelection 
-              onDraw={(itemId) => handleDrawCardInternal(itemId)} 
-              isDrawingInProgress={isLoading}
-              interactionsDisabled={apiKeyMissing}
-              customDecks={customDecks}
-              onAddCustomDeck={() => handleOpenCustomDeckModal()}
-              onEditCustomDeck={(deck) => handleOpenCustomDeckModal(deck)}
-              onShowDeckInfo={handleShowDeckInfo}
-          />
+    <div className="flex flex-col min-h-screen items-center justify-between bg-slate-900 text-slate-200 w-full overflow-hidden">
+      
+      {apiKeyMissing && (
+        <div className="fixed top-0 left-0 right-0 p-4 flex justify-center z-[100]">
+          <ApiKeyMessage />
         </div>
-      </div>
+      )}
 
-      <main className="main-content-area flex flex-col items-center w-full hide-scrollbar">
-        {/* Adjusted top padding for different screen sizes */}
-        <div className="w-full flex flex-col items-center 
-                        pt-30 xs:pt-34 sm:pt-40 md:pt-44 lg:pt-48 xl:pt-52
-                        pb-28 xs:pb-32 sm:pb-36 md:pb-40 lg:pb-44
-                        px-1 xs:px-2 sm:px-4 min-h-0">
-          {apiKeyMissing && <div className="my-4 w-full max-w-2xl flex justify-center"><ApiKeyMessage /></div>}
-          
-          {!isLoading && error && !apiKeyMissing && (
-            <div className="w-full max-w-xl bg-red-500 p-3 sm:p-4 rounded-lg shadow-xl text-center my-4">
-              <p className="font-semibold">Error:</p> <p>{error}</p>
-            </div>
-          )}
-          {musicError && isMusicEnabled && ( 
-            <div className="w-full max-w-xl bg-orange-600 p-2 sm:p-3 rounded-lg shadow-lg text-center my-2 text-xs sm:text-sm">
-                <p className="font-semibold">Music System Note:</p> <p>{musicError}</p>
-            </div>
-           )}
-          
-          {showCulminationCardButton && !isLoading && !error && !apiKeyMissing && (
-             <button
-                onClick={() => handleDrawCardInternal("CULMINATION_CARD")}
-                disabled={isLoading || apiKeyMissing}
-                className="my-3 sm:my-4 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-700 text-white font-semibold rounded-lg shadow-xl hover:from-purple-500 hover:to-indigo-600 transition-all duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="A Moment of Synthesis?"
-              >
-                <span className="font-playfair text-base sm:text-lg">⦾</span> <span className="text-sm sm:text-base">A Moment of Synthesis?</span> <span className="font-playfair text-base sm:text-lg">⦾</span>
-              </button>
-          )}
+      {/* Header Area */}
+      <header 
+        className="fixed top-0 left-0 right-0 z-30 flex items-end justify-center bg-gradient-to-b from-slate-900 via-slate-900/70 via-[45%] to-transparent backdrop-blur-md" 
+        style={{ height: 'var(--header-height-actual)' }}
+        role="banner"
+      >
+        <ThemeDeckSelection 
+          onDraw={handleDrawNewCard} 
+          isDrawingInProgress={isLoading}
+          interactionsDisabled={interactionsDisabled}
+          customDecks={customDecks}
+          onAddCustomDeck={handleOpenCustomDeckModal}
+          onEditCustomDeck={handleEditCustomDeck}
+          onShowDeckInfo={handleOpenDeckInfoModal}
+        />
+      </header>
 
-          <DrawnCardsHistoryView
+      {/* Main Content Area */}
+      <main 
+        className="flex-grow flex flex-col items-center justify-start w-full"
+        style={{ 
+            paddingTop: 'var(--main-content-top-padding)', 
+            paddingBottom: 'var(--main-content-bottom-padding)' 
+        }}
+        role="main"
+      >
+        <DrawnCardsHistoryView 
             history={drawnCardHistory} 
-            onLike={handleLikeCard}
+            onLike={handleLikeCard} 
             onDislike={handleDislikeCard}
-            onPlayAudioForMainPrompt={handlePlayAudioForMainPrompt} 
+            onPlayAudioForMainPrompt={handlePlayAudioForNewestCard}
             onFetchAndPlayCardBackAudio={handleFetchAndPlayCardBackAudio}
-            isLoadingNewCard={isLoading && drawnCardHistory.length === 0} 
-            isLoadingNextCard={isLoading && drawnCardHistory.length > 0} 
+            isLoadingNewCard={isLoading && drawnCardHistory.length === 0}
+            isLoadingNextCard={isLoading && drawnCardHistory.length > 0}
             customDecks={customDecks}
             themeBeingDrawnName={themeBeingDrawnName}
             activeParticipantNameForPlaceholder={activeParticipantNameForPlaceholder}
             onOpenVoiceSettings={handleOpenVoiceSettingsModal}
-            currentDrawingThemeColor={currentDrawingThemeColor} 
-          />
-        </div>
+            currentDrawingThemeColor={currentDrawingThemeColor}
+        />
+        {error && <p className="text-red-400 mt-4 text-center text-sm px-4">{error}</p>}
+
+        {showCulminationCardButton && !isLoading && (
+            <button
+                onClick={handleDrawCulminationCard}
+                className="mt-6 mb-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-slate-900"
+                title="Reflect on the session and draw a synthesis card"
+            >
+                Synthesize Session
+            </button>
+        )}
       </main>
-      
-      {showCustomDeckModal && (
-        <CustomDeckModal 
-          onClose={() => { setShowCustomDeckModal(false); setEditingCustomDeck(null); }} 
-          onSave={handleSaveCustomDeck} 
-          initialData={editingCustomDeck || undefined}
-          interactionsDisabled={apiKeyMissing}
-        />
-      )}
 
-      {showVoiceSettingsModal && (
-        <VoiceSettingsModal
-          currentVoice={selectedVoiceName} currentLanguage={selectedLanguageCode} 
-          isMuted={isAudioMuted} onMuteChange={handleMuteToggle}
-          isMusicEnabled={isMusicEnabled} onMusicEnableChange={handleMusicEnableToggle}
-          musicVolume={musicVolume} onMusicVolumeChange={handleMusicVolumeChange}
-          musicSessionState={musicSessionState}
-          onVoiceChange={handleVoiceChange} onLanguageChange={handleLanguageChange} 
-          onClose={handleCloseVoiceSettingsModal} voicesList={GOOGLE_VOICES} languagesList={LANGUAGES}
-        />
-      )}
-
-      {showDeckInfoModal && itemForInfoModal && (
-        <DeckInfoModal
-          item={itemForInfoModal}
-          onClose={() => setShowDeckInfoModal(false)}
-        />
-      )}
-
-      {showGroupSettingModal && (
-        <GroupSettingModal
-          currentSetting={selectedGroupSetting} onSettingChange={handleGroupSettingChange}
-          onClose={handleCloseGroupSettingModal} groupSettingsOptions={GROUP_SETTINGS}
-          disabled={apiKeyMissing}
-        />
-      )}
-
-      {showSvenAndLisaOnboardingModal && (
-        <SvenAndLisaOnboardingModal
-            onClose={() => {
-                setShowSvenAndLisaOnboardingModal(false);
-                setSvenAndLisaOnboardingDrawFn(null); 
-            }}
-            onConfirm={async () => {
-                if (svenAndLisaOnboardingDrawFn) {
-                    await svenAndLisaOnboardingDrawFn();
-                }
-                setHasShownSvenAndLisaOnboarding(true);
-                setShowSvenAndLisaOnboardingModal(false);
-                setSvenAndLisaOnboardingDrawFn(null);
-            }}
-        />
-      )}
-      
-      {/* Adjusted footer padding for responsiveness */}
-      <footer className="bg-slate-800/70 backdrop-blur-sm shadow-top z-20 fixed bottom-0 left-0 right-0 py-0.5 sm:py-1 flex items-center justify-between px-1 xs:px-2 sm:px-4">
+      {/* Footer Area */}
+      <footer 
+        className="fixed bottom-0 left-0 right-0 z-30 bg-slate-900/80 backdrop-blur-md border-t border-slate-700/60"
+        style={{ height: 'var(--footer-height-actual)' }}
+        role="contentinfo"
+      >
         <BottomToolbar 
-            participants={participants} setParticipants={setParticipants}
-            activeParticipantId={activeParticipantId} setActiveParticipantId={setActiveParticipantId}
-            onRemoveParticipant={handleRemoveParticipant}
-            groupSetting={selectedGroupSetting} onOpenGroupSettingModal={handleOpenGroupSettingModal}
-            disabled={apiKeyMissing} 
+          participants={participants}
+          setParticipants={setParticipants}
+          activeParticipantId={activeParticipantId}
+          setActiveParticipantId={setActiveParticipantId}
+          onRemoveParticipant={handleRemoveParticipant}
+          groupSetting={selectedGroupSetting}
+          onOpenGroupSettingModal={handleOpenGroupSettingModal}
+          disabled={interactionsDisabled}
         />
       </footer>
-    </>
+
+      {/* Modals */}
+      {showCustomDeckModal && (
+        <CustomDeckModal 
+            onClose={handleCloseCustomDeckModal} 
+            onSave={editingCustomDeck ? (name, desc) => handleUpdateCustomDeck(editingCustomDeck.id, name, desc) : handleSaveCustomDeck}
+            initialData={editingCustomDeck || undefined}
+            interactionsDisabled={isLoading}
+        />
+      )}
+       {showDeckInfoModal && itemForInfoModal && (
+        <DeckInfoModal item={itemForInfoModal} onClose={handleCloseDeckInfoModal} />
+      )}
+      {showVoiceSettingsModal && (
+        <VoiceSettingsModal 
+            currentVoice={selectedVoiceName}
+            currentLanguage={selectedLanguageCode}
+            isMuted={isAudioMuted}
+            isMusicEnabled={isMusicEnabled}
+            musicVolume={musicVolume}
+            onMusicVolumeChange={handleMusicVolumeChange}
+            musicSessionState={musicSessionState}
+            onVoiceChange={handleVoiceChange}
+            onLanguageChange={handleLanguageChange}
+            onMuteChange={handleMuteChange}
+            onMusicEnableChange={handleMusicEnableChange}
+            onClose={handleCloseVoiceSettingsModal}
+            voicesList={GOOGLE_VOICES}
+            languagesList={LANGUAGES}
+        />
+      )}
+      {showGroupSettingModal && (
+        <GroupSettingModal
+          currentSetting={selectedGroupSetting}
+          onSettingChange={handleGroupSettingChange}
+          onClose={handleCloseGroupSettingModal}
+          groupSettingsOptions={GROUP_SETTINGS}
+          disabled={isLoading}
+        />
+      )}
+       {showSvenAndLisaOnboardingModal && (
+        <SvenAndLisaOnboardingModal
+            onClose={() => { setShowSvenAndLisaOnboardingModal(false); setSvenAndLisaOnboardingDrawFn(null); }}
+            onConfirm={handleSvenAndLisaOnboardingConfirm}
+        />
+      )}
+    </div>
   );
 };
 

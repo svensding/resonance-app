@@ -19,31 +19,31 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
 }) => {
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-3 sm:p-4 font-normal"
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal"
       onClick={onClose} 
       aria-modal="true"
       role="dialog"
       aria-labelledby="group-setting-title"
     >
       <div 
-        className="bg-slate-800 p-4 sm:p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all"
+        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[90vw] sm:max-w-[70vw] md:max-w-lg transform transition-all"
         onClick={(e) => e.stopPropagation()} 
       >
-        <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <h2 id="group-setting-title" className="text-lg sm:text-xl md:text-2xl font-semibold text-sky-400">Choose Group Setting</h2>
+        <div className="flex justify-between items-center mb-[2vh] sm:mb-[3vh]">
+          <h2 id="group-setting-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-semibold text-sky-400">Choose Group Setting</h2>
           <button 
             onClick={onClose} 
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+            className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
             aria-label="Close group setting selection"
             title="Close"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-[3vh] w-[3vh] max-h-6 max-w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="space-y-2 sm:space-y-3">
+        <div className="space-y-[1vh] sm:space-y-[1.5vh]">
           {groupSettingsOptions.map(settingOption => (
             <button
               key={settingOption.id}
@@ -54,7 +54,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
                 }
               }}
               disabled={disabled}
-              className={`w-full px-3 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm md:text-base rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
+              className={`w-full px-[2vw] py-[1.2vh] sm:px-[2.5vw] sm:py-[1.5vh] text-[clamp(0.75rem,2.2vh,1rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
                           flex flex-col
                           ${currentSetting === settingOption.id
                             ? 'bg-sky-500 text-white font-semibold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg' 
@@ -66,16 +66,16 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
               title={settingOption.description}
             >
               <span className="font-medium">{settingOption.label}</span>
-              <span className={`text-[0.65rem] xs:text-xs ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-0.5`}>{settingOption.description}</span>
+              <span className={`text-[clamp(0.6rem,1.8vh,0.85rem)] ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-[0.3vh]`}>{settingOption.description}</span>
             </button>
           ))}
         </div>
 
-        <div className="mt-6 sm:mt-8 flex justify-end">
+        <div className="mt-[3vh] sm:mt-[4vh] flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
+            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
             title="Done"
           >
             Done

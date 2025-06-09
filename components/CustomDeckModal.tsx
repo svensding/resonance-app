@@ -48,31 +48,31 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-3 sm:p-4 font-normal"
+      className="fixed inset-0 flex items-center justify-center z-50 p-[3vw] font-normal"
       onClick={onClose} 
     >
       <div 
-        className="bg-slate-800 p-4 sm:p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-md transform transition-all"
+        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[90vw] sm:max-w-[70vw] md:max-w-lg transform transition-all"
         onClick={(e) => e.stopPropagation()} 
       >
-        <div className="flex justify-between items-center mb-4 sm:mb-5">
-          <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-sky-400">{modalTitle}</h2>
+        <div className="flex justify-between items-center mb-[2vh] sm:mb-[2.5vh]">
+          <h2 className="text-[clamp(1.1rem,3vh,1.75rem)] font-semibold text-sky-400">{modalTitle}</h2>
           <button 
             onClick={onClose} 
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+            className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
             aria-label="Close modal"
             title="Close modal"
             disabled={interactionsDisabled}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-[3vh] w-[3vh] max-h-6 max-w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-[1.5vh]">
           <div>
-            <label htmlFor="deckName" className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+            <label htmlFor="deckName" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 mb-[0.5vh]">
               Deck Name
             </label>
             <input
@@ -81,13 +81,13 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
               value={deckName}
               onChange={(e) => setDeckName(e.target.value)}
               placeholder="e.g., My Deep Thoughts"
-              className={`w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400 font-normal ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`w-full px-[1.5vw] py-[1vh] text-[clamp(0.75rem,2.2vh,1rem)] bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400 font-normal ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
               maxLength={50}
               disabled={interactionsDisabled}
             />
           </div>
           <div>
-            <label htmlFor="deckDescription" className="block text-xs sm:text-sm font-medium text-slate-300 mb-1">
+            <label htmlFor="deckDescription" className="block text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 mb-[0.5vh]">
               Deck Prompt Description
             </label>
             <textarea
@@ -96,21 +96,21 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
               onChange={(e) => setDeckDescription(e.target.value)}
               placeholder="Describe the kind of prompts this deck should generate. e.g., 'Profound questions about life's purpose and personal growth.'"
               rows={3}
-              className={`w-full px-2.5 py-1.5 sm:px-3 sm:py-2 text-sm sm:text-base bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400 scrollbar-thin font-normal ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`w-full px-[1.5vw] py-[1vh] text-[clamp(0.75rem,2.2vh,1rem)] bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400 scrollbar-thin font-normal ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
               maxLength={300}
               disabled={interactionsDisabled}
             />
-            <p className="text-xs text-slate-400 mt-1 font-normal">This guides the AI. Be descriptive (min 20 chars).</p>
+            <p className="text-[clamp(0.6rem,1.8vh,0.85rem)] text-slate-400 mt-[0.5vh] font-normal">This guides the AI. Be descriptive (min 20 chars).</p>
           </div>
 
-          {error && <p className="text-xs sm:text-sm text-red-400 font-normal">{error}</p>}
+          {error && <p className="text-[clamp(0.65rem,1.9vh,0.9rem)] text-red-400 font-normal">{error}</p>}
 
-          <div className="flex justify-end space-x-2 sm:space-x-3 pt-1 sm:pt-2">
+          <div className="flex justify-end space-x-[1vw] pt-[0.5vh]">
             <button
               type="button"
               onClick={onClose}
               disabled={interactionsDisabled}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
               title="Cancel"
             >
               Cancel
@@ -118,7 +118,7 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
             <button
               type="submit"
               disabled={interactionsDisabled}
-              className={`px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-medium text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 ${interactionsDisabled ? 'opacity-70 cursor-not-allowed' : ''}`}
               title={saveButtonText}
             >
               {saveButtonText}
