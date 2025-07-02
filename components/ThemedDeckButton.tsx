@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { CustomThemeData, DeckSet } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
@@ -15,7 +14,8 @@ interface ThemedDeckButtonProps {
   customDeckData?: CustomThemeData; 
   onEditCustomDeck?: (deck: CustomThemeData) => void; 
   onShowInfo?: () => void; 
-  isDeckSet?: boolean; 
+  isDeckSet?: boolean;
+  isPreferred?: boolean;
 }
 
 export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({ 
@@ -30,6 +30,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   onEditCustomDeck,
   onShowInfo,
   isDeckSet = false,
+  isPreferred = false,
 }) => {
   const baseBg = colorClass.split(' ')[0] + " " + colorClass.split(' ')[1];
   
@@ -63,10 +64,14 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   const glyphColor = "text-white/70";
   
   const titleTextSize = isRandomButton 
-    ? "text-[clamp(0.55rem,1.5vh,0.85rem)]"  // Adjusted
-    : "text-[clamp(0.48rem,1.4vh,0.75rem)]"; // Adjusted
+    ? "text-[clamp(0.55rem,1.5vh,0.85rem)]"
+    : "text-[clamp(0.48rem,1.4vh,0.75rem)]";
 
   const titleMarginTop = isRandomButton ? "mt-[1vh]" : "mt-[0.5vh]";
+
+  const ringClasses = isPreferred
+    ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-800'
+    : 'focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-slate-800';
 
   return (
     <div
@@ -78,9 +83,9 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
       aria-label={mainButtonLabel}
       title={mainButtonTitle}
       className={`relative w-full h-full group font-normal
-                  transition-all duration-300 ease-out
+                  transition-all duration-300 ease-out rounded-lg
                   focus:outline-none 
-                  ${drawActionDisabled ? 'cursor-not-allowed opacity-70' : 'hover:scale-105 active:scale-95 focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-slate-800 rounded-lg cursor-pointer'}
+                  ${drawActionDisabled ? 'cursor-not-allowed opacity-70' : `hover:scale-105 active:scale-95 cursor-pointer ${ringClasses}`}
                   `}
     >
       <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>

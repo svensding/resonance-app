@@ -1,4 +1,5 @@
 
+
 <script type="importmap">
 {
   "imports": {
@@ -140,6 +141,56 @@
       50% { opacity: 1; }
     }
 
+    /* Card Shuffle Animation */
+    .shuffle-card {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 1rem; /* rounded-xl */
+      border: 1px solid rgba(71, 85, 105, 0.6); /* border-slate-700/60 */
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+      will-change: transform;
+      backface-visibility: hidden;
+    }
+    
+    @keyframes shuffle-card-1 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.95); z-index: 10; }
+      25% { transform: translate(-40%, -15%) rotate(-20deg) scale(1); z-index: 50; }
+      75% { transform: translate(10%, 5%) rotate(5deg) scale(0.98); z-index: 10; }
+    }
+    @keyframes shuffle-card-2 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.95); z-index: 20; }
+      25% { transform: translate(40%, -10%) rotate(18deg) scale(1); z-index: 40; }
+      75% { transform: translate(-8%, 3%) rotate(-3deg) scale(0.98); z-index: 20; }
+    }
+    @keyframes shuffle-card-3 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.95); z-index: 30; }
+      25% { transform: translate(-20%, 30%) rotate(-10deg) scale(1); z-index: 30; }
+      75% { transform: translate(5%, -10%) rotate(8deg) scale(0.98); z-index: 30; }
+    }
+    @keyframes shuffle-card-4 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.95); z-index: 40; }
+      25% { transform: translate(25%, 25%) rotate(15deg) scale(1); z-index: 20; }
+      75% { transform: translate(-15%, -5%) rotate(-7deg) scale(0.98); z-index: 40; }
+    }
+    @keyframes shuffle-card-5 {
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(0.95); z-index: 50; }
+      25% { transform: translate(0, -35%) rotate(2deg) scale(1); z-index: 10; }
+      75% { transform: translate(0, 0) rotate(0deg) scale(0.98); z-index: 50; }
+    }
+    @keyframes shuffle-card-6 { /* The back-most card, less movement */
+      0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); z-index: 5; }
+      50% { transform: translate(0, 2%) rotate(1deg) scale(1.02); z-index: 5; }
+    }
+
+    .animate-shuffle-1 { animation: shuffle-card-1 8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; animation-delay: 0s; }
+    .animate-shuffle-2 { animation: shuffle-card-2 8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; animation-delay: 0.1s; }
+    .animate-shuffle-3 { animation: shuffle-card-3 8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; animation-delay: 0.2s; }
+    .animate-shuffle-4 { animation: shuffle-card-4 8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; animation-delay: 0.3s; }
+    .animate-shuffle-5 { animation: shuffle-card-5 8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; animation-delay: 0.4s; }
+    .animate-shuffle-6 { animation: shuffle-card-6 8s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; animation-delay: 0.5s; }
+
+
     /* Initial Loading State Styles */
     .initial-loading-state {
       display: flex;
@@ -222,7 +273,6 @@
       <p class="text-[clamp(0.65rem,2vh,0.9rem)] text-slate-400/90 mt-[2vh] relative z-10 font-normal">Loading Resonance...</p>
     </div>
   </div>
-  <script type="module" src="/bundle.js"></script>
-<script type="module" src="/index.tsx"></script>
+  <script type="module" src="/index.tsx"></script>
 </body>
 </html>

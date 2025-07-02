@@ -1,5 +1,8 @@
 
 
+
+
+
 let audioContext: AudioContext | null = null;
 let currentSource: AudioBufferSourceNode | null = null;
 let currentUtterance: SpeechSynthesisUtterance | null = null;
@@ -7,7 +10,8 @@ let voices: SpeechSynthesisVoice[] = [];
 let activeOnEndedCallback: (() => void) | null = null;
 
 const getAudioContext = (): AudioContext | null => {
-  if (!audioContext && typeof window !== 'undefined') {
+  if (typeof window === 'undefined') return null;
+  if (!audioContext || audioContext.state === 'closed') {
     try {
       audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     } catch (e) {
@@ -17,6 +21,7 @@ const getAudioContext = (): AudioContext | null => {
   }
   return audioContext;
 };
+
 
 const populateVoiceList = () => {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
@@ -214,21 +219,17 @@ export const cancelSpeech = (): void => {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.cancel();
   }
-  // No direct onended for cancel, so manage activeOnEndedCallback in stopSpeechServicePlayback
-  if (currentUtterance && activeOnEndedCallback) { 
-    // If we are cancelling active speech, it's effectively ended.
-    // However, the 'onend' event for the utterance itself might still fire.
-    // To avoid double-calling, let stopSpeechServicePlayback handle it.
-  }
   currentUtterance = null;
 };
 
 const cancelLegacyAudio = (): void => {
   if (currentSource) {
-    try { currentSource.stop(); } catch (e) {} 
+    try { 
+      currentSource.onended = null;
+      currentSource.stop(); 
+    } catch (e) {} 
     finally {
       try { currentSource.disconnect(); } catch(discErr) {}
-      // No direct onended for stop, so manage activeOnEndedCallback in stopSpeechServicePlayback
       currentSource = null;
     }
   }

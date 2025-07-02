@@ -1,5 +1,3 @@
-
-
 import React, { useEffect, useState, useRef } from 'react';
 import { ThemeIdentifier, CustomThemeData, MicroDeck, DeckSet, getDisplayDataForCard } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
@@ -13,11 +11,7 @@ export interface DrawnCardDisplayData {
   feedback: 'liked' | 'disliked' | null;
   audioData?: string | null; 
   audioMimeType?: string | null;
-  llmPromptForTextGeneration?: string; 
-  rawLlmOutput?: string | null; 
   cardBackNotesText?: string | null;
-  cardBackAudioData?: string | null;
-  cardBackAudioMimeType?: string | null;
   isNewest?: boolean;
   drawnForParticipantName?: string | null; 
   isLoadingPlaceholder?: boolean; 
@@ -26,6 +20,7 @@ export interface DrawnCardDisplayData {
   activeParticipantNameForPlaceholder?: string | null;
   currentDrawingThemeColorForPlaceholder?: string | null; 
   isFirstEverCardForDisplay?: boolean;
+  thinkingTextForPlaceholder?: string | null;
 }
 
 interface DrawnCardProps extends DrawnCardDisplayData {
@@ -36,10 +31,10 @@ interface DrawnCardProps extends DrawnCardDisplayData {
   allCustomDecksForLookup: CustomThemeData[]; 
   activeCardAudio: { cardId: string; type: 'prompt' | 'notes' } | null;
   onStopAudio: () => void;
+  isDrawingInProgress?: boolean;
 }
 
 const CARD_ASPECT_RATIO_MULTIPLIER = 7 / 5; 
-const TEXT_REVEAL_DURATION_MS = 1200;
 const LONG_PROMPT_THRESHOLD = 240; 
 const VERY_LONG_PROMPT_THRESHOLD_NEWEST = 300;
 
@@ -57,11 +52,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   feedback,
   audioData, 
   audioMimeType,
-  llmPromptForTextGeneration,
-  rawLlmOutput,
   cardBackNotesText,
-  cardBackAudioData,
-  cardBackAudioMimeType,
   isNewest = false,
   drawnForParticipantName,
   isLoadingPlaceholder = false,
@@ -77,19 +68,19 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   activeCardAudio,
   onStopAudio,
   isFirstEverCardForDisplay = false,
+  thinkingTextForPlaceholder,
+  isDrawingInProgress,
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
-  const [showLLMDetailsView, setShowLLMDetailsView] = useState(false);
-  const [llmDetailsTab, setLlmDetailsTab] = useState<'input' | 'output'>('input');
   const [showCardBackView, setShowCardBackView] = useState(false);
   const [isLoadingCardBackAudio, setIsLoadingCardBackAudio] = useState(false);
   const [parsedGuidance, setParsedGuidance] = useState<ParsedGuidanceSection[]>([]);
   const [showInitialButtons, setShowInitialButtons] = useState(false);
-
+  
   const cardRef = useRef<HTMLDivElement>(null);
-  const [isTextAnimatedIn, setIsTextAnimatedIn] = useState(false);
-  const [isTextFullyVisible, setIsTextFullyVisible] = useState(false); 
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const finalPromptText = promptText;
 
   useEffect(() => {
     if (isFirstEverCardForDisplay && isNewest) {
@@ -104,24 +95,22 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
 
   useEffect(() => {
     if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
-    setIsTextAnimatedIn(false); setIsTextFullyVisible(false); 
-    setShowLLMDetailsView(false); setShowCardBackView(false); setIsLoadingCardBackAudio(false); 
+    setShowCardBackView(false); setIsLoadingCardBackAudio(false); 
 
     if (isLoadingPlaceholder || !promptText || !themeIdentifier) {
-      setIsRevealed(false); return;
+      if (isNewest) { // Is a loading placeholder
+          setIsRevealed(false);
+      }
+      return;
     }
-
+    
     if (isNewest) {
       setIsRevealed(false); 
       revealTimerRef.current = setTimeout(() => {
         setIsRevealed(true); 
-        revealTimerRef.current = setTimeout(() => {
-          setIsTextAnimatedIn(true);
-          revealTimerRef.current = setTimeout(() => setIsTextFullyVisible(true), TEXT_REVEAL_DURATION_MS);
-        }, 100); 
       }, 50); 
     } else {
-      setIsRevealed(true); setIsTextAnimatedIn(true); setIsTextFullyVisible(true); 
+      setIsRevealed(true);
     }
     return () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current); };
   }, [promptText, themeIdentifier, isNewest, id, isLoadingPlaceholder]);
@@ -139,7 +128,6 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const handleToggleCardBackView = () => {
     if (cardBackNotesText && cardBackNotesText.trim() !== "") { 
         setShowCardBackView(prev => !prev);
-        if (showLLMDetailsView) setShowLLMDetailsView(false); 
     }
   };
 
@@ -147,16 +135,12 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     if (!cardBackNotesText || isLoadingCardBackAudio || cardBackNotesText.trim() === "") return;
     setIsLoadingCardBackAudio(true);
     try {
-        if (cardBackAudioData && cardBackAudioMimeType) {
-            onPlayAudioForMainPrompt({ cardId: id, text: null, audioData: cardBackAudioData, audioMimeType: cardBackAudioMimeType });
-        } else {
-            await onFetchAndPlayCardBackAudio(id, cardBackNotesText);
-        }
+        await onFetchAndPlayCardBackAudio(id, cardBackNotesText);
     } catch (error) { console.error("Error initiating card back audio playback:", error); }
     finally { setIsLoadingCardBackAudio(false); }
   };
   
-  const GUIDANCE_HEADINGS = ["Intent & Invitation", "Simple Steps or Guidance", "Clarifying Concepts", "Inspirational Nudges", "Deeper Dive Question"];
+  const GUIDANCE_HEADINGS = ["The Idea", "Getting Started", "Deeper Dive", "Explore Further"];
   useEffect(() => {
     if (cardBackNotesText) {
       const sections: ParsedGuidanceSection[] = [];
@@ -181,14 +165,14 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   }, [cardBackNotesText]);
 
   const renderCardBackNotes = () => {
-    if (!parsedGuidance.length) return <p className="text-[clamp(0.65rem,1.8vh,0.85rem)] text-slate-400 font-normal text-center leading-[1.2]">No additional guidance for this card.</p>; // Adjusted size
+    if (!parsedGuidance.length) return <p className="text-[clamp(0.8rem,2.2vh,1.1rem)] text-slate-400 font-normal text-center leading-[1.2]">No additional guidance for this card.</p>;
     return (
-      <div className="space-y-[1vh]">
+      <div className="space-y-[1.2vh]">
         {parsedGuidance.map((section, index) => (
           section.content.trim() ? (
             <div key={index}>
-              <h6 className="font-bold text-[clamp(0.7rem,2vh,0.9rem)] text-slate-300 mb-[0.2vh] leading-[1.2]">{section.heading}</h6> {/* Adjusted size */}
-              <p className="text-[clamp(0.65rem,1.8vh,0.85rem)] text-slate-200 font-normal whitespace-pre-wrap leading-[1.2]">{section.content}</p> {/* Adjusted size */}
+              <h6 className="font-bold text-[clamp(0.85rem,2.4vh,1.15rem)] text-slate-300 mb-[0.2vh] leading-snug">{section.heading}</h6>
+              <p className="text-[clamp(0.8rem,2.2vh,1.1rem)] text-slate-200 font-normal whitespace-pre-wrap leading-snug">{section.content}</p>
             </div>
           ) : null
         ))}
@@ -244,32 +228,33 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
         <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
           <div 
             className={`absolute inset-0 ${currentDrawingThemeColorForPlaceholder ? `bg-gradient-to-br ${currentDrawingThemeColorForPlaceholder}` : 'bg-slate-900'} 
-                       rounded-xl shadow-xl ${subtleSolidBorder} shimmer-effect animate-pulse-slow 
+                       rounded-xl shadow-xl ${subtleSolidBorder} 
                        flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}
           >
             <div className={`absolute inset-0 ${overlayBaseClasses} rounded-xl`}></div>
             <CornerGlyphGrid position="top-left" glyphColorClass="text-slate-600" glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
             
-            <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-[0.3em] sm:space-y-[0.5em]">
-              <GlyphPatternRow glyphs={[{ char: "⦾", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
-              <GlyphPatternRow glyphs={[
-                  { char: "⦾", opacity: 0.33 }, { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.33 }
-              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
-              <GlyphPatternRow glyphs={[
-                  { char: "⦾", opacity: 0.33 }, { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.9 }, 
-                  { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.33 }
-              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
-              <div className="my-[0.5em] sm:my-[0.8em]"><p style={loadingResonanceTextStyle}>RESONANCE</p></div>
-              <GlyphPatternRow glyphs={[
-                  { char: "⟁", opacity: 0.33 }, { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.9 }, 
-                  { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.33 }
-              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
-              <GlyphPatternRow glyphs={[
-                  { char: "⟁", opacity: 0.33 }, { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.33 }
-              ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
-              <GlyphPatternRow glyphs={[{ char: "⟁", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
-              <p className="text-[clamp(0.65rem,2vh,0.9rem)] text-slate-300/80 mt-[1vh] relative z-10">{loadingText}</p>
-            </div>
+            {thinkingTextForPlaceholder ? (
+                 <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-2 px-4">
+                     <p className="text-sm text-slate-400 font-semibold">Thinking...</p>
+                     <p className="text-lg text-slate-200 text-center" style={{ textWrap: 'balance' as any }}>
+                        "{thinkingTextForPlaceholder}"
+                     </p>
+                 </div>
+            ) : (
+                <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-[0.3em] sm:space-y-[0.5em]">
+                  <GlyphPatternRow glyphs={[{ char: "⦾", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
+                  <GlyphPatternRow glyphs={[
+                      { char: "⦾", opacity: 0.33 }, { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.33 }
+                  ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
+                  <div className="my-[0.5em] sm:my-[0.8em]"><p style={loadingResonanceTextStyle}>RESONANCE</p></div>
+                  <GlyphPatternRow glyphs={[
+                      { char: "⟁", opacity: 0.33 }, { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.33 }
+                  ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
+                  <GlyphPatternRow glyphs={[{ char: "⟁", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
+                  <p className="text-[clamp(0.65rem,2vh,0.9rem)] text-slate-300/80 mt-[1vh] relative z-10">{loadingText}</p>
+                </div>
+            )}
             <CornerGlyphGrid position="bottom-right" glyphColorClass="text-slate-600" glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
           </div>
         </div>
@@ -277,7 +262,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     );
   }
   
-  if (!isRevealed && !promptText && !isLoadingPlaceholder) return null;
+  if (!isRevealed && !finalPromptText && !isLoadingPlaceholder) return null;
 
   const { name: themeDisplayName, colorClass: themeColor } = getDisplayDataForCard(themeIdentifier, deckSetId || null, allCustomDecksForLookup);
   
@@ -290,30 +275,21 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const promptTextHorizontalPadding = isNewest ? "px-[3vw]" : "px-[2vw]"; 
   
   const promptTextStyle: React.CSSProperties = { textWrap: 'balance' as any, lineHeight: '1.2' };
-  if (!isNewest || isTextFullyVisible) promptTextStyle.color = 'white';
-  else { 
-    promptTextStyle.color = 'transparent'; promptTextStyle.backgroundImage = 'linear-gradient(105deg, white 50%, transparent 70%)';
-    promptTextStyle.backgroundRepeat = 'no-repeat'; promptTextStyle.backgroundClip = 'text'; promptTextStyle.WebkitBackgroundClip = 'text';
-    promptTextStyle.backgroundSize = '200% 100%'; promptTextStyle.backgroundPosition = '100% 0'; 
-    promptTextStyle.transitionProperty = 'background-position'; promptTextStyle.transitionTimingFunction = 'cubic-bezier(0.25, 0.1, 0.25, 1)';
-    if (isTextAnimatedIn) { promptTextStyle.backgroundPosition = '0% 0'; promptTextStyle.transitionDuration = `${TEXT_REVEAL_DURATION_MS}ms`; }
-    else promptTextStyle.transitionDuration = '0ms';
-  }
   
   const actionButtonSizeClasses = isNewest ? "p-[1vh]" : "p-[0.8vh]";
   const actionButtonIconSize = isNewest ? "h-[2.8vh] w-[2.8vh] max-h-6 max-w-6" : "h-[2.2vh] w-[2.2vh] max-h-5 max-w-5";
 
   let promptTextSizeClasses = "font-normal"; 
-  if (isNewest && !showCardBackView && !showLLMDetailsView) {
-     if (promptText && promptText.length > VERY_LONG_PROMPT_THRESHOLD_NEWEST) {
+  if (isNewest && !showCardBackView) {
+     if (finalPromptText && finalPromptText.length > VERY_LONG_PROMPT_THRESHOLD_NEWEST) {
         promptTextSizeClasses = "text-[clamp(0.9rem,2.5vw,1.5rem)] font-normal"; 
-     } else if (promptText && promptText.length > LONG_PROMPT_THRESHOLD) {
+     } else if (finalPromptText && finalPromptText.length > LONG_PROMPT_THRESHOLD) {
         promptTextSizeClasses = "text-[clamp(1rem,3vw,1.75rem)] font-normal";    
      } else {
         promptTextSizeClasses = "text-[clamp(1.1rem,3.5vw,2rem)] font-normal";   
      }
   } else if (!isNewest) { 
-    promptTextSizeClasses = (promptText && promptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)] font-normal" : "text-[clamp(0.75rem,2.5vw,1.1rem)] font-normal";
+    promptTextSizeClasses = (finalPromptText && finalPromptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)] font-normal" : "text-[clamp(0.75rem,2.5vw,1.1rem)] font-normal";
   }
 
   const cardBackTitle = "Guidance"; 
@@ -352,40 +328,24 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
           <div className={`absolute w-full h-full backface-hidden rotate-y-180 
                            ${themeColor ? `bg-gradient-to-br ${themeColor}` : 'bg-slate-900'} 
                            ${cardFaceBaseClasses} ${subtleSolidBorder}
-                           ${(isRevealed && isNewest && !showLLMDetailsView && !showCardBackView) ? 'shimmer-effect' : ''} flex flex-col`}>
+                           ${(isRevealed && isNewest && !showCardBackView) ? 'shimmer-effect' : ''} flex flex-col`}>
             <div className={`absolute inset-0 ${overlayBaseClasses} rounded-xl`}></div>
 
-            {isRevealed && cardBackNotesText && cardBackNotesText.trim() !== "" && !showLLMDetailsView && (
-              <button onClick={handleToggleCardBackView} className={`absolute top-[1vh] left-[1vh] ${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200 z-30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100`} aria-label={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`} title={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`}>
-                <span className={`${utilityButtonIconSize} flex items-center justify-center ${utilityButtonRotateIconFontSize}`}>↻</span>
-              </button>
-            )}
-            {isRevealed && llmPromptForTextGeneration && !showCardBackView && !showLLMDetailsView && (
-              <button onClick={() => { setShowLLMDetailsView(true); setShowCardBackView(false); setLlmDetailsTab('input'); }} className={`absolute top-[1vh] right-[1vh] ${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200 z-30 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100`} aria-label="Show LLM Details" title="Show LLM Details">
-                <svg xmlns="http://www.w3.org/2000/svg" className={utilityButtonIconSize} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-              </button>
+            {isRevealed && (
+              <div className="absolute top-[1vh] left-[1vh] z-30 flex space-x-2">
+                {cardBackNotesText && cardBackNotesText.trim() !== "" && (
+                  <button onClick={handleToggleCardBackView} className={`${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100`} aria-label={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`} title={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`}>
+                    <span className={`${utilityButtonIconSize} flex items-center justify-center ${utilityButtonRotateIconFontSize}`}>↻</span>
+                  </button>
+                )}
+              </div>
             )}
             
             <div className={`relative z-10 flex flex-col flex-grow h-full ${cardPaddingClass}`}>
-              {!showLLMDetailsView && <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />}
+              {!showCardBackView && <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />}
               <div className={`flex-grow overflow-y-auto hide-scrollbar scrollbar-thumb-white/40 scrollbar-track-transparent my-[0.5vh] flex flex-col w-full
-                  ${showLLMDetailsView ? 'items-stretch justify-start' : showCardBackView ? 'items-center justify-start pt-[0.5vh] md:pt-[1vh]' : 'items-center justify-center pt-[1vh] md:pt-[1.5vh] pb-[1vh] md:pb-[1.5vh]'}`}>
-                {showLLMDetailsView ? (
-                  <div className="flex flex-col h-full w-full">
-                     <div className="flex items-center justify-between mb-[0.5vh]">
-                        <div className="flex space-x-[0.5vw]">
-                          <button onClick={() => setLlmDetailsTab('input')} className={`px-[1vw] py-[0.3vh] text-[clamp(0.6rem,1.5vh,0.8rem)] rounded-md ${llmDetailsTab === 'input' ? 'bg-sky-600 text-white font-bold' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 font-normal'}`}>Input</button>
-                          <button onClick={() => setLlmDetailsTab('output')} className={`px-[1vw] py-[0.3vh] text-[clamp(0.6rem,1.5vh,0.8rem)] rounded-md ${llmDetailsTab === 'output' ? 'bg-sky-600 text-white font-bold' : 'bg-slate-700 text-slate-300 hover:bg-slate-600 font-normal'}`}>Output</button>
-                        </div>
-                        <button onClick={() => setShowLLMDetailsView(false)} className={`${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200 z-20`} aria-label="Close LLM Details" title="Close LLM Details">
-                           <svg xmlns="http://www.w3.org/2000/svg" className={utilityButtonIconSize} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                      </div>
-                      <div className={`overflow-y-auto text-slate-300 bg-slate-900/60 p-[1vh] rounded-md scrollbar-thin flex-grow text-[clamp(0.55rem,1.2vh,0.75rem)]`}>
-                        <pre className="whitespace-pre-wrap font-atkinson-mono font-normal">{llmDetailsTab === 'input' ? (llmPromptForTextGeneration || "No input details.") : (rawLlmOutput || "No raw output.")}</pre>
-                      </div>
-                  </div>
-                ) : showCardBackView && cardBackNotesText && cardBackNotesText.trim() !== "" ? (
+                  ${showCardBackView ? 'items-center justify-start pt-[0.5vh] md:pt-[1vh]' : 'items-center justify-center pt-[1vh] md:pt-[1.5vh] pb-[1vh] md:pb-[1.5vh]'}`}>
+                {showCardBackView && cardBackNotesText && cardBackNotesText.trim() !== "" ? (
                   <div className="flex flex-col flex-grow w-full text-center">
                     <div className="flex justify-between items-center mb-[0.5vh]">
                         <div className="flex-1 text-center">
@@ -419,13 +379,12 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                         {drawnForParticipantName && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
                     </div>
                     <div className={`flex-grow flex items-center justify-center ${promptTextHorizontalPadding}`}>
-                        <p className={`${promptTextSizeClasses} text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{promptText}</p>
+                        <p className={`${promptTextSizeClasses} text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{finalPromptText}</p>
                     </div>
                   </>
                 )}
               </div> 
-              {!showLLMDetailsView && (
-                <div className="relative z-[1] flex justify-between items-center pt-[0.5vh] mt-auto w-full">
+              <div className="relative z-[1] flex justify-between items-center pt-[0.5vh] mt-auto w-full">
                   <div className="flex flex-col items-start text-white/70 select-none">
                     <div style={cardLogoTextStyle}>RESONANCE</div>
                   </div>
@@ -434,8 +393,8 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                       <svg xmlns="http://www.w3.org/2000/svg" className={actionButtonIconSize} viewBox="0 0 20 20" fill="currentColor"><path d="M15.707 4.293a1 1 0 00-1.414 0L10 8.586 5.707 4.293a1 1 0 00-1.414 1.414L8.586 10l-4.293 4.293a1 1 0 101.414 1.414L10 11.414l4.293 4.293a1 1 0 001.414-1.414L11.414 10l4.293-4.293a1 1 0 000-1.414z" /></svg>
                     </button>
                     <button 
-                      onClick={isThisPromptAudioPlaying ? onStopAudio : () => onPlayAudioForMainPrompt({ cardId: id, text: promptText, audioData, audioMimeType })} 
-                      disabled={(!promptText && !audioData) || isLoadingPlaceholder || (promptText && promptText.startsWith("The Resonance seems to be quiet"))} 
+                      onClick={isThisPromptAudioPlaying ? onStopAudio : () => onPlayAudioForMainPrompt({ cardId: id, text: finalPromptText, audioData, audioMimeType })} 
+                      disabled={(!finalPromptText && !audioData) || isLoadingPlaceholder || (finalPromptText && finalPromptText.startsWith("The Resonance seems to be quiet"))} 
                       className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} bg-black/30 hover:bg-sky-600/80 text-slate-300 hover:text-white disabled:opacity-50 disabled:hover:bg-black/30`} 
                       aria-label={isThisPromptAudioPlaying ? "Stop Audio" : "Play Audio"} 
                       title={isThisPromptAudioPlaying ? "Stop Audio" : "Play Audio"}
@@ -451,8 +410,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                     </button>
                   </div>
                 </div>
-              )}
-              {!showLLMDetailsView && <CornerGlyphGrid position="bottom-right" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />}
+              {!showCardBackView && <CornerGlyphGrid position="bottom-right" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />}
             </div>
           </div>
         </div>

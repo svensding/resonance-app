@@ -1,9 +1,9 @@
 
-
 import React from 'react';
 import { 
-    ThemeIdentifier, CustomThemeData, DeckSet, DECK_SETS,
-    getCustomDeckById, getDeckSetById 
+    ThemeIdentifier, CustomThemeData, DeckSet, 
+    getVisibleDeckSetsForGroupSetting, isDeckSetPreferredForGroupSetting,
+    GroupSetting
 } from '../services/geminiService';
 import { ThemedDeckButton } from './ThemedDeckButton';
 import { useDragToScroll } from '../hooks/useDragToScroll'; 
@@ -16,6 +16,7 @@ interface ThemeDeckSelectionProps {
   onAddCustomDeck: () => void;
   onEditCustomDeck: (deck: CustomThemeData) => void; 
   onShowDeckInfo: (itemId: DeckSet['id'] | CustomThemeData['id']) => void;
+  groupSetting: GroupSetting;
 }
 
 export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({ 
@@ -25,7 +26,8 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
     customDecks, 
     onAddCustomDeck,
     onEditCustomDeck,
-    onShowDeckInfo
+    onShowDeckInfo,
+    groupSetting
 }) => {
   const scrollContainerRef = useDragToScroll<HTMLDivElement>(); 
 
@@ -46,13 +48,14 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
 
   const deckButtonContainerStyle = "flex-shrink-0 aspect-[5/7] max-h-[calc(var(--header-height-actual)_*_0.85)] min-w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_0.7)] max-w-[calc(var(--header-height-actual)_*_0.85_*_5/7)] w-[calc(var(--header-height-actual)_*_0.85_*_5/7)] sm:w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.1)] sm:max-w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.1)] md:w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.2)] md:max-w-[calc(var(--header-height-actual)_*_0.85_*_5/7_*_1.2)]";
 
-
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;
 
+  const visibleDeckSets = getVisibleDeckSetsForGroupSetting(groupSetting);
+
   const itemsToDisplay: (DeckSet | CustomThemeData | "RANDOM")[] = [
-    "RANDOM", // Moved to the beginning
-    ...DECK_SETS,
+    "RANDOM",
+    ...visibleDeckSets,
     ...customDecks
   ];
 
@@ -71,6 +74,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
           let isCustom = false;
           let itemForInfo: DeckSet | CustomThemeData | null = null;
           let itemIsDeckSet = false;
+          let isPreferred = false;
 
           if (item === "RANDOM") {
             itemId = "RANDOM";
@@ -84,13 +88,14 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
             baseColorClass = customDeck.colorClass;
             isCustom = true;
             itemForInfo = customDeck;
-          } else if (typeof item === 'object' && 'colorClass' in item && 'description' in item && Object.values(DECK_SETS).some(ds => ds.id === item.id)) { 
+          } else if (typeof item === 'object' && 'colorClass' in item && 'description' in item) { 
             const deckSet = item as DeckSet;
             itemId = deckSet.id;
             itemName = deckSet.name;
             baseColorClass = deckSet.colorClass;
             itemForInfo = deckSet;
             itemIsDeckSet = true;
+            isPreferred = isDeckSetPreferredForGroupSetting(deckSet.id, groupSetting);
           } else {
             console.warn("Unknown item type in ThemeDeckSelection:", item);
             return null; 
@@ -113,6 +118,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
                 onEditCustomDeck={isCustom ? onEditCustomDeck : undefined}
                 onShowInfo={itemForInfo ? () => onShowDeckInfo(itemId as DeckSet['id'] | CustomThemeData['id']) : undefined}
                 isDeckSet={itemIsDeckSet}
+                isPreferred={isPreferred}
               />
             </div>
           );

@@ -1,10 +1,9 @@
-
-
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import type { DrawnCardData as CardHistoryItem } from '../App'; 
+import { GoogleGenAI, GenerateContentResponse, Chat, Content } from "@google/genai";
+import { DevLogEntry } from "../components/DevLogSheet";
 
 const API_KEY = process.env.API_KEY;
 let ai: GoogleGenAI | null = null;
+let chatSession: Chat | null = null;
 
 if (API_KEY) {
   try {
@@ -14,10 +13,71 @@ if (API_KEY) {
   }
 }
 
-const TEXT_GENERATION_MODEL = 'gemini-2.5-flash-preview-04-17'; 
+const PRIMARY_TEXT_GENERATION_MODEL = 'gemini-2.5-flash-lite-preview-06-17';
+const FALLBACK_TEXT_GENERATION_MODEL = 'gemini-2.0-flash-lite';
 const TTS_MODEL = 'gemini-2.5-flash-preview-tts'; 
+const GENERATION_TIMEOUT_MS = 20000; // 20 seconds
+
+// --- New "Angles of Inquiry" Architecture ---
+export interface AngleOfInquiry {
+  id: string; // e.g., 'sensation_compass'
+  name: string; // e.g., 'The Sensation Compass'
+  description: string; // The full description for the LLM
+}
+
+export const ANGLES_OF_INQUIRY: AngleOfInquiry[] = [
+  {
+    id: "sensation_compass",
+    name: "The Sensation Compass",
+    description: "Anchor the prompt in physical, bodily felt experience. Explore what your body is telling you. Where do you feel this? What is its texture, temperature, or subtle movement?"
+  },
+  {
+    id: "origin_story_whisper",
+    name: "The Origin Story Whisper",
+    description: "Understand the roots or initial moments of a feeling, state, or concept. What is an early memory, a first experience, or the root of this feeling? What might that moment reveal?"
+  },
+  {
+    id: "future_reflection",
+    name: "The Future Reflection",
+    description: "Project forward, seeking wisdom or perspective from a future self or outcome. Imagine looking back from the future, or looking forward. What perspective, advice, or insight arises?"
+  },
+  {
+    id: "tangible_metaphor",
+    name: "The Tangible Metaphor",
+    description: "Translate abstract feelings or concepts into concrete objects or sensory experiences. If this feeling, idea, or state were an object, a color, a sound, or a texture, what would it be and why?"
+  },
+  {
+    id: "behavioral_clue",
+    name: "The Behavioral Clue",
+    description: "Identify observable actions, habits, or expressions that indicate an inner state. What is an observable action, a habit, or a subtle gesture that reflects this feeling or state?"
+  },
+  {
+    id: "relational_echo",
+    name: "The Relational Echo",
+    description: "Explore dynamics, perceptions, and the interplay between people. How does this manifest in relationship? What do you sense or notice about the connection, the dynamic, or the other person?"
+  },
+  {
+    id: "philosophical_lens",
+    name: "The Philosophical Lens",
+    description: "Engage with broader life concepts, wisdom traditions, or existential questions. Consider this through a philosophical idea, a life lesson, or a contemplation on meaning. What insights arise?"
+  },
+  {
+    id: "narrative_thread",
+    name: "The Narrative Thread",
+    description: "Uncover the story, theme, or lesson within an experience. What is the key moment, the central emotion, or the underlying lesson?"
+  },
+  {
+    id: "inner_weather",
+    name: "The Inner Weather",
+    description: "What is the emotional weather inside you right now? Is it sunny, stormy, foggy, or calm? Describe its characteristics as a metaphorical weather system."
+  }
+];
+
 
 // --- New Deck Sets and Micro Decks Architecture ---
+
+export type GroupSetting = "SOLO" | "GENERAL" | "STRANGERS" | "FRIENDS" | "ROMANTIC" | "FAMILY" | "COLLEAGUES" | "COMMUNITY" | "SPECIAL";
+export type Suitability = 'PREFERRED' | 'OPTIONAL' | 'HIDDEN';
 
 export interface DeckSet {
   id: string; // e.g., "KINDLING_CONNECTION"
@@ -27,13 +87,15 @@ export interface DeckSet {
 }
 
 export interface MicroDeck {
-  id: string; // Unique ID, e.g., "SBP_01"
-  internal_name: string; // Specific name, e.g., "Shared Breath & Presence"
-  belongs_to_set: string | null; // ID of the DeckSet it belongs to, or null if special (e.g. culmination)
-  description_for_info_button: string; // Detailed description (currently for future use if showing MicroDeck info)
-  deck_inspiration_focus: string; // Guidance for LLM (style/methodology)
-  llm_keywords: string; // Specific keywords for this micro-deck
-  maturity_rating_hint: "General" | "Mature" | "Intimate/Explicit";
+  id: string; // Unique ID, e.g., "AP_01"
+  name: string; // User-facing name, e.g., "Arrival in Presence"
+  belongs_to_set: string | null; // ID of the DeckSet it belongs to
+  description_for_info_button: string; // Detailed description
+  focus: string; // Guidance for LLM (style/methodology)
+  keywords: string; // Specific keywords for this micro-deck
+  group_setting_suitability: Partial<Record<GroupSetting, Suitability>>;
+  default_angle: AngleOfInquiry['id'];
+  alternative_angles: AngleOfInquiry['id'][];
 }
 
 export type CustomThemeId = `CUSTOM_${string}`;
@@ -50,195 +112,287 @@ export const DECK_SETS: DeckSet[] = [
   {
     id: "KINDLING_CONNECTION",
     name: "Kindling Connection",
-    description: "Gentle and playful ways to spark conversation, share light perspectives, and enjoy easygoing connection.",
+    description: "Gentle prompts to spark warm conversation and easy moments of connection. Perfect for getting to know someone or sharing a lighthearted moment.",
     colorClass: "from-sky-400 to-cyan-400",
   },
   {
     id: "UNVEILING_DEPTHS",
     name: "Unveiling Depths",
-    description: "Courageous explorations of inner landscapes, personal truths, emotional wounds, and shadow aspects. For deeper self-understanding.",
+    description: "Explore your inner world with gentle courage. Discover personal truths, tender feelings, and gain deeper understanding of yourself.",
     colorClass: "from-emerald-400 to-green-500",
   },
   {
     id: "RELATIONAL_ALCHEMY",
     name: "Relational Alchemy",
-    description: "Transform your connections. Explore interpersonal dynamics, communication patterns, shared visions, and the energy between you.",
+    description: "Deepen your connections. Explore the dynamics, communication, and shared energy that shape your relationships, fostering understanding and growth.",
     colorClass: "from-rose-500 to-red-600",
   },
   {
     id: "ADVENTUROUS_RESONANCE",
     name: "Adventurous Resonance",
-    description: "For the bold. Explore desire, intimacy, edgy questions, and playful provocations in a space of mutual consent and curiosity. (Mature Themes)",
+    description: "Explore with bold curiosity. Venture into intimate discovery, playful provocations, and courageous connection. (Mature Themes)",
     colorClass: "from-purple-500 to-indigo-600",
+  },
+  {
+    id: "THE_ART_OF_LIVING",
+    name: "The Art of Living",
+    description: "Find wisdom for everyday life. Explore philosophical ideas, cultivate self-awareness, and navigate life's challenges with clarity and intention.",
+    colorClass: "from-purple-400 to-pink-500",
+  },
+  {
+    id: "THE_STORYTELLERS_CRAFT",
+    name: "The Storyteller's Craft",
+    description: "Craft and share your personal narratives. Discover the power of your voice, connect through stories, and find meaning in your experiences.",
+    colorClass: "from-yellow-500 to-orange-600",
   }
 ];
 
 export const ALL_MICRO_DECKS: MicroDeck[] = [
-  // Set 1: Kindling Connection
-  {
-    id: "SBP_01", internal_name: "Shared Breath & Presence", belongs_to_set: "KINDLING_CONNECTION",
-    description_for_info_button: "Simple prompts to arrive in the present moment, together or individually, focusing on breath and immediate sensory awareness.",
-    deck_inspiration_focus: "Mindfulness & Gentle Somatic Check-in",
-    llm_keywords: "presence, grounding, arrival, breath awareness, sensory input (gentle), shared quiet, simple observation, calm, centering",
-    maturity_rating_hint: "General"
-  },
-  {
-    id: "CCS_01", internal_name: "Curiosity Cafe Spark", belongs_to_set: "KINDLING_CONNECTION",
-    description_for_info_button: "Light, intriguing questions about the world, ideas, and 'what ifs' to spark easy conversation and share perspectives.",
-    deck_inspiration_focus: "Engaging Podcast-Style Icebreakers & Light 'What If' Scenarios",
-    llm_keywords: "ideas, light perspectives, observations, societal quirks, fun hypotheticals, daydreams, simple preferences, creativity lite",
-    maturity_rating_hint: "General"
-  },
-  {
-    id: "SS_01", internal_name: "Snapshot Stories", belongs_to_set: "KINDLING_CONNECTION",
-    description_for_info_button: "Invitations to share brief, lighthearted, or interesting personal anecdotes and memories.",
-    deck_inspiration_focus: "Light Personal Anecdote Sharing (Moth Radio Hour Intro Style)",
-    llm_keywords: "quick memories, funny moments, small joys, everyday observations, light anecdotes, simple preferences, favorite things (simple)",
-    maturity_rating_hint: "General"
-  },
-  {
-    id: "PB_01", internal_name: "Playful Banter", belongs_to_set: "KINDLING_CONNECTION",
-    description_for_info_button: "Prompts to ignite laughter, humor, and spontaneous playful interactions.",
-    deck_inspiration_focus: "Lighthearted & Witty Conversational Games",
-    llm_keywords: "humor, playfulness, lighthearted teasing (gentle), absurd questions, shared laughter, silly scenarios, spontaneity",
-    maturity_rating_hint: "General"
-  },
-  // Set 2: Unveiling Depths
-  {
-    id: "HAV_01", internal_name: "Heart's Authentic Voice", belongs_to_set: "UNVEILING_DEPTHS",
-    description_for_info_button: "Prompts for sharing core feelings, personal truths, values, and significant experiences with courage.",
-    deck_inspiration_focus: "Authentic Relating Self-Expression & WANRS Level 2 Vulnerability",
-    llm_keywords: "vulnerability, core feelings, personal truth, values, needs, 'I' statements, significant memories, life lessons, self-expression",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "SLI_01", internal_name: "Shadow & Light Integration", belongs_to_set: "UNVEILING_DEPTHS",
-    description_for_info_button: "Explore unacknowledged 'shadow' aspects, projections, and difficult emotions to foster wholeness.",
-    deck_inspiration_focus: "Depth Psychology Shadow Work & IFS-Inspired Reflection",
-    llm_keywords: "shadow self, disowned parts, integration, wholeness, projections, triggers, inner critic, self-acceptance, difficult emotions, hidden strengths",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "ICW_01", internal_name: "Inner Child's Wisdom", belongs_to_set: "UNVEILING_DEPTHS",
-    description_for_info_button: "Connect with and offer compassion to your inner child, acknowledging past hurts and unmet needs.",
-    deck_inspiration_focus: "Trauma-Informed Self-Compassion & Inner Child Healing Prompts",
-    llm_keywords: "inner child, past hurts, emotional wounds, self-compassion, healing, unmet needs, resilience, nurturing self, gentle reflection",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "MIP_01", internal_name: "Meeting Your Inner Parts", belongs_to_set: "UNVEILING_DEPTHS",
-    description_for_info_button: "Give voice to different aspects of your personality – the Critic, Protector, Dreamer – and understand their roles.",
-    deck_inspiration_focus: "Internal Family Systems (IFS) & Voice Dialogue Principles",
-    llm_keywords: "inner critic, inner child, inner parent, inner mentor, archetypal parts, subpersonalities, internal dialogue, needs of parts, wisdom of parts",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "PTO_01", internal_name: "Path Through Obstacles", belongs_to_set: "UNVEILING_DEPTHS",
-    description_for_info_button: "Reflect on struggles, fears, and self-limiting beliefs to find clarity, resilience, and new ways forward.",
-    deck_inspiration_focus: "Coaching for Resilience & ACT-Informed Acceptance",
-    llm_keywords: "struggles, fears, challenges, obstacles, self-limiting beliefs, problem-solving, resilience, perspective shift, acceptance, values-based action",
-    maturity_rating_hint: "Mature"
-  },
-  // Set 3: Relational Alchemy
-  {
-    id: "SBG_01", internal_name: "The Space Between: Group Dynamics", belongs_to_set: "RELATIONAL_ALCHEMY",
-    description_for_info_button: "For groups: Illuminate present-moment group dynamics, relational energy, and unspoken currents.",
-    deck_inspiration_focus: "Circling Group Awareness & T-Group Process Observation",
-    llm_keywords: "group dynamics, relational energy, unspoken currents, shared atmosphere, impact feedback (group), collective experience, present moment (group)",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "ECD_01", internal_name: "Edge of Connection: Dyads", belongs_to_set: "RELATIONAL_ALCHEMY",
-    description_for_info_button: "For pairs: Explore impact, perceptions, boundaries, and the unspoken 'charge' in your specific connection.",
-    deck_inspiration_focus: "Authentic Relating Dyad Practices & Gottman Method Insights",
-    llm_keywords: "interpersonal dynamics (dyad), impact feedback, perception of partner, projections (dyad), boundaries (dyad), unspoken tension, relational patterns, direct communication (dyad)",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "SD_01", internal_name: "Somatic Dialogue", belongs_to_set: "RELATIONAL_ALCHEMY",
-    description_for_info_button: "Connect through shared embodied experiences, non-verbal cues, and sensory exploration between participants.",
-    deck_inspiration_focus: "Paired Somatic Exploration & Contact Improv Principles",
-    llm_keywords: "embodied connection, non-verbal dialogue, shared movement (simple), relational energy (felt), sensory mirroring, physical listening, co-regulation",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "CCF_01", internal_name: "Co-Creating Futures", belongs_to_set: "RELATIONAL_ALCHEMY",
-    description_for_info_button: "For pairs or groups: Align intentions, discuss shared values, and explore common ground for future actions or visions.",
-    deck_inspiration_focus: "Collaborative Visioning & Shared Goal Setting (Appreciative Inquiry style)",
-    llm_keywords: "shared vision, co-creation, mutual aspirations, collective intention, common ground, partnership goals, team alignment, future possibilities (shared)",
-    maturity_rating_hint: "General"
-  },
-  // Set 4: Adventurous Resonance
-  {
-    id: "EBE_01", internal_name: "Erotic Blueprint Exploration", belongs_to_set: "ADVENTUROUS_RESONANCE",
-    description_for_info_button: "For couples/partners: Discover and share your unique turn-ons, desires, boundaries, and erotic languages. (Explicitly Adult)",
-    deck_inspiration_focus: "Jaiya's Erotic Blueprints & Intimate Desire Question Decks",
-    llm_keywords: "erotic blueprints, sexual desire, turn-ons, turn-offs, fantasies (consensual), erotic language, sensual preferences, boundaries (sexual), pleasure mapping, sexual communication",
-    maturity_rating_hint: "Intimate/Explicit"
-  },
-  {
-    id: "TTET_01", internal_name: "Taboo Topics & Edgy Truths", belongs_to_set: "ADVENTUROUS_RESONANCE",
-    description_for_info_button: "Daring questions that challenge social norms, explore provocative thoughts, and invite radical honesty. (Mature & Provocative)",
-    deck_inspiration_focus: "Provocative Question Decks & Radical Honesty Principles",
-    llm_keywords: "taboo subjects, radical honesty, unconventional thoughts, challenging norms, controversial opinions (respectfully explored), hidden judgments, raw truths, playful provocation",
-    maturity_rating_hint: "Mature"
-  },
-  {
-    id: "SA_01", internal_name: "Sensual Awakening", belongs_to_set: "ADVENTUROUS_RESONANCE",
-    description_for_info_button: "Invitations to explore heightened sensory experiences, embodied pleasure, and mindful sensuality, alone or with a partner. (Mature/Intimate)",
-    deck_inspiration_focus: "Mindful Sexuality & Tantric Principles (Sensory Focus)",
-    llm_keywords: "sensual awareness, embodied pleasure (non-explicit), mindful touch (self or partnered), sensory amplification, erotic energy (subtle), presence in sensation, body appreciation",
-    maturity_rating_hint: "Intimate/Explicit"
-  },
-  {
-    id: "RR_01", internal_name: "Risk & Revelation", belongs_to_set: "ADVENTUROUS_RESONANCE",
-    description_for_info_button: "Push your relational comfort zones with playful dares, bold declarations, or unexpected acts of connection. (Mature & Playful Risk)",
-    deck_inspiration_focus: "Playful Dare Decks & Relational Edge Exploration",
-    llm_keywords: "relational risks (playful), bold declarations, unexpected actions, challenging comfort zones, spontaneous connection, playful dares, vulnerability through action",
-    maturity_rating_hint: "Mature"
-  }
+    // Set 1: Kindling Connection
+    {
+        id: "KC_01", name: "Arrival in Presence", belongs_to_set: "KINDLING_CONNECTION",
+        description_for_info_button: "Gentle prompts to help you arrive in the present moment, noticing immediate sensory details and finding a sense of calm.",
+        focus: "Mindfulness & Gentle Somatic Check-in",
+        keywords: "presence, grounding, breath awareness, immediate sensations, simple observation, calm focus, sensory details, physical anchors",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['tangible_metaphor', 'behavioral_clue'],
+    },
+    {
+        id: "KC_02", name: "Everyday Curiosities", belongs_to_set: "KINDLING_CONNECTION",
+        description_for_info_button: "Spark lighthearted conversation with gentle curiosities about the world, simple 'what ifs,' and everyday observations.",
+        focus: "Engaging Podcast-Style Icebreakers",
+        keywords: "curiosity, simple observations, everyday wonders, light hypotheticals, personal quirks, playful ideas, sparks of interest, daydreams",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'tangible_metaphor',
+        alternative_angles: ['inner_weather', 'narrative_thread'],
+    },
+    {
+        id: "KC_03", name: "Fleeting Moments", belongs_to_set: "KINDLING_CONNECTION",
+        description_for_info_button: "Inviting brief, personal snapshots. Share simple memories, small joys, or everyday observations.",
+        focus: "Light Personal Anecdote Sharing",
+        keywords: "personal moments, simple memories, everyday observations, small joys, light anecdotes, sensory details, brief stories, personal preferences",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'origin_story_whisper',
+        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+    },
+    {
+        id: "KC_04", name: "A Dash of Playfulness", belongs_to_set: "KINDLING_CONNECTION",
+        description_for_info_button: "Ignite lighthearted exchanges, gentle humor, and spontaneous moments of shared delight and wit.",
+        focus: "Lighthearted & Witty Conversational Games",
+        keywords: "playfulness, gentle humor, lightheartedness, spontaneous moments, witty observations, simple fun, charming silliness, shared smiles",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'inner_weather',
+        alternative_angles: ['tangible_metaphor', 'behavioral_clue'],
+    },
+    // Set 2: Unveiling Depths
+    {
+        id: "UD_01", name: "Your Inner Voice", belongs_to_set: "UNVEILING_DEPTHS",
+        description_for_info_button: "Connect with your inner feelings and truths. Explore your core needs and personal values with gentle self-reflection.",
+        focus: "Authentic Relating Self-Expression & Vulnerability",
+        keywords: "core feelings, personal truth, inner needs, values, gentle vulnerability, sincere expression, tender moments, self-reflection",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'HIDDEN', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['origin_story_whisper', 'relational_echo'],
+    },
+    {
+        id: "UD_02", name: "Inner Light & Shadow", belongs_to_set: "UNVEILING_DEPTHS",
+        description_for_info_button: "Gently explore the less obvious aspects of yourself. Understand inner critic patterns, hidden strengths, and your path to wholeness.",
+        focus: "Depth Psychology & Self-Acceptance",
+        keywords: "inner critic, hidden strengths, self-acceptance, emotional patterns, personal resilience, inner complexities, self-understanding, integrated self",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'HIDDEN', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'tangible_metaphor',
+        alternative_angles: ['sensation_compass', 'origin_story_whisper'],
+    },
+    {
+        id: "UD_03", name: "Whispers of Your Past", belongs_to_set: "UNVEILING_DEPTHS",
+        description_for_info_button: "Connect with your inner child's perspective. Offer compassion to past experiences and acknowledge simple needs with nurturing awareness.",
+        focus: "Trauma-Informed Self-Compassion",
+        keywords: "inner child (gently), past experiences, emotional echoes, self-compassion, inner nurture, understanding needs, resilience, gentle reflection, core memories",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
+        default_angle: 'origin_story_whisper',
+        alternative_angles: ['sensation_compass', 'tangible_metaphor'],
+    },
+    {
+        id: "UD_04", name: "Inner Worlds Dialogue", belongs_to_set: "UNVEILING_DEPTHS",
+        description_for_info_button: "Listen to the different parts of yourself. Understand their roles, needs, and wisdom with curiosity and kindness.",
+        focus: "Internal Family Systems (IFS) & Voice Dialogue",
+        keywords: "inner parts, internal dialogue, part needs, self-awareness, inner wisdom, personal aspects, understanding self, inner guidance",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', COLLEAGUES: 'HIDDEN', GENERAL: 'PREFERRED' },
+        default_angle: 'origin_story_whisper',
+        alternative_angles: ['sensation_compass', 'tangible_metaphor'],
+    },
+    {
+        id: "UD_05", name: "Finding Your Way", belongs_to_set: "UNVEILING_DEPTHS",
+        description_for_info_button: "Gently reflect on challenges and beliefs. Find clarity, build resilience, and discover new perspectives for your path.",
+        focus: "Coaching for Resilience & ACT-Informed Acceptance",
+        keywords: "inner obstacles, personal challenges, fears, self-limiting beliefs, resilience, perspective shifts, finding clarity, personal path, acceptance",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'future_reflection',
+        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+    },
+    // Set 3: Relational Alchemy
+    {
+        id: "RA_01", name: "The Shared Space", belongs_to_set: "RELATIONAL_ALCHEMY",
+        description_for_info_button: "Become aware of the subtle energy and connections within a group. Notice the present moment of shared presence.",
+        focus: "Circling Group Awareness & Process Observation",
+        keywords: "group presence, relational energy, collective awareness, shared atmosphere, subtle connections, interpersonal dynamics (group), group coherence, shared moment",
+        group_setting_suitability: { SOLO: 'OPTIONAL', STRANGERS: 'OPTIONAL', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['tangible_metaphor', 'relational_echo'],
+    },
+    {
+        id: "RA_02", name: "Between Two", belongs_to_set: "RELATIONAL_ALCHEMY",
+        description_for_info_button: "Explore the subtle dance of connection in pairs. Notice impact, perception, and the unspoken language between you and another.",
+        focus: "Authentic Relating Dyad Practices",
+        keywords: "dyadic connection, impact, perception, relational feedback, personal boundaries, felt connection, communication, partnership dynamic",
+        group_setting_suitability: { SOLO: 'OPTIONAL', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', GENERAL: 'PREFERRED' },
+        default_angle: 'relational_echo',
+        alternative_angles: ['sensation_compass', 'behavioral_clue'],
+    },
+    {
+        id: "RA_03", name: "Body-to-Body Knowing", belongs_to_set: "RELATIONAL_ALCHEMY",
+        description_for_info_button: "Connect through shared presence and subtle physical dialogue. Explore embodied connection and sensory awareness with another.",
+        focus: "Paired Somatic Exploration",
+        keywords: "embodied connection, somatic dialogue, physical awareness, non-verbal cues, sensory connection, shared presence, relational sensing, body knowing",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'HIDDEN', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['relational_echo', 'tangible_metaphor'],
+    },
+    {
+        id: "RA_04", name: "Building Bridges Together", belongs_to_set: "RELATIONAL_ALCHEMY",
+        description_for_info_button: "Discover common ground and mutual aspirations. Imagine and nurture shared intentions for the future you can create together.",
+        focus: "Collaborative Visioning & Shared Goal Setting",
+        keywords: "shared vision, mutual aspirations, common ground, collective intention, partnership goals, co-creation, shared future, aligned purpose, building together",
+        group_setting_suitability: { SOLO: 'OPTIONAL', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'future_reflection',
+        alternative_angles: ['tangible_metaphor', 'relational_echo'],
+    },
+    // Set 4: Adventurous Resonance
+    {
+        id: "AR_01", name: "Your Desire Compass", belongs_to_set: "ADVENTUROUS_RESONANCE",
+        description_for_info_button: "Gently explore your intimate desires and sensual preferences. Honor your unique inner compass and boundaries with self-awareness.",
+        focus: "Jaiya's Erotic Blueprints & Intimate Desire Exploration",
+        keywords: "desire exploration, sensual preferences, intimate awareness, personal boundaries, pleasure, self-discovery, inner compass, embodied sensuality, turn-ons (personal)",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'OPTIONAL', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['origin_story_whisper', 'tangible_metaphor'],
+    },
+    {
+        id: "AR_02", name: "Uncharted Thoughts", belongs_to_set: "ADVENTUROUS_RESONANCE",
+        description_for_info_button: "Explore thoughts that lie beyond the usual. Gently probe unconventional ideas and personal truths with curious awareness.",
+        focus: "Provocative Question Decks & Radical Honesty",
+        keywords: "unconventional thoughts, personal truth, curious exploration, societal observations, inner judgments, unique perspectives, exploring ideas, mindful curiosity",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
+        default_angle: 'philosophical_lens',
+        alternative_angles: ['tangible_metaphor', 'inner_weather'],
+    },
+    {
+        id: "AR_03", name: "Senses Awakened", belongs_to_set: "ADVENTUROUS_RESONANCE",
+        description_for_info_button: "Awaken your senses to subtle pleasures and embodied presence. Cultivate mindful awareness of your body and its capacity for rich sensation.",
+        focus: "Mindful Sexuality & Tantric Sensory Principles",
+        keywords: "sensory awareness, embodied presence, mindful sensation, physical awareness, body appreciation, subtle pleasures, rich sensations, presence in feeling",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'OPTIONAL', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['tangible_metaphor', 'behavioral_clue'],
+    },
+    {
+        id: "AR_04", name: "Moments of Playful Courage", belongs_to_set: "ADVENTUROUS_RESONANCE",
+        description_for_info_button: "Take small, playful steps beyond your comfort zone. Discover spontaneous connection and gentle revelation in shared moments.",
+        focus: "Playful Dare Decks & Relational Edge Exploration",
+        keywords: "playful steps, relational courage, spontaneous connection, comfort zone exploration, gentle revelation, shared moments, lighthearted dares, expressed vulnerability",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
+        default_angle: 'behavioral_clue',
+        alternative_angles: ['future_reflection', 'origin_story_whisper'],
+    },
+    // Set 5: The Art of Living
+    {
+        id: "AL_01", name: "Wisdom's Compass", belongs_to_set: "THE_ART_OF_LIVING",
+        description_for_info_button: "Gentle reflection on life's big questions. Connect philosophical ideas to your personal experience and find guiding wisdom.",
+        focus: "Philosophical Inquiry & Personal Meaning",
+        keywords: "philosophical ideas, life wisdom, personal meaning, guiding principles, life questions, contemplation, inner reflection, perspective shifts",
+        group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'philosophical_lens',
+        alternative_angles: ['future_reflection', 'origin_story_whisper'],
+    },
+    {
+        id: "AL_02", name: "Daily Anchors", belongs_to_set: "THE_ART_OF_LIVING",
+        description_for_info_button: "Create mindful moments in your day. Explore simple practices for grounding, focus, and finding presence in routine activities.",
+        focus: "Mindfulness in Daily Life",
+        keywords: "mindful moments, daily routines, grounding practices, simple rituals, focus, presence, everyday awareness, intentional living",
+        group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'sensation_compass',
+        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+    },
+    {
+        id: "AL_03", name: "Navigating Life's Currents", belongs_to_set: "THE_ART_OF_LIVING",
+        description_for_info_button: "Gently explore transitions and challenges. Find clarity, build resilience, and discover new perspectives for your journey.",
+        focus: "Resilience & Personal Growth",
+        keywords: "life changes, transitions, challenges, inner resilience, acceptance, personal growth, finding clarity, navigating uncertainty, life's journey",
+        group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'future_reflection',
+        alternative_angles: ['origin_story_whisper', 'sensation_compass'],
+    },
+    // Set 6: The Storyteller's Craft
+    {
+        id: "SC_01", name: "Narrative Threads", belongs_to_set: "THE_STORYTELLERS_CRAFT",
+        description_for_info_button: "Explore the elements of your personal stories. Identify moments, characters, and emotions that shape your narrative.",
+        focus: "Personal Storytelling & Narrative Reflection",
+        keywords: "personal narrative, life stories, memorable moments, key characters, emotional arcs, storytelling elements, personal history, narrative reflection",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'OPTIONAL', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'origin_story_whisper',
+        alternative_angles: ['behavioral_clue', 'sensation_compass'],
+    },
+    {
+        id: "SC_02", name: "The Heart of the Story", belongs_to_set: "THE_STORYTELLERS_CRAFT",
+        description_for_info_button: "Uncover the core message or feeling within your experiences. What is the heart of your story trying to convey?",
+        focus: "Finding Meaning in Stories",
+        keywords: "core message, central feeling, story's essence, personal meaning, emotional impact, narrative purpose, underlying theme, heart of the matter",
+        group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'inner_weather',
+        alternative_angles: ['sensation_compass', 'philosophical_lens'],
+    },
+    {
+        id: "SC_03", name: "A Moment's Spark", belongs_to_set: "THE_STORYTELLERS_CRAFT",
+        description_for_info_button: "Recall a small, vivid moment that holds significance. Share a brief, impactful story that captures a feeling or realization.",
+        focus: "Anecdotal Storytelling",
+        keywords: "vivid moments, impactful stories, small stories, personal realization, brief anecdotes, memorable experiences, captured feelings, captured moments",
+        group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
+        default_angle: 'origin_story_whisper',
+        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+    },
 ];
 
+export type VoiceName = "Sulafat" | "Puck" | "Vindemiatrix" | "Enceladus" | "Zephyr" | "Fenrir";
 
-export type VoiceName = 
-  | "Aoede" | "Puck" | "Charon" | "Kore" | "Fenrir" | "Leda" | "Orus" | "Zephyr" 
-  | "Achird" | "Algenib" | "Algieba" | "Alnilam" | "Autonoe" | "Callirrhoe" | "Despina" 
-  | "Enceladus" | "Erinome" | "Gacrux" | "Iapetus" | "Laomedeia" | "Pulcherrima" 
-  | "Rasalgethi" | "Sadachbia" | "Sadaltager" | "Schedar" | "Sulafat" | "Umbriel" 
-  | "Vindemiatrix" | "Zubenelgenubi" | "Achernar";
+export type LanguageCode = string;
 
-export type LanguageCode = "en-US" | "es-US" | "nl-NL";
+export interface VoicePersona {
+  id: string;
+  name: string;
+  gender: 'Female' | 'Male' | 'Neutral';
+  voiceName: VoiceName;
+  description: string;
+  keywords: string;
+  voiceAccentHint: string;
+}
 
-export interface VoiceOption { name: VoiceName; gender: 'Female' | 'Male' | 'Neutral'; characteristics: string; }
-export interface LanguageOption { code: LanguageCode; name: string; }
-
-export const GOOGLE_VOICES: VoiceOption[] = [
-    { name: "Zephyr", characteristics: "Bright", gender: "Female" }, { name: "Puck", characteristics: "Upbeat", gender: "Male" },
-    { name: "Charon", characteristics: "Informative", gender: "Male" }, { name: "Kore", characteristics: "Firm", gender: "Female" },
-    { name: "Fenrir", characteristics: "Excitable", gender: "Male" }, { name: "Leda", characteristics: "Youthful", gender: "Female" },
-    { name: "Orus", characteristics: "Firm", gender: "Male" }, { name: "Aoede", characteristics: "Breezy", gender: "Female" },
-    { name: "Callirrhoe", characteristics: "Easy-going", gender: "Female" }, { name: "Autonoe", characteristics: "Bright", gender: "Female" },
-    { name: "Enceladus", characteristics: "Breathy", gender: "Male" }, { name: "Iapetus", characteristics: "Clear", gender: "Male" },
-    { name: "Umbriel", characteristics: "Easy-going", gender: "Male" }, { name: "Algieba", characteristics: "Smooth", gender: "Male" },
-    { name: "Despina", characteristics: "Smooth", gender: "Female" }, { name: "Erinome", characteristics: "Clear", gender: "Female" },
-    { name: "Algenib", characteristics: "Gravelly", gender: "Male" }, { name: "Rasalgethi", characteristics: "Informative", gender: "Male" },
-    { name: "Laomedeia", characteristics: "Upbeat", gender: "Female" }, { name: "Achernar", characteristics: "Soft", gender: "Female" },
-    { name: "Alnilam", characteristics: "Firm", gender: "Male" }, { name: "Schedar", characteristics: "Even", gender: "Male" },
-    { name: "Gacrux", characteristics: "Mature", gender: "Female" }, { name: "Pulcherrima", characteristics: "Forward", gender: "Female" },
-    { name: "Achird", characteristics: "Friendly", gender: "Male" }, { name: "Zubenelgenubi", characteristics: "Casual", gender: "Male" },
-    { name: "Vindemiatrix", characteristics: "Gentle", gender: "Female" }, { name: "Sadachbia", characteristics: "Lively", gender: "Male" },
-    { name: "Sadaltager", characteristics: "Knowledgeable", gender: "Male" }, { name: "Sulafat", characteristics: "Warm", gender: "Female" }
+export const CURATED_VOICE_PERSONAS: VoicePersona[] = [
+  { id: "storyteller_female", name: "The Storyteller (Warm)", gender: "Female", voiceName: "Sulafat", description: "A warm, inviting voice with a natural, melodic narrative flow.", keywords: "warm, melodic, narrative, engaging", voiceAccentHint: "a gentle South African warmth" },
+  { id: "storyteller_male", name: "The Storyteller (Friendly)", gender: "Male", voiceName: "Puck", description: "A friendly, upbeat voice with a gentle rhythm.", keywords: "friendly, upbeat, rhythmic, approachable", voiceAccentHint: "a friendly Irish warmth" },
+  { id: "guide_female", name: "The Guide (Calm)", gender: "Female", voiceName: "Vindemiatrix", description: "A calm, present voice that speaks with gentle clarity and ease.", keywords: "calm, present, clear, gentle, easy-going", voiceAccentHint: "a calm New Zealand clarity" },
+  { id: "guide_male", name: "The Guide (Steady)", gender: "Male", voiceName: "Enceladus", description: "A steady, grounded voice that anchors the listener with clarity.", keywords: "grounded, steady, clear, calm, anchored", voiceAccentHint: "a steady Trinidadian rhythm" },
+  { id: "playmate_female", name: "The Playmate (Breezy)", gender: "Female", voiceName: "Zephyr", description: "A light, breezy voice full of gentle warmth and playful energy.", keywords: "light, breezy, warm, playful, energetic", voiceAccentHint: "a light Andalusian lilt" },
+  { id: "playmate_male", name: "The Playmate (Upbeat)", gender: "Male", voiceName: "Fenrir", description: "An upbeat, cheerful voice that brings a sense of fun and spontaneity.", keywords: "upbeat, cheerful, spontaneous, fun, excitable", voiceAccentHint: "an upbeat Brazilian energy" },
 ];
-export const LANGUAGES: LanguageOption[] = [
-    { code: "en-US", name: "English (US)" }, { code: "es-US", name: "Spanish (US)" }, { code: "nl-NL", name: "Dutch (Netherlands)" }, 
-];
+
 export const DEFAULT_VOICE_NAME: VoiceName = "Enceladus";
 export const DEFAULT_LANGUAGE_CODE: LanguageCode = "en-US";
 
-export type GroupSetting = "GENERAL" | "STRANGERS" | "FRIENDS" | "ROMANTIC" | "FAMILY" | "COLLEAGUES" | "COMMUNITY" | "SPECIAL";
 export interface GroupSettingOption { id: GroupSetting; label: string; description: string; }
 
 export const GROUP_SETTINGS: GroupSettingOption[] = [
+  { id: "SOLO", label: "Solo", description: "For introspection, journaling, or individual reflection." },
   { id: "GENERAL", label: "General", description: "For any group or when unsure." },
   { id: "STRANGERS", label: "Strangers", description: "Getting to know each other, icebreakers." },
   { id: "FRIENDS", label: "Friends", description: "Deeper connection, shared experiences." },
@@ -250,18 +404,13 @@ export const GROUP_SETTINGS: GroupSettingOption[] = [
 ];
 export const DEFAULT_GROUP_SETTING: GroupSetting = "GENERAL";
 
-export const SVEN_LISA_PRIORITIZED_MICRO_DECK_IDS: MicroDeck['id'][] = [
-    "SBP_01", "CCS_01", "SS_01", "HAV_01", "SD_01",
-];
-
 const SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES = `
 **SVEN & LISA SPECIAL MODE - OVERRIDING GUIDANCE:**
 The current participants are Sven & Lisa, and the "Special" group setting is active.
 - **Interaction Goal:** Lower pressure, emphasize individual sharing and mutual witnessing over immediate deep understanding or problem-solving.
 - **Focus:** Encourage exploration of internal landscapes related to the chosen MicroDeck's theme.
-- **Card Back Notes Emphasis:** Guide users towards active listening, curiosity, and validating the act of sharing itself. "Witnessing" > "Fixing/Decoding".
 - **Prioritized Keywords for this mode:** "individual perspectives, personal stories, sensory sharing, active listening, witnessing, curiosity, lighthearted exploration, patient communication, clear expression (simple), non-judgmental space, shared enjoyment".
-Adapt your prompt generation AND card back notes to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
+Adapt your prompt generation to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
 `;
 
 const PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES = `
@@ -269,12 +418,25 @@ const PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES = `
 The current participants are Paulina & Joe, and the "Special" group setting is active. They are friends on a roadtrip.
 - **Primary Goal:** Generate prompts that are edgy, playful, and invite banter. Paulina especially enjoys witty exchanges.
 - **Contextual Flavor:** Weave in themes of roadtrips, adventure, spontaneity, shared experiences on the go, and quirky observations.
-- **Welcome from Sven (App Creator):** You can subtly acknowledge Sven's good wishes for their trip if it feels natural in the Card Back Notes, but prioritize the banter/roadtrip theme for the Card Front Prompt.
 - **Important Note on First Card (history.length === 0):** You MUST prepend "Hey Paulina & Joe! " (exactly like that, with the space) to the very first card prompt you generate for their session. Your generated prompt text for this first card should naturally follow such a greeting. For subsequent cards, continue the roadtrip/playful banter theme without you needing to add this explicit greeting.
-- **Keywords for this mode:** "roadtrip adventures, playful banter, witty retorts, shared journey, spontaneity, inside jokes (implied), edgy questions, friendly teasing, discovery on the road, travel stories, quirky observations, unforgettable moments, travel mishaps (lighthearted), roadside attractions".
-Adapt your prompt generation AND card back notes to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
+- **Keywords for this mode:** "roadtrip adventures, playful banter, witty retorts, shared journey, spontaneity, inside jokes (implied), edgy questions, friendly teasing, discovery on the road, travel stories, quirky observations, unforgettable moments, travel mishaps (lighthearted)".
+Adapt your prompt generation to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
 `;
 
+export const getVisibleDeckSetsForGroupSetting = (setting: GroupSetting): DeckSet[] => {
+    return DECK_SETS.filter(set => {
+        const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === set.id);
+        return microDecksInSet.some(md => {
+            const suitability = md.group_setting_suitability[setting];
+            return suitability === 'PREFERRED' || suitability === 'OPTIONAL';
+        });
+    });
+};
+
+export const isDeckSetPreferredForGroupSetting = (deckSetId: DeckSet['id'], setting: GroupSetting): boolean => {
+    const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === deckSetId);
+    return microDecksInSet.some(md => md.group_setting_suitability[setting] === 'PREFERRED');
+};
 
 export const getMicroDeckById = (microDeckId: MicroDeck['id']): MicroDeck | null => {
   return ALL_MICRO_DECKS.find(md => md.id === microDeckId) || null;
@@ -302,21 +464,74 @@ export const getDisplayDataForCard = (
         const parentSet = getDeckSetById(setSourceId);
         if (parentSet) color = parentSet.colorClass;
     }
-    return { name: microDeck.internal_name, colorClass: color };
+    return { name: microDeck.name, colorClass: color };
   }
   return { name: "Card", colorClass: "from-gray-500 to-gray-600" };
 };
 
-const THOUGHT_PROCESS_START_TAG = "<thought_process>";
-const THOUGHT_PROCESS_END_TAG = "</thought_process>";
-const CARD_FRONT_PROMPT_START_TAG = "<card_front_prompt>";
-const CARD_FRONT_PROMPT_END_TAG = "</card_front_prompt>";
+export const getStyleDirectiveForMicroDeck = (
+    microDeck: MicroDeck | null,
+    isForCardBack: boolean,
+    selectedVoiceName: VoiceName,
+): string => {
+    // 1. Find the selected persona and its accent hint.
+    const selectedPersona = CURATED_VOICE_PERSONAS.find(p => p.voiceName === selectedVoiceName) 
+        || CURATED_VOICE_PERSONAS.find(p => p.voiceName === DEFAULT_VOICE_NAME)!;
+
+    // 2. Base Persona & Cadence Directive (from accent hint)
+    const baseDirective = `Speak with ${selectedPersona.voiceAccentHint}.`;
+
+    // 3. Prompt-Specific Tone Adaptation
+    let thematicToneDirective = "";
+
+    if (isForCardBack) {
+        thematicToneDirective = "Your tone is gentle and helpful, with a clear, encouraging cadence.";
+    } else if (microDeck) {
+        const focusLower = microDeck.focus.toLowerCase();
+        const keywords = microDeck.keywords.toLowerCase();
+
+        if (focusLower.includes("somatic") || focusLower.includes("presence") || focusLower.includes("calm") || keywords.includes("grounding") || keywords.includes("calm presence")) {
+            thematicToneDirective = "Your pace is very calm and anchored, with natural breaths creating a sense of ease.";
+        } else if (focusLower.includes("playful") || focusLower.includes("humor") || focusLower.includes("wit") || keywords.includes("playfulness") || keywords.includes("gentle humor") || keywords.includes("charming silliness")) {
+            thematicToneDirective = "A light, easy warmth infuses your voice, as if sharing a private smile.";
+        } else if (focusLower.includes("depths") || focusLower.includes("inner child") || focusLower.includes("vulnerability") || keywords.includes("tender moments") || keywords.includes("self-compassion")) {
+            thematicToneDirective = "Your tone is gentle and very present, creating a feeling of supportive quiet.";
+        } else if (focusLower.includes("relational") || focusLower.includes("connection") || focusLower.includes("dialogue") || keywords.includes("interpersonal dynamics") || keywords.includes("shared space")) {
+            if (keywords.includes("embodied") || keywords.includes("sensory awareness") || keywords.includes("physical dialogue")) {
+                thematicToneDirective = "Your pace is calm and anchored, with a focus on gentle, sensory awareness.";
+            } else if (keywords.includes("shared vision") || keywords.includes("mutual aspirations")) {
+                thematicToneDirective = "Your tone is hopeful and encouraging, celebrating shared intentions.";
+            } else {
+                thematicToneDirective = "Your tone is warm and inviting, with a gentle curiosity about the connection.";
+            }
+        } else if (focusLower.includes("desire") || focusLower.includes("intimate") || focusLower.includes("sensual") || keywords.includes("erotic") || keywords.includes("pleasure")) {
+            thematicToneDirective = "Your voice softens, taking on a more textured and intimate quality.";
+        } else if (focusLower.includes("wisdom") || focusLower.includes("philosophical") || keywords.includes("life wisdom") || keywords.includes("contemplation")) {
+            thematicToneDirective = "Your tone is calm and wise, like a gentle teacher sharing profound insights.";
+        } else if (focusLower.includes("story") || keywords.includes("memories") || keywords.includes("narrative")) {
+            thematicToneDirective = "Your tone is warm and inviting, like sharing a pleasant memory or insight.";
+        } else {
+            thematicToneDirective = "Your tone is grounded and inviting.";
+        }
+    } else {
+        thematicToneDirective = "Your tone is warm and inviting, like sharing a private smile.";
+    }
+
+    // 4. Final Combination
+    const cleanedDirective = thematicToneDirective.trim().replace(/\s\s+/g, ' ');
+    const finalDirective = `${baseDirective} For this prompt, ${cleanedDirective} Now, speak the following:`;
+    return finalDirective.trim().replace(/\s\s+/g, ' ');
+};
+
+
+export const CARD_FRONT_PROMPT_START_TAG = "<card_front_prompt>";
+export const CARD_FRONT_PROMPT_END_TAG = "</card_front_prompt>";
+const THINKING_START_TAG = "<thinking>";
+const THINKING_END_TAG = "</thinking>";
 const CARD_BACK_NOTES_START_TAG = "<card_back_notes>";
 const CARD_BACK_NOTES_END_TAG = "</card_back_notes>";
 
-interface GeminiPayload { systemInstruction: string; userContent: string; fullPromptForDisplay: string; }
-
-const getActiveSpecialModeDetails = (
+export const getActiveSpecialModeDetails = (
   groupSetting: GroupSetting,
   participantNames: string[]
 ): { isSvenLisa: boolean; isPaulinaJoe: boolean; effectiveGroupSettingLabel: string } => {
@@ -342,435 +557,436 @@ const getActiveSpecialModeDetails = (
   return { isSvenLisa, isPaulinaJoe, effectiveGroupSettingLabel };
 };
 
+const getChatSession = (addLogEntry?: (entry: DevLogEntry) => void): Chat => {
+    if (!ai) throw new Error("Gemini AI not initialized. Check API Key.");
+    if (!chatSession) {
+        console.log("Initializing new chat session.");
+        const systemInstruction = constructSystemInstructionForCardFront();
+        chatSession = ai.chats.create({
+            model: PRIMARY_TEXT_GENERATION_MODEL,
+            config: { systemInstruction },
+        });
+        if (addLogEntry) {
+            addLogEntry({
+                type: 'session-init',
+                requestTimestamp: Date.now(),
+                responseTimestamp: Date.now(),
+                data: {
+                    input: "Chat Session Initialization",
+                    output: { model: PRIMARY_TEXT_GENERATION_MODEL, systemInstruction }
+                }
+            });
+        }
+    }
+    return chatSession;
+};
 
-const constructGeminiPayload = (
+export const getChatSessionHistory = async (): Promise<Content[]> => {
+    try {
+        const session = getChatSession();
+        return await session.getHistory();
+    } catch (e) {
+        console.error("Could not retrieve chat history:", e);
+        return [];
+    }
+};
+
+const constructSystemInstructionForCardFront = (): string => {
+  return `
+**Core Identity:** You are a Cartographer of Connection. Your purpose is to draw maps to unseen inner landscapes and relational dynamics. Each prompt is a landmark, a compass direction guiding users toward a place of discovery. Your voice is perceptive, grounded, and spacious.
+
+**Core Task:** Your entire response MUST start with a series of at least 3-5 brief thoughts about your creative process, each enclosed in <thinking>...</thinking> tags. This shows the user your reasoning. Example: <thinking>User wants 'Relational Alchemy'.</thinking><thinking>I'll focus on 'impact feedback'.</thinking><thinking>The 'Tangible Metaphor' angle is a good fit.</thinking> After all thoughts, you MUST output the single, final prompt enclosed in ${CARD_FRONT_PROMPT_START_TAG}...${CARD_FRONT_PROMPT_END_TAG} tags.
+
+**Card Front Mandates (Absolute, Unbreakable Rules):**
+*   **THE RULE OF ONE (NON-NEGOTIABLE):** You MUST ask ONE single, focused question. A prompt must contain only ONE imperative ('ask' or 'command'). It must not contain compound questions (e.g., "do this, then do that"). It must not contain follow-up questions. ONE QUESTION ONLY. This is the most important rule.
+    *   **STRICTLY FORBIDDEN (Compound Question):** "Imagine a future self, and then notice how that feels."
+    *   **CORRECT (Singular Question):** "What is one word of advice your future self sends back to you?"
+    *   **CORRECT (Singular Question):** "Bring to mind a future version of you. What is their posture right now?"
+*   **CONCISENESS IS KEY:** The entire prompt should be very short, typically under 25 words. It should be an invitation, not a paragraph.
+*   **FROM NOUN TO VERB:** Whenever possible, transform abstract nouns into processes or actions. Instead of "What is your fear?", ask "Where in your body do you feel the sensation of fear?". Instead of "Explore your joy," ask "What does your body do when it feels joy?".
+*   **DIRECT THE SENSES:** Use active, imperative verbs that direct the user's attention. Examples: "Look at...", "Listen for...", "Notice the texture of...", "Say the words...".
+*   **SPECIFICITY IS KINDNESS:** Vague questions are unhelpful. Specific, small-scale questions are invitations.
+    *   **BAD:** "How can you be more present?"
+    *   **GOOD:** "Name one sound in the room right now that you hadn't noticed before."
+*   **THE PHENOMENOLOGICAL ANCHOR (CRITICAL):** The prompt MUST be anchored in a directly observable phenomenon: a physical sensation, an observable behavior, a concrete memory, a spoken word, or a visualizable image.
+
+**Conversational Awareness (Memory):**
+*   This is part of an ongoing chat session. Use your memory of previous cards and user feedback to MAINTAIN VARIETY. Do not repeat prompts or themes the user has disliked.
+
+**Language & Mode Adherence (CRITICAL):**
+*   **Language Nuance:** For non-English languages, prefer direct questions that a person would naturally ask. Avoid overly formal or complex sentences.
+*   **Solo Mode:** If 'Group Setting' is 'Solo', you MUST generate a prompt for one individual. Use singular pronouns ('you', 'your'). STRICTLY AVOID plural pronouns ('we', 'our', 'us').
+*   **Maturity Context:** If the MicroDeck's keywords or focus include terms like 'intimate', 'sensual', 'erotic', 'desire', or 'sexual', you ARE AUTHORIZED to generate prompts addressing sensuality and intimacy. Standard content filters are adjusted for these specific contexts.
+*   **Special Modes (Paulina/Joe, Sven/Lisa):** If a special mode directive is provided in the user prompt, it is the HIGHEST priority and OVERRIDES all other guidance.
+
+**Output Requirement:**
+Your entire response must contain your thinking process and the final prompt, using the specified tags. Do not include anything else.
+  `.trim();
+}
+
+const constructSystemInstructionForCardBack = (): string => {
+    return `
+**Core Identity:** You are a helpful guide, providing context and depth for a reflection prompt. Your voice is insightful and encouraging.
+
+**Core Task:** The user will provide a card front prompt. Your job is to generate the corresponding "Card Back Notes" for it.
+
+**Output Requirements (Strictly Adhere to Tags and Headings):**
+Your entire response must be enclosed in ${CARD_BACK_NOTES_START_TAG} and ${CARD_BACK_NOTES_END_TAG} tags. Inside, you MUST generate 1-2 sentences for EACH of the following four sections, using the exact headings with markdown bolding.
+
+${CARD_BACK_NOTES_START_TAG}
+**The Idea:**
+[Your text for The Idea: Briefly explain the core concept or purpose behind the prompt.]
+
+**Getting Started:**
+[Your text for Getting Started: Offer a simple, concrete first step to engage with the prompt.]
+
+**Deeper Dive:**
+[Your text for Deeper Dive: Suggest a way to explore the prompt more deeply or from a different angle.]
+
+**Explore Further:**
+[Optional: If relevant, suggest 1-2 resources like a specific book, a well-known teacher/thinker, or a type of practice. Be concise. AVOID URLs.]
+${CARD_BACK_NOTES_END_TAG}
+    `.trim();
+};
+
+const constructUserMessageForCardFront = (
   userSelectedSetName: string, 
-  selectedMicroDeck: MicroDeck, 
+  selectedItem: MicroDeck | CustomThemeData, 
   participantCount: number, 
   participantNames: string[],
   activeParticipantName: string | null,
   groupSetting: GroupSetting,
-  history: CardHistoryItem[],
-  customDecks: CustomThemeData[], 
-  languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE
-): GeminiPayload => {
+  languageCode: LanguageCode,
+  angleOfInquiry: AngleOfInquiry,
+  historyLength: number,
+  drawSource: 'RANDOM' | 'DECK_SET' | 'CUSTOM',
+  redrawContext?: { disliked: boolean }
+): string => {
   
-  const selectedLanguageName = LANGUAGES.find(lang => lang.code === languageCode)?.name || "English (US)";
   const { isSvenLisa: isSvenLisaActive, isPaulinaJoe: isPaulinaJoeActive, effectiveGroupSettingLabel } = getActiveSpecialModeDetails(groupSetting, participantNames);
+  
+  let itemFocus: string;
+  let itemKeywords: string;
+  
+  if ('focus' in selectedItem) { // It's a MicroDeck
+      itemFocus = selectedItem.focus;
+      itemKeywords = selectedItem.keywords;
+  } else { // It's a CustomThemeData
+      itemFocus = `Custom Deck: ${selectedItem.name}`;
+      itemKeywords = selectedItem.description;
+  }
 
-  let participantInfo = "";
+  let specialModeDirectives = "";
   if (isSvenLisaActive) {
-    participantInfo = `Setting: Sven & Lisa Special Focus. Participants: Sven, Lisa. Active: ${activeParticipantName || 'N/A'}. `;
+    specialModeDirectives = SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES;
   } else if (isPaulinaJoeActive) {
-    participantInfo = `Setting: Paulina & Joe's Roadtrip Special Focus. Participants: Paulina, Joe. Active: ${activeParticipantName || 'N/A'}. `;
-  } else {
-    const namedParticipantList = participantNames.filter(name => name.trim() !== '');
-    if (participantCount > 1) {
-      const namesString = namedParticipantList.length > 0 ? namedParticipantList.join(', ') : `${participantCount} participants`;
-      participantInfo = `Group: ${namesString}. `;
-      if (activeParticipantName) participantInfo += `Active: ${activeParticipantName}. `;
-    } else {
-       const subject = activeParticipantName || (participantCount === 1 && namedParticipantList.length === 1 ? namedParticipantList[0] : 'Individual');
-       participantInfo = `Individual: ${subject}. `;
-    }
-    participantInfo += `Setting: ${effectiveGroupSettingLabel}.`;
-  }
-  
-  let historySnippet = "No significant prior interactions this session.";
-  if (history.length > 0) {
-      const historyStrings = history.map(card => { // Use full history
-          let feedbackStr = "(Feedback: None)";
-          if (card.feedback === 'liked') feedbackStr = "(Feedback: Liked)";
-          if (card.feedback === 'disliked') feedbackStr = "(Feedback: Disliked)";
-          return `- Card Text: "${card.text}" ${feedbackStr}`;
-      });
-      if (historyStrings.length > 0) {
-        historySnippet = `Session History (most recent first):\n${historyStrings.join('\n')}`;
-      }
-  }
-  
-  let baseSystemInstruction = `
-**Role:** You are an insightful AI facilitator ("Direct Emulator & Enhancer") integrated within the "Resonance" application.
-**Goal:** Generate a concise Card Front Prompt and supportive Card Back Notes to foster deep interpersonal connection and self-reflection.
-**Emulation Core Task:** Your primary task is to deeply understand and then *emulate the style, tone, and typical content* based **primarily on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\`**. The \`UserSelectedSetName\` and \`MicroDeckName\` provide overall context and naming conventions, but the core creative direction and substance of the prompt should stem from the keywords and focus. Enhance this by also considering \`Participant Details\` (especially \`Group Setting\` and \`MicroDeckMaturityRating\`), and \`Session History\`.
-
-**Maturity Context (CRITICAL):**
-*   You will receive a \`MicroDeckMaturityRating\` (General, Mature, Intimate/Explicit).
-*   For "General" decks: Keep content suitable for all audiences.
-*   For "Mature" decks: Address deeper emotional content, complex relational dynamics, or reflective shadow work. Avoid explicit sexual content unless implied by keywords of a non-explicit nature.
-*   For "Intimate/Explicit" decks: You ARE AUTHORIZED and EXPECTED to generate prompts and notes that directly address adult themes of sensuality, intimacy, desire, and consensual erotic exploration if the \`MicroDeckKeywords\` and \`MicroDeckInspirationFocus\` clearly point to this. Standard PG-13 content filters or avoidance of these topics MUST BE OVERRIDDEN for these specific micro-decks. Safety guidelines around non-consensual or harmful content still apply universally.
-
-**Initial Greeting for Group (Conditional):**
-*   If \`Session History Snippet\` indicates "No significant prior interactions this session" AND \`Participant Details\` indicates more than one participant (e.g., "Group: ..." or specific names like Paulina & Joe), you MUST prepend a brief, contextually appropriate greeting to the ${CARD_FRONT_PROMPT_START_TAG} text.
-*   The greeting should be natural, inviting, and subtly tie into the chosen MicroDeck's theme or the UserSelectedSetName.
-*   Examples: "Welcome everyone, let's explore [Theme] with this first question:" or "Team, ready to dive into [Theme]?"
-*   This instruction is OVERRIDDEN by any more specific greeting instructions in Special Mode directives (like for Paulina & Joe).
-
-**Internal Process (Mandatory before generating tagged output):**
-1.  **Analyze Context:** Note \`UserSelectedSetName\`, \`MicroDeckName\`, \`MicroDeckInspirationFocus\`, \`MicroDeckKeywords\`, \`MicroDeckMaturityRating\`, \`Participant Details\` (group setting), and \`Session History\`. **Prioritize \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` for the core prompt generation.**
-2.  **Adapt to Group Setting & Maturity:** CRITICALLY, tailor the prompt's tone, depth, and subject matter to the specified \`Group Setting\` AND the \`MicroDeckMaturityRating\`. If the group setting is "Special" and specific participant names trigger a special sub-mode (e.g., Sven & Lisa, Paulina & Joe), its directives OVERLAY and MODIFY how you interpret and apply the MicroDeck's base characteristics. If "Special" is chosen but no sub-mode matches, treat as "General" group setting context.
-3.  **Handle Initial Greeting:** If conditions for an initial group greeting are met (as described above), ensure it's prepended to the card front prompt.
-4.  **Emulate & Synthesize Angle:** Based on the \`MicroDeckInspirationFocus\` and \`MicroDeckKeywords\` (and any active Special Mode directives), internally brainstorm 1-2 core angles or experiential invitations that this specific micro-deck would offer. Synthesize with influences from the "Wellspring" list if harmonious.
-5.  **Output Formulation:** Draft the tagged output.
-
-**Output Requirements (Strictly Adhere to Tags):**
-
-${THOUGHT_PROCESS_START_TAG}
-[Your BRIEF internal analysis and reasoning. Explicitly state how the Group Setting (including any active "Special" sub-mode) AND MicroDeckMaturityRating influenced your choices for THIS SPECIFIC MicroDeck. Highlight key decisions and how they align with the MicroDeckInspirationFocus and MicroDeckKeywords. This section is for your internal structured thinking and WILL NOT be shown to the user on the card.]
-${THOUGHT_PROCESS_END_TAG}
-
-${CARD_FRONT_PROMPT_START_TAG}
-[1-2 sentence concise, engaging, and *primarily question-based* prompt for users, reflecting the emulated MicroDeck style AND the Group Setting/Maturity Rating (and any Special Mode). Include initial greeting if applicable. Avoid explicit terminal commands like "Share this..." unless integral to a highly specific action-oriented micro-deck. Focus on sparking reflection and conversation through the question itself.]
-${CARD_FRONT_PROMPT_END_TAG}
-
-${CARD_BACK_NOTES_START_TAG}
-[REQUIRED: Generate 1-3 sentences for EACH of the following five sections. Use the exact headings provided below, followed by the content for that section. Ensure the overall tone is supportive, accessible, AND appropriate for the Group Setting (and any Special Mode) and emulated MicroDeck.
-
-**Intent & Invitation:**
-[Your text for Intent & Invitation]
-
-**Simple Steps or Guidance:**
-[Your text for Simple Steps or Guidance]
-
-**Clarifying Concepts:**
-[Your text for Clarifying Concepts]
-
-**Inspirational Nudges:**
-[Your text for Inspirational Nudges]
-
-**Deeper Dive Question:**
-[Your text for Deeper Dive Question]
-]
-${CARD_BACK_NOTES_END_TAG}
-
-_INTERNAL USE ONLY - Wellspring Influences (Keywords for your internal inspiration - synthesize and apply principles):_
-_Authentic Relating (curiosity, truth, noticing), Circling (presence, group energy), WANRS-style (layered sharing), Coaching (powerful questions), Mindfulness (non-judgment, sensory awareness), Somatics (body wisdom, embodiment), Creative Expression (metaphor, movement), Systemic Awareness (interconnection), Positive Psychology (strengths, visioning), Modern Relational Insights (boundaries, healing), Depth Psychology (shadow, archetypes), IFS (parts work), Tantra (sensual energy - principles), Erotic Blueprints (desire types - principles)._
-
-_INTERNAL USE ONLY - Feedback Interpretation (In your internal process for \`Session History Snippet\` analysis):_
-_*   If the history indicates liked prompts from the *same micro-deck*: Aim for similar *quality of insight and supportive framing* but for a **semantically novel prompt and fresh notes**._
-_*   If the history indicates disliked prompts from the *same micro-deck*: Significantly PIVOT your approach (style of prompt and notes) for that micro-deck._
-  `.trim();
-
-  let finalSystemInstruction = baseSystemInstruction;
-  if (isSvenLisaActive) {
-    finalSystemInstruction = `${SVEN_LISA_SYSTEM_PROMPT_DIRECTIVES}\n\n${baseSystemInstruction}`;
-  } else if (isPaulinaJoeActive) {
-    finalSystemInstruction = `${PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES}\n\n${baseSystemInstruction}`;
+    specialModeDirectives = PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES;
   }
 
-  const userContent = `
-**Dynamic Inputs (User Prompt Section):**
-*   **UserSelectedSetName:** "${userSelectedSetName}" (Provides broad context)
-*   **MicroDeckName:** "${selectedMicroDeck.internal_name}" (Used for naming & context)
-*   **MicroDeckInspirationFocus:** "${selectedMicroDeck.deck_inspiration_focus}" (**Primary Driver for Content & Style**)
-*   **MicroDeckKeywords:** "${selectedMicroDeck.llm_keywords}" (**Primary Driver for Content & Style**)
-*   **MicroDeckMaturityRating:** "${selectedMicroDeck.maturity_rating_hint}"
-*   **Participant Details:** ${participantInfo} 
-*   **Session History Snippet:** ${historySnippet}
-*   **Language for Output:** "${selectedLanguageName}"
+  const participantInfo = participantCount > 1
+    ? `There are ${participantCount} participants. Their names are: ${participantNames.join(', ')}. The current turn is for: ${activeParticipantName || 'unspecified'}.`
+    : `This is a solo session for one participant.`;
+    
+  const redrawInstruction = redrawContext?.disliked 
+    ? `The user disliked the last card from this theme and wants a new one. Provide some variety and explore a different angle of the theme.`
+    : `This is a fresh draw.`;
 
-**Task:**
-Perform your internal "thought process" based on all System Prompt instructions and the dynamic User Prompt data. Then, provide your final output strictly using the ${THOUGHT_PROCESS_START_TAG}...${THOUGHT_PROCESS_END_TAG}, ${CARD_FRONT_PROMPT_START_TAG}...${CARD_FRONT_PROMPT_END_TAG}, and ${CARD_BACK_NOTES_START_TAG}...${CARD_BACK_NOTES_END_TAG} tags. Ensure the final user-facing content is in the requested language and embodies the described facilitative style, critically adapting to the Group Setting and MicroDeck specifics, with a strong emphasis on the MicroDeck's InspirationFocus and Keywords.
-  `.trim();
-
-  const fullPromptForDisplay = `
-=== SYSTEM INSTRUCTION: ===
-${finalSystemInstruction}
-
-=== USER CONTENT: ===
-${userContent}
-  `.trim();
+  const drawSourceInstruction = `The card was drawn via: ${drawSource}. The user-selected theme name was "${userSelectedSetName}". This was not chosen by the system; the user selected it. This context is for my awareness and should not be mentioned in the card prompt.`;
   
-  return { systemInstruction: finalSystemInstruction, userContent, fullPromptForDisplay };
+  const firstCardInstruction = historyLength === 0 && !redrawContext?.disliked ? "This is the very first card of the session. Make it inviting." : "";
+
+  return `
+${specialModeDirectives}
+
+**CONTEXT FOR THIS DRAW**
+---
+*   **Group Setting:** ${effectiveGroupSettingLabel} (${groupSetting})
+*   **Participant Context:** ${participantInfo}
+*   **Draw Source Details:** ${drawSourceInstruction}
+*   **Theme Focus/Methodology:** ${itemFocus}
+*   **Theme Keywords:** ${itemKeywords}
+*   **Language:** Generate the prompt in the language with this code: ${languageCode}
+*   **Angle of Inquiry:** Your prompt MUST be generated from the following perspective. Name: "${angleOfInquiry.name}". Description: "${angleOfInquiry.description}".
+*   **Session State:** ${redrawInstruction} ${firstCardInstruction}
+---
+Now, generate your thinking process and the card front prompt based on all the above instructions and your core identity.
+  `.trim();
 };
 
-export interface GeminiPromptResponse {
-  text: string;
-  audioData: string | null;
-  audioMimeType: string |null;
-  llmPromptForTextGeneration: string; 
-  rawLlmOutput: string;
-  cardBackNotesText: string | null; 
-  cardBackAudioData?: string | null;
-  cardBackAudioMimeType?: string | null;
+async function processStreamAndExtract(
+    stream: AsyncGenerator<GenerateContentResponse>,
+    onThinking: (thought: string) => void
+): Promise<{ text: string; rawLlmOutput: string; }> {
+    let fullLlmOutput = "";
+
+    for await (const chunk of stream) {
+        if (!chunk.text && chunk.candidates?.[0]?.finishReason && chunk.candidates[0].finishReason !== 'STOP' && chunk.candidates[0].finishReason !== 'MAX_TOKENS') {
+            throw new Error(`Generation stopped unexpectedly. Reason: ${chunk.candidates[0].finishReason}`);
+        }
+        fullLlmOutput += chunk.text;
+
+        let lastThoughtIndex = 0;
+        let thoughtMatch;
+        const thoughtRegex = new RegExp(`${THINKING_START_TAG}(.*?)${THINKING_END_TAG}`, "g");
+
+        while ((thoughtMatch = thoughtRegex.exec(fullLlmOutput)) !== null) {
+            const thoughtContent = thoughtMatch[1];
+            if (thoughtContent && thoughtContent.length > 0) onThinking(thoughtContent);
+            lastThoughtIndex = thoughtMatch.index + thoughtMatch[0].length;
+        }
+    }
+    
+    const promptStartIndex = fullLlmOutput.indexOf(CARD_FRONT_PROMPT_START_TAG);
+    const promptEndIndex = fullLlmOutput.indexOf(CARD_FRONT_PROMPT_END_TAG);
+
+    if (promptStartIndex === -1 || promptEndIndex === -1) {
+        console.error("Could not parse a valid prompt from the LLM output.", { fullLlmOutput });
+        throw new Error("The AI returned an incomplete response. Please try drawing again.");
+    }
+    const finalResponseText = fullLlmOutput.substring(promptStartIndex + CARD_FRONT_PROMPT_START_TAG.length, promptEndIndex).trim();
+
+    if (!finalResponseText) {
+        throw new Error("The AI returned an empty prompt. Please try drawing again.");
+    }
+    return { text: finalResponseText, rawLlmOutput: fullLlmOutput };
 }
 
-const extractTextBetweenTags = (text: string, startTag: string, endTag: string): string | null => {
-  const startIndex = text.indexOf(startTag);
-  if (startIndex === -1) return null;
-  const endIndex = text.indexOf(endTag, startIndex + startTag.length);
-  if (endIndex === -1) {
-    if (startTag === CARD_FRONT_PROMPT_START_TAG || startTag === CARD_BACK_NOTES_START_TAG || startTag === THOUGHT_PROCESS_START_TAG) {
-        const knownNextTags = [CARD_FRONT_PROMPT_START_TAG, CARD_BACK_NOTES_START_TAG, THOUGHT_PROCESS_START_TAG].filter(tag => tag !== startTag);
-        let potentialEnd = text.length;
-        for (const nextTag of knownNextTags) {
-            const nextTagIndex = text.indexOf(nextTag, startIndex + startTag.length);
-            if (nextTagIndex !== -1) potentialEnd = Math.min(potentialEnd, nextTagIndex);
-        }
-        return text.substring(startIndex + startTag.length, potentialEnd).trim();
+export const generateCardFront = async (
+    userSelectedThemeName: string,
+    selectedItem: MicroDeck | CustomThemeData,
+    participantCount: number,
+    participantNames: string[],
+    activeParticipantName: string | null,
+    groupSetting: GroupSetting,
+    customDecks: CustomThemeData[],
+    languageCode: LanguageCode,
+    angleOfInquiry: AngleOfInquiry,
+    historyLength: number,
+    onThinking: (thought: string) => void,
+    addLogEntry: (entry: DevLogEntry) => void,
+    drawSource: 'RANDOM' | 'DECK_SET' | 'CUSTOM',
+    redrawContext?: { disliked: boolean }
+): Promise<{ text: string | null; error: string | null; rawLlmOutput: string, inputPrompt: string, requestTimestamp: number, responseTimestamp: number }> => {
+    const requestTimestamp = Date.now();
+    if (!ai) {
+        const error = "Gemini AI not initialized.";
+        return { text: null, error, rawLlmOutput: "", inputPrompt: "", requestTimestamp, responseTimestamp: Date.now() };
     }
-    return null; 
-  }
-  return text.substring(startIndex + startTag.length, endIndex).trim();
+
+    const inputPrompt = constructUserMessageForCardFront(
+        userSelectedThemeName, selectedItem, participantCount, participantNames, activeParticipantName,
+        groupSetting, languageCode, angleOfInquiry, historyLength, drawSource, redrawContext
+    );
+
+    try {
+        const generationPromise = (async () => {
+            try {
+                const chat = getChatSession(addLogEntry);
+                const streamingResponse = await chat.sendMessageStream({ message: inputPrompt });
+                return await processStreamAndExtract(streamingResponse, onThinking);
+            } catch (primaryError) {
+                console.warn(`Primary model (${PRIMARY_TEXT_GENERATION_MODEL}) failed. Retrying with fallback (${FALLBACK_TEXT_GENERATION_MODEL}). Error:`, primaryError.message);
+                
+                const chatHistory = chatSession ? await chatSession.getHistory() : [];
+                const systemInstruction = constructSystemInstructionForCardFront();
+                const fallbackStreamingResponse = await ai.models.generateContentStream({
+                    model: FALLBACK_TEXT_GENERATION_MODEL,
+                    contents: [...chatHistory, { role: 'user', parts: [{ text: inputPrompt }] }],
+                    config: { systemInstruction },
+                });
+                const result = await processStreamAndExtract(fallbackStreamingResponse, onThinking);
+                result.rawLlmOutput = `(Fallback to ${FALLBACK_TEXT_GENERATION_MODEL}) ${result.rawLlmOutput}`;
+                return result;
+            }
+        })();
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`The request to the AI timed out after ${GENERATION_TIMEOUT_MS / 1000} seconds.`)), GENERATION_TIMEOUT_MS)
+        );
+
+        const result = await Promise.race([generationPromise, timeoutPromise]) as { text: string; rawLlmOutput: string; };
+
+        return { text: result.text, error: null, rawLlmOutput: result.rawLlmOutput, inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
+
+    } catch (e: any) {
+        console.error("Error generating card front:", e);
+        const error = e.message || "An unknown error occurred.";
+        return { text: null, error, rawLlmOutput: e.toString(), inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
+    }
 };
 
-export const getStyleDirectiveForMicroDeck = (microDeck: MicroDeck | null, isCardBackNotes: boolean = false): string => {
-  if (!microDeck) return "Say clearly: ";
+export const generateCardBack = async (cardFrontText: string, selectedItem: MicroDeck | CustomThemeData) => {
+    const requestTimestamp = Date.now();
+    if (!ai) return { cardBackNotesText: null, error: "Gemini AI not initialized.", rawLlmOutput: "", inputPrompt: "" };
 
-  const focus = microDeck.deck_inspiration_focus.toLowerCase();
-  const maturity = microDeck.maturity_rating_hint;
+    const systemInstruction = constructSystemInstructionForCardBack();
+    const themeContext = 'focus' in selectedItem ? selectedItem.focus : selectedItem.description;
+    const inputPrompt = `The card front prompt is: "${cardFrontText}". It is from a theme with the focus: "${themeContext}". Generate the card back notes.`;
+    
+    const generate = async (model: string) => {
+        return await ai!.models.generateContent({
+            model: model,
+            contents: inputPrompt,
+            config: { systemInstruction },
+        });
+    }
 
-  if (isCardBackNotes) { 
-      return "Explain with clarity: ";
-  }
+    try {
+        let response;
+        let usedFallback = false;
+        try {
+            response = await generate(PRIMARY_TEXT_GENERATION_MODEL);
+        } catch (primaryError) {
+            console.warn(`Primary model (${PRIMARY_TEXT_GENERATION_MODEL}) for card back failed. Retrying with fallback (${FALLBACK_TEXT_GENERATION_MODEL}). Error:`, primaryError.message);
+            usedFallback = true;
+            response = await generate(FALLBACK_TEXT_GENERATION_MODEL);
+        }
+        
+        const originalLlmOutput = response.text;
+        const finalLlmOutput = usedFallback 
+            ? `(Fallback to ${FALLBACK_TEXT_GENERATION_MODEL}) ${originalLlmOutput}` 
+            : originalLlmOutput;
 
-  if (focus.includes("mindfulness") || focus.includes("gentle somatic") || focus.includes("presence")) {
-    return "Say in a calm and gentle tone: ";
-  }
-  if (focus.includes("playful") || focus.includes("witty") || focus.includes("icebreaker") || focus.includes("conversational games")) {
-    return "Say in a playful and light tone: ";
-  }
-  if (focus.includes("authentic relating") || focus.includes("vulnerability") || focus.includes("personal truth")) {
-    return "Say in a thoughtful and sincere tone: ";
-  }
-  if (focus.includes("depth psychology") || focus.includes("shadow work") || focus.includes("inner child")) {
-    return "Say in a reflective and understanding tone: ";
-  }
-  if (focus.includes("coaching") || focus.includes("resilience") || focus.includes("problem-solving")) {
-    return "Say in an encouraging and clear tone: ";
-  }
-  if (focus.includes("erotic blueprints") || focus.includes("intimate desire") || focus.includes("sensual awakening") || focus.includes("mindful sexuality")) {
-    if (maturity === "Intimate/Explicit") return "Say in an intimate and inviting tone: ";
-    return "Say in a warm and open tone: ";
-  }
-  if (focus.includes("provocative") || focus.includes("radical honesty") || focus.includes("edgy")) {
-    return "Say in a direct and curious tone: ";
-  }
-  if (focus.includes("somatic dialogue") || focus.includes("embodied connection") || focus.includes("contact improv")) {
-      return "Say in a grounded and connected tone: ";
-  }
-   if (focus.includes("story") || focus.includes("anecdote")) {
-      return "Narrate warmly: ";
-  }
+        const notesMatch = originalLlmOutput.match(new RegExp(`${CARD_BACK_NOTES_START_TAG}([\\s\\S]*)${CARD_BACK_NOTES_END_TAG}`));
+        const cardBackNotesText = notesMatch ? notesMatch[1].trim() : "Could not parse guidance from the AI.";
+        
+        return { cardBackNotesText, error: null, rawLlmOutput: finalLlmOutput, inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
 
-  switch (maturity) {
-    case "Mature":
-    case "Intimate/Explicit":
-      return "Say with thoughtful expression: ";
-    case "General":
-    default:
-      return "Say clearly and engagingly: ";
-  }
+    } catch (e: any) {
+        console.error("Error generating card back:", e);
+        return { cardBackNotesText: null, error: e.message || "An unknown error occurred.", rawLlmOutput: e.toString(), inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
+    }
 };
 
 export const generateAudioForText = async (
-  textToSpeak: string,
-  selectedVoiceName: VoiceName = DEFAULT_VOICE_NAME,
-  styleDirective: string = ""
-): Promise<{ audioData: string | null; audioMimeType: string | null; error?: string }> => {
-  if (!API_KEY || !ai) return { audioData: null, audioMimeType: null, error: "AI client not initialized or API key missing." };
-  
-  const fullTextToSpeak = styleDirective ? `${styleDirective}"${textToSpeak}"` : textToSpeak;
+    textToSpeak: string, 
+    voiceName: VoiceName, 
+    styleDirective: string | null
+): Promise<{ 
+    audioData: string | null; 
+    audioMimeType: string | null; 
+    error: string | null;
+    logData: { input: any, output: any, error?: string | null };
+    requestTimestamp: number;
+    responseTimestamp: number;
+}> => {
+    const requestTimestamp = Date.now();
+    
+    if (!ai) {
+        const error = "Gemini AI not initialized.";
+        return { 
+            audioData: null, audioMimeType: null, error, 
+            logData: { input: "N/A", output: "Initialization error" },
+            requestTimestamp, responseTimestamp: Date.now()
+        };
+    }
 
-  if (!fullTextToSpeak || fullTextToSpeak.trim() === "" || (styleDirective && !textToSpeak.trim())) {
-    return { audioData: null, audioMimeType: null, error: "No text provided to generate audio." };
-  }
-  try {
-    const audioResponse: GenerateContentResponse = await ai.models.generateContent({
+    const fullPromptText = styleDirective ? `${styleDirective} "${textToSpeak}"` : textToSpeak;
+
+    if (!textToSpeak || !textToSpeak.trim()) {
+        const error = "No text provided to generate audio.";
+        return {
+            audioData: null, audioMimeType: null, error,
+            logData: { input: { text: textToSpeak }, output: "No text error" },
+            requestTimestamp, responseTimestamp: Date.now()
+        };
+    }
+
+    const requestPayload = {
       model: TTS_MODEL,
-      contents: [{ role: "user", parts: [{ text: fullTextToSpeak }] }],
+      contents: [{ role: "user", parts: [{ text: fullPromptText }] }],
       config: {
-        responseModalities: ["AUDIO"],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoiceName } } }
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceName } },
+          audioConfig: {
+            audioEncoding: 'AUDIO_ENCODING_LINEAR_16',
+            sampleRateHertz: 24000,
+          },
+        },
       },
-    });
-    const candidate = audioResponse.candidates?.[0];
-    if (candidate?.content?.parts) {
-      for (const part of candidate.content.parts) {
-        if (part.inlineData?.mimeType?.startsWith('audio/')) {
-          return { audioData: part.inlineData.data, audioMimeType: part.inlineData.mimeType };
-        }
-      }
-    }
-    const finishReason = audioResponse.candidates?.[0]?.finishReason;
-    let reasonDetails = "";
-    if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") reasonDetails += `Reason: ${finishReason}. `;
-    const safetyRatings = audioResponse.candidates?.[0]?.safetyRatings;
-    if (safetyRatings?.some(rating => rating.blocked)) reasonDetails += `Blocked by safety ratings: ${JSON.stringify(safetyRatings)}. `;
-    console.warn(`No audio data in response for TTS. Text was: "${fullTextToSpeak.substring(0,70)}...". ${reasonDetails} Full audioResponse:`, JSON.stringify(audioResponse, null, 2));
-    return { audioData: null, audioMimeType: null, error: `Audio generation failed. ${reasonDetails}`.trim() };
-  } catch (error) {
-    console.error(`Error generating audio from Gemini TTS for text "${fullTextToSpeak.substring(0,70)}...":`, error);
-    return { audioData: null, audioMimeType: null, error: error instanceof Error ? error.message : "Unknown TTS error." };
-  }
-};
-
-const MAX_TEXT_GEN_RETRIES = 2; 
-const RETRY_DELAY_BASE_MS = 4000; 
-
-export const generatePromptAndAudioFromGemini = async (
-  userSelectedSetName: string, 
-  chosenItem: MicroDeck | CustomThemeData, 
-  participantCount: number, 
-  participantNames: string[],
-  activeParticipantName: string | null,
-  groupSetting: GroupSetting,
-  history: CardHistoryItem[],
-  customDecks: CustomThemeData[], 
-  selectedVoiceName: VoiceName = DEFAULT_VOICE_NAME,
-  languageCode: LanguageCode = DEFAULT_LANGUAGE_CODE
-): Promise<GeminiPromptResponse> => {
-  if (!API_KEY) throw new Error("API_KEY for Gemini is not configured.");
-  if (!ai) throw new Error("Gemini AI client is not initialized.");
-
-  let rawGeneratedTextOutput = "";
-  let effectiveMicroDeck: MicroDeck;
-  if ('internal_name' in chosenItem && 'deck_inspiration_focus' in chosenItem) { 
-    effectiveMicroDeck = chosenItem as MicroDeck;
-  } else { 
-    const customDeckItem = chosenItem as CustomThemeData;
-    effectiveMicroDeck = {
-      id: customDeckItem.id, internal_name: customDeckItem.name, belongs_to_set: "CUSTOM",
-      description_for_info_button: customDeckItem.description,
-      deck_inspiration_focus: `Custom user-defined deck: ${customDeckItem.name}`,
-      llm_keywords: customDeckItem.description, maturity_rating_hint: "General",
     };
-  }
-  
-  const { systemInstruction, userContent, fullPromptForDisplay } = constructGeminiPayload(
-    userSelectedSetName, effectiveMicroDeck, participantCount, participantNames, 
-    activeParticipantName, groupSetting, history, customDecks, languageCode
-  );
-  
-  const logPrefix = `Generating text with model: ${TEXT_GENERATION_MODEL} for Set: "${userSelectedSetName}", MicroDeck: "${effectiveMicroDeck.internal_name}" (Lang: ${LANGUAGES.find(l=>l.code === languageCode)?.name || languageCode}) Setting: ${GROUP_SETTINGS.find(gs => gs.id === groupSetting)?.label || groupSetting} Maturity: ${effectiveMicroDeck.maturity_rating_hint}`;
-  
-  let textResponse: GenerateContentResponse | null = null;
-  let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt <= MAX_TEXT_GEN_RETRIES; attempt++) {
-    console.log(`${logPrefix} (Attempt ${attempt + 1}/${MAX_TEXT_GEN_RETRIES + 1})`);
+    const logInput = {
+        ttsInput: fullPromptText,
+        voice: voiceName
+    };
+    
     try {
-      const currentTextResponse: GenerateContentResponse = await ai.models.generateContent({
-        model: TEXT_GENERATION_MODEL, contents: [{role: "user", parts: [{text: userContent}]}], config: { systemInstruction: systemInstruction },
-      });
+        const response: GenerateContentResponse = await (ai.models.generateContent as any)(requestPayload);
+        const responseTimestamp = Date.now();
 
-      if (currentTextResponse && (currentTextResponse.text || (currentTextResponse.candidates && currentTextResponse.candidates.length > 0) || currentTextResponse.promptFeedback)) {
-        textResponse = currentTextResponse;
-        lastError = null; 
-        break; 
-      } else {
-        lastError = new Error("Effectively empty response from Gemini text generation.");
-        console.warn(`Attempt ${attempt + 1}: Received an empty or malformed response. Full response:`, JSON.stringify(currentTextResponse, null, 2));
-      }
-    } catch (error: any) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Attempt ${attempt + 1} failed during Gemini text generation:`, lastError);
-      if (lastError.message.toLowerCase().includes("api key") || lastError.message.toLowerCase().includes("permission denied") || lastError.message.toLowerCase().includes("authentication")) {
-           throw new Error(`Gemini API Error (Text Gen): Authentication or permission issue. Details: ${lastError.message}`); 
-      }
+        const sanitizedOutput = JSON.parse(JSON.stringify(response));
+        if (sanitizedOutput.candidates?.[0]?.content?.parts) {
+          for (const part of sanitizedOutput.candidates[0].content.parts) {
+            if (part.inlineData?.mimeType?.startsWith('audio/')) {
+                const dataSize = part.inlineData.data.length;
+                part.inlineData.data = `[AUDIO_DATA_REDACTED: ~${Math.ceil(dataSize * 3/4 / 1024)} KB]`;
+            }
+          }
+        }
+        
+        const candidate = response.candidates?.[0];
+        const audioPart = candidate?.content?.parts?.find(p => p.inlineData && p.inlineData.mimeType.startsWith('audio/'));
+
+        if (audioPart && 'inlineData' in audioPart && audioPart.inlineData) {
+            return {
+                audioData: audioPart.inlineData.data,
+                audioMimeType: audioPart.inlineData.mimeType,
+                error: null,
+                logData: { input: logInput, output: sanitizedOutput },
+                requestTimestamp,
+                responseTimestamp
+            };
+        } else {
+             const errorReason = `Audio data not found in response. Finish Reason: ${candidate?.finishReason || 'N/A'}.`;
+             console.error(errorReason, "Full response:", JSON.stringify(response, null, 2));
+             throw new Error(errorReason);
+        }
+    } catch (e: any) {
+        console.error("Error generating TTS audio:", e);
+        const error = e.message || "Failed to synthesize audio.";
+        const parsedError = (e.message && e.message.includes("{")) ? JSON.parse(e.message) : { error: { message: error }};
+
+        return {
+            audioData: null, audioMimeType: null, error: parsedError?.error?.message || error,
+            logData: {
+                input: logInput,
+                output: "Audio generation failed.",
+                error: JSON.stringify(e),
+            },
+            requestTimestamp,
+            responseTimestamp: Date.now()
+        };
     }
-
-    if (attempt < MAX_TEXT_GEN_RETRIES) {
-      const delay = RETRY_DELAY_BASE_MS * Math.pow(2, attempt);
-      console.log(`Waiting ${delay}ms before next retry...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  if (!textResponse || lastError) {
-    const finalErrorMessage = `Failed to process text request with Gemini after ${MAX_TEXT_GEN_RETRIES + 1} attempts. Last error: ${lastError ? lastError.message : 'Unknown error during retries'}`;
-    console.error(finalErrorMessage, lastError);
-    throw new Error(finalErrorMessage);
-  }
-  
-  if (!textResponse.text) {
-      let reasonDetails = "";
-      const candidate = textResponse.candidates?.[0];
-      const finishReason = candidate?.finishReason;
-      const safetyRatings = candidate?.safetyRatings;
-
-      if (finishReason && finishReason !== "STOP" && finishReason !== "MAX_TOKENS") {
-          reasonDetails += `Reason: ${finishReason}. `;
-      }
-      if (safetyRatings?.some(r => r.blocked)) {
-          const blockedCategories = safetyRatings.filter(r => r.blocked).map(r => `${r.category}: ${r.probability}`).join(', ');
-          reasonDetails += `Blocked by safety ratings: [${blockedCategories}]. `;
-      }
-      
-      if (!reasonDetails && textResponse.promptFeedback?.blockReason) {
-          const blockReason = textResponse.promptFeedback.blockReason;
-          const safetyRatingsInfo = textResponse.promptFeedback.safetyRatings?.map(r => `${r.category}: ${r.probability}`).join(', ');
-          reasonDetails = `Blocked due to: ${blockReason}. ${safetyRatingsInfo ? `Details: [${safetyRatingsInfo}]` : ''}`;
-      }
-
-      if (reasonDetails) {
-          console.warn(`Text generation yielded no direct text after retries, but found reasons: ${reasonDetails}. Full textResponse:`, JSON.stringify(textResponse, null, 2));
-          throw new Error(`Text generation failed after retries. ${reasonDetails}`);
-      }
-      
-      if (!textResponse.candidates?.length && !textResponse.promptFeedback?.blockReason) {
-           console.error("No text generated and no candidates/promptFeedback in response after retries. Full textResponse:", JSON.stringify(textResponse, null, 2));
-           throw new Error("Failed to generate text from Gemini after retries. The response was empty or malformed (no text, candidates, or block reason).");
-      }
-
-      console.warn("No text generated (textResponse.text is null/undefined) after retries, and no other clear reason. Full textResponse:", JSON.stringify(textResponse, null, 2));
-      throw new Error("Failed to generate text from Gemini after retries. The response did not contain any text, and no clear reason could be determined.");
-  }
-  
-  rawGeneratedTextOutput = textResponse.text.trim();
-
-  const thoughtProcessText = extractTextBetweenTags(rawGeneratedTextOutput, THOUGHT_PROCESS_START_TAG, THOUGHT_PROCESS_END_TAG);
-  if (thoughtProcessText) console.log("Extracted thought process:\n", thoughtProcessText.substring(0,200) + "...");
-  else console.log("No thought_process found or tag parsing failed for it.");
-
-  let finalCleanedText = extractTextBetweenTags(rawGeneratedTextOutput, CARD_FRONT_PROMPT_START_TAG, CARD_FRONT_PROMPT_END_TAG);
-  let cardBackNotesText = extractTextBetweenTags(rawGeneratedTextOutput, CARD_BACK_NOTES_START_TAG, CARD_BACK_NOTES_END_TAG);
-  
-  if (finalCleanedText === null) {
-    console.warn(`Tag parsing failed for main prompt. Full Raw LLM Output:\n`, rawGeneratedTextOutput);
-    finalCleanedText = rawGeneratedTextOutput.split(CARD_BACK_NOTES_START_TAG)[0].trim() || rawGeneratedTextOutput.split(THOUGHT_PROCESS_START_TAG)[0].trim() || rawGeneratedTextOutput.split('\n')[0].trim();
-    finalCleanedText = finalCleanedText || "The Resonance seems to be quiet. Try another card.";
-  }
-  if (cardBackNotesText === null && rawGeneratedTextOutput.includes(CARD_BACK_NOTES_START_TAG)) {
-     console.warn(`Tag parsing failed for card back notes but start tag was present. Full Raw LLM Output:\n`, rawGeneratedTextOutput);
-     const backNotesStartIndex = rawGeneratedTextOutput.indexOf(CARD_BACK_NOTES_START_TAG);
-     if (backNotesStartIndex !== -1) {
-         cardBackNotesText = rawGeneratedTextOutput.substring(backNotesStartIndex + CARD_BACK_NOTES_START_TAG.length).trim();
-         const thoughtProcessIndexAfterNotes = cardBackNotesText.indexOf(THOUGHT_PROCESS_START_TAG);
-         const cardFrontIndexAfterNotes = cardBackNotesText.indexOf(CARD_FRONT_PROMPT_START_TAG);
-         let endPoint = cardBackNotesText.length;
-         if (thoughtProcessIndexAfterNotes !== -1) endPoint = Math.min(endPoint, thoughtProcessIndexAfterNotes);
-         if (cardFrontIndexAfterNotes !== -1) endPoint = Math.min(endPoint, cardFrontIndexAfterNotes);
-         cardBackNotesText = cardBackNotesText.substring(0, endPoint).trim();
-     }
-  }
-  if (!finalCleanedText || finalCleanedText.trim().length === 0) {
-      console.error("Generated text for card front is empty after parsing/cleaning.");
-      finalCleanedText = "The Resonance seems to be quiet for a moment. Try drawing another card."; 
-  }
-
-  // Initial greeting is now handled by LLM based on system prompt instructions
-
-  console.log("Final cleaned text for card front & TTS:", `"${finalCleanedText}"`);
-  if (cardBackNotesText) console.log("Extracted card back notes text:", `"${cardBackNotesText.substring(0, 100)}..."`);
-  else console.log("No card back notes text extracted.");
-  
-  let mainAudioData: string | null = null; let mainAudioMimeType: string | null = null;
-  if (finalCleanedText && !finalCleanedText.startsWith("The Resonance seems to be quiet")) {
-    const styleDirective = getStyleDirectiveForMicroDeck(effectiveMicroDeck, false);
-    const mainAudioResult = await generateAudioForText(finalCleanedText, selectedVoiceName, styleDirective);
-    if (mainAudioResult.audioData && mainAudioResult.audioMimeType) {
-        mainAudioData = mainAudioResult.audioData; mainAudioMimeType = mainAudioResult.audioMimeType;
-    } else if (mainAudioResult.error) {
-        console.warn(`Could not generate audio for main prompt: ${mainAudioResult.error}`);
-    }
-  } else { console.warn("Main prompt text is empty or fallback, skipping TTS call for main prompt."); }
-
-  return { 
-      text: finalCleanedText, audioData: mainAudioData, audioMimeType: mainAudioMimeType, 
-      llmPromptForTextGeneration: fullPromptForDisplay, rawLlmOutput: rawGeneratedTextOutput,
-      cardBackNotesText: cardBackNotesText,
-  };
 };
 
-export default {};
+export const sendFeedbackToChat = async (cardText: string, feedback: 'liked' | 'disliked', addLogEntry: (entry: DevLogEntry) => void) => {
+    const requestTimestamp = Date.now();
+    try {
+        const chat = getChatSession(addLogEntry);
+        
+        const feedbackPrompt = feedback === 'liked'
+            ? `User liked the prompt "${cardText}". I will consider this positive signal as a gentle indicator of preference, without over-indexing on it. It's just one data point. My core identity remains. I'm ready for the next request.`
+            : `User disliked the prompt "${cardText}". I acknowledge this feedback as a mild data point. It doesn't mean the entire style is wrong, but this specific prompt didn't land well. I'll absorb this information to ensure variety, without making drastic changes to my approach. My core identity remains. I'm ready for the next request.`;
+        
+        const response = await chat.sendMessage({message: feedbackPrompt});
+        
+        addLogEntry({
+            type: 'user-feedback',
+            requestTimestamp,
+            responseTimestamp: Date.now(),
+            data: { input: feedbackPrompt, output: response.text }
+        });
+        return { success: true, error: null };
+    } catch (e: any) {
+        console.error("Error sending feedback to chat:", e);
+        addLogEntry({
+            type: 'user-feedback',
+            requestTimestamp,
+            responseTimestamp: Date.now(),
+            data: { input: `Feedback on "${cardText}"`, output: null, error: e.message }
+        });
+        return { success: false, error: e.message };
+    }
+};

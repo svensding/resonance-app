@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { GroupSetting, GroupSettingOption } from '../services/geminiService';
 
@@ -27,7 +26,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
       aria-labelledby="group-setting-title"
     >
       <div 
-        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[calc(100vw-6vw)] sm:max-w-xs md:max-w-sm transform transition-all"
+        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[calc(100vw-6vw)] sm:max-w-xl md:max-w-2xl transform transition-all"
         onClick={(e) => e.stopPropagation()} 
       >
         <div className="flex justify-between items-center mb-[1.5vh] sm:mb-[2.5vh]">
@@ -44,7 +43,7 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
           </button>
         </div>
 
-        <div className="space-y-[0.8vh] sm:space-y-[1.2vh] max-h-[60vh] overflow-y-auto scrollbar-thin">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-h-[60vh] overflow-y-auto scrollbar-thin">
           {groupSettingsOptions.map(settingOption => (
             <button
               key={settingOption.id}
@@ -55,8 +54,8 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
                 }
               }}
               disabled={disabled}
-              className={`w-full px-[2vw] py-[1vh] sm:px-[2vw] sm:py-[1.2vh] text-[clamp(0.7rem,2vh,0.95rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
-                          flex flex-col
+              className={`w-full p-4 text-[clamp(0.7rem,2vh,0.95rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
+                          flex flex-col items-start h-full
                           ${currentSetting === settingOption.id
                             ? 'bg-sky-500 text-white font-bold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg' 
                             : `bg-slate-700 hover:bg-slate-600 text-slate-200 font-normal 
@@ -66,21 +65,10 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
               aria-pressed={currentSetting === settingOption.id}
               title={settingOption.description}
             >
-              <span className="font-normal">{settingOption.label}</span>
-              <span className={`text-[clamp(0.55rem,1.7vh,0.8rem)] ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-[0.2vh] leading-snug`}>{settingOption.description}</span>
+              <span className="font-bold text-base">{settingOption.label}</span>
+              <span className={`text-xs ${currentSetting === settingOption.id ? 'text-sky-100' : 'text-slate-400'} font-normal mt-auto pt-2 leading-snug`}>{settingOption.description}</span>
             </button>
           ))}
-        </div>
-
-        <div className="mt-[2.5vh] sm:mt-[3.5vh] flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-[2vw] py-[1vh] text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-white bg-sky-600 hover:bg-sky-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-slate-800"
-            title="Done"
-          >
-            Done
-          </button>
         </div>
       </div>
     </div>
