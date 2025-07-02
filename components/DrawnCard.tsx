@@ -171,8 +171,8 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
         {parsedGuidance.map((section, index) => (
           section.content.trim() ? (
             <div key={index}>
-              <h6 className="font-bold text-[clamp(0.85rem,2.4vh,1.15rem)] text-slate-300 mb-[0.2vh] leading-snug">{section.heading}</h6>
-              <p className="text-[clamp(0.8rem,2.2vh,1.1rem)] text-slate-200 font-normal whitespace-pre-wrap leading-snug">{section.content}</p>
+              <h6 className="font-bold text-[clamp(0.8rem,2vh,1.05rem)] text-slate-300 mb-[0.2vh] leading-snug">{section.heading}</h6>
+              <p className="text-[clamp(0.75rem,1.9vh,0.95rem)] text-slate-200 font-normal whitespace-pre-wrap leading-snug">{section.content}</p>
             </div>
           ) : null
         ))}
@@ -282,11 +282,11 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   let promptTextSizeClasses = "font-normal"; 
   if (isNewest && !showCardBackView) {
      if (finalPromptText && finalPromptText.length > VERY_LONG_PROMPT_THRESHOLD_NEWEST) {
-        promptTextSizeClasses = "text-[clamp(0.9rem,2.5vw,1.5rem)] font-normal"; 
+        promptTextSizeClasses = "text-[clamp(1rem,2.8vw,1.65rem)] font-normal"; 
      } else if (finalPromptText && finalPromptText.length > LONG_PROMPT_THRESHOLD) {
-        promptTextSizeClasses = "text-[clamp(1rem,3vw,1.75rem)] font-normal";    
+        promptTextSizeClasses = "text-[clamp(1.1rem,3.5vw,1.9rem)] font-normal";    
      } else {
-        promptTextSizeClasses = "text-[clamp(1.1rem,3.5vw,2rem)] font-normal";   
+        promptTextSizeClasses = "text-[clamp(1.2rem,4vw,2.2rem)] font-normal";   
      }
   } else if (!isNewest) { 
     promptTextSizeClasses = (finalPromptText && finalPromptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)] font-normal" : "text-[clamp(0.75rem,2.5vw,1.1rem)] font-normal";
@@ -313,7 +313,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
       style={{ height: 'auto' }} 
     >
       <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
-        <div className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${isRevealed ? 'rotate-y-180' : ''}`}>
+        <div className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${showCardBackView ? 'rotate-y-180' : ''} ${isRevealed ? '' : 'rotate-y-180'}`}>
           {/* Card Pre-Reveal Face */}
           <div className={`absolute w-full h-full backface-hidden ${overlayBaseClasses} ${overlayDashedBorderClasses} rounded-xl shadow-xl flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}>
             <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />
@@ -349,8 +349,8 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                   <div className="flex flex-col flex-grow w-full text-center">
                     <div className="flex justify-between items-center mb-[0.5vh]">
                         <div className="flex-1 text-center">
-                            <h4 className={`${themeNameSizeClasses} text-white/90 font-normal tracking-wide leading-[1.2]`} style={themeDisplayTitleStyle}>{themeDisplayName}</h4>
-                            {drawnForParticipantName && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
+                            <h4 className={`text-white/90 font-normal tracking-wide leading-[1.2] text-[clamp(0.6rem,1.6vw,0.85rem)]`} style={themeDisplayTitleStyle}>{themeDisplayName}</h4>
+                            {drawnForParticipantName && (<span className={`block text-white/70 font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2] text-[clamp(0.55rem,1.5vw,0.8rem)]`}>for {drawnForParticipantName}</span>)}
                             <h5 className={`text-[clamp(0.7rem,1.8vh,1rem)] text-slate-300 font-bold tracking-wide mt-[0.5vh] mb-[0.8vh] leading-[1.2]`}>{cardBackTitle}</h5>
                         </div>
                         {cardBackNotesText && cardBackNotesText.trim() !== "" && (

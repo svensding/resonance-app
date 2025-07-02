@@ -133,6 +133,7 @@ const App: React.FC = () => {
 
   const [showDevLogSheet, setShowDevLogSheet] = useState(false);
   const [devLog, setDevLog] = useState<DevLogEntry[]>([]);
+  const [showDevFeatures, setShowDevFeatures] = useState(false);
 
   const addLogEntry = useCallback((entry: DevLogEntry) => {
       setDevLog(prev => [...prev, entry]);
@@ -146,6 +147,16 @@ const App: React.FC = () => {
     saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.PAULINA_JOE_ONBOARDING_SHOWN, hasShownPaulinaAndJoeOnboarding);
   }, [hasShownPaulinaAndJoeOnboarding]);
 
+  useEffect(() => {
+    const checkHash = () => {
+        if (window.location.hash === '#devlog') {
+            setShowDevFeatures(true);
+        }
+    };
+    checkHash();
+    window.addEventListener('hashchange', checkHash, false);
+    return () => window.removeEventListener('hashchange', checkHash, false);
+  }, []);
 
   useEffect(() => {
     console.log("App mounted. Resonance (Deck Sets Architecture).");
@@ -238,6 +249,11 @@ const App: React.FC = () => {
   const handleDrawNewCard = useCallback(async (itemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM", options?: { isRedraw?: boolean }) => {
       if (isLoading || isShuffling) return;
       handleStopAudio();
+
+      // Check for SvenDEV special mode to enable dev log
+      if (selectedGroupSetting === 'SPECIAL' && participants.some(p => p.name.trim() === 'SvenDEV')) {
+        setShowDevFeatures(true);
+      }
       
       const participantNames = participants.map(p => p.name).filter(Boolean);
       const groupSettingToUse = (selectedGroupSetting === 'SPECIAL' && participantNames.length < 2) ? 'GENERAL' : selectedGroupSetting;
@@ -672,7 +688,7 @@ const App: React.FC = () => {
       </header>
       
       <main 
-        className="flex-grow w-full overflow-y-auto overflow-x-hidden scrollbar-thin"
+        className="flex-grow w-full overflow-y-auto overflow-x-hidden scrollbar-thin flex justify-center"
         style={{ 
             paddingTop: 'var(--main-content-top-padding)', 
             paddingBottom: 'var(--main-content-bottom-padding)' 
@@ -713,6 +729,7 @@ const App: React.FC = () => {
             onOpenGroupSettingModal={() => setShowGroupSettingModal(true)} 
             onOpenVoiceSettingsModal={() => setShowVoiceSettingsModal(true)}
             onOpenDevLog={handleOpenDevLog}
+            showDevLogButton={showDevFeatures}
             disabled={isLoading || isShuffling}
           />
       </footer>

@@ -77,11 +77,11 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
       aria-labelledby="voice-settings-title"
     >
       <div 
-        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[90vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl transform transition-all flex flex-col"
+        className="bg-slate-800 p-[3vw] sm:p-[4vw] rounded-xl shadow-2xl w-full max-w-[90vw] sm:max-w-lg md:max-w-2xl lg:max-w-3xl xl:max-w-4xl transform transition-all flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()} 
       >
         <div className="flex justify-between items-center mb-[1.5vh] sm:mb-[2.5vh] flex-shrink-0">
-          <h2 id="voice-settings-title" className="text-[clamp(1.1rem,3vh,1.75rem)] font-bold text-sky-400">Voice & Audio Settings</h2>
+          <h2 id="voice-settings-title" className="text-[clamp(1.1rem,2.5vh,1.5rem)] font-bold text-sky-400">Voice & Audio Settings</h2>
           <button 
             onClick={onClose} 
             className="p-[0.5vh] rounded-full text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
@@ -97,7 +97,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
         <div className="space-y-[2vh] sm:space-y-[3vh] overflow-y-auto scrollbar-thin pr-2 flex-grow">
           {/* Mute Button */}
           <div className="flex items-center justify-between">
-            <label id="narrationLabel" className="text-[clamp(0.8rem,2.2vh,1rem)] font-bold text-slate-300">
+            <label id="narrationLabel" className="text-[clamp(0.8rem,2vh,1rem)] font-bold text-slate-300">
               Narration
             </label>
             <button
@@ -119,7 +119,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
 
           {/* Language Selection */}
           <div>
-            <label className="block text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-slate-300 mb-2">
+            <label className="block text-[clamp(0.7rem,1.8vh,0.9rem)] font-bold text-slate-300 mb-2">
               Language
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -144,7 +144,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
           
           {/* Voice Selection */}
           <div>
-            <label className="block text-[clamp(0.7rem,2vh,0.9rem)] font-bold text-slate-300 mb-2">
+            <label className="block text-[clamp(0.7rem,1.8vh,0.9rem)] font-bold text-slate-300 mb-2">
               Narration Voice
             </label>
             <div className="flex flex-col space-y-4">

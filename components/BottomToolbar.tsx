@@ -16,12 +16,13 @@ interface BottomToolbarProps {
   onOpenGroupSettingModal: () => void; 
   onOpenVoiceSettingsModal: () => void;
   onOpenDevLog: () => void;
-  disabled?: boolean; 
+  disabled?: boolean;
+  showDevLogButton?: boolean;
 }
 
 export const BottomToolbar: React.FC<BottomToolbarProps> = ({ 
   participants, setParticipants, activeParticipantId, setActiveParticipantId, onRemoveParticipant, 
-  groupSetting, onOpenGroupSettingModal, onOpenVoiceSettingsModal, onOpenDevLog, disabled 
+  groupSetting, onOpenGroupSettingModal, onOpenVoiceSettingsModal, onOpenDevLog, disabled, showDevLogButton = false 
 }) => {
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [currentEditName, setCurrentEditName] = useState('');
@@ -177,21 +178,23 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 010 12.728M16.463 8.288a5.25 5.25 0 010 7.424M6.75 8.25l4.72-4.72a.75.75 0 011.28.53v15.88a.75.75 0 01-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 012.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z" />
                 </svg>
             </button>
-            <button
-                onClick={onOpenDevLog}
-                disabled={disabled}
-                className={`p-2 rounded-full text-slate-400 transition-colors duration-150
-                            ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-600 hover:text-white'}`}
-                aria-label="Open Developer Log"
-                title="Developer Log"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.25278C12 6.25278 6.75 3 4.5 3C2.25 3 1.5 4.5 1.5 6.75C1.5 9 3.75 12 6.75 12H17.25C20.25 12 22.5 9 22.5 6.75C22.5 4.5 21.75 3 19.5 3C17.25 3 12 6.25278 12 6.25278Z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 12V21" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 15L4.5 18" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 15L19.5 18" />
-                </svg>
-            </button>
+            {showDevLogButton && (
+                <button
+                    onClick={onOpenDevLog}
+                    disabled={disabled}
+                    className={`p-2 rounded-full text-slate-400 transition-colors duration-150
+                                ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-600 hover:text-white'}`}
+                    aria-label="Open Developer Log"
+                    title="Developer Log"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.25278C12 6.25278 6.75 3 4.5 3C2.25 3 1.5 4.5 1.5 6.75C1.5 9 3.75 12 6.75 12H17.25C20.25 12 22.5 9 22.5 6.75C22.5 4.5 21.75 3 19.5 3C17.25 3 12 6.25278 12 6.25278Z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 12V21" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 15L4.5 18" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 15L19.5 18" />
+                    </svg>
+                </button>
+            )}
         </div>
     </div>
   );

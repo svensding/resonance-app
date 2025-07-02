@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CustomThemeData, DeckSet } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
@@ -69,9 +68,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
 
   const titleMarginTop = isRandomButton ? "mt-[1vh]" : "mt-[0.5vh]";
 
-  const ringClasses = isPreferred
-    ? 'ring-2 ring-amber-400 ring-offset-1 ring-offset-slate-800'
-    : 'focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-slate-800';
+  const ringClasses = 'focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-slate-800';
 
   return (
     <div
