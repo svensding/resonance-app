@@ -262,7 +262,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     );
   }
   
-  if (!isRevealed && !finalPromptText && !isLoadingPlaceholder) return null;
+  if (!finalPromptText && !isLoadingPlaceholder) return null;
 
   const { name: themeDisplayName, colorClass: themeColor } = getDisplayDataForCard(themeIdentifier, deckSetId || null, allCustomDecksForLookup);
   
@@ -306,6 +306,10 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   }
 
 
+  // Consolidated rotation logic to fix reveal animation and prevent conflicts.
+  // When a card is revealed, it rotates 180 degrees.
+  const rotationClass = isRevealed ? 'rotate-y-180' : '';
+
   return (
     <div 
       ref={cardRef} 
@@ -313,7 +317,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
       style={{ height: 'auto' }} 
     >
       <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
-        <div className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${showCardBackView ? 'rotate-y-180' : ''} ${isRevealed ? '' : 'rotate-y-180'}`}>
+        <div className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${rotationClass}`}>
           {/* Card Pre-Reveal Face */}
           <div className={`absolute w-full h-full backface-hidden ${overlayBaseClasses} ${overlayDashedBorderClasses} rounded-xl shadow-xl flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}>
             <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />
