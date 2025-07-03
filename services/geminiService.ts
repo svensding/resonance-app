@@ -424,6 +424,9 @@ Adapt your prompt generation to strongly reflect these directives, layering them
 `;
 
 export const getVisibleDeckSetsForGroupSetting = (setting: GroupSetting): DeckSet[] => {
+    if (setting === 'SPECIAL') {
+        return DECK_SETS;
+    }
     return DECK_SETS.filter(set => {
         const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === set.id);
         return microDecksInSet.some(md => {

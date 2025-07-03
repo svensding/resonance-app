@@ -159,6 +159,13 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Enables dev features if the group is special and a participant is named SvenDEV.
+    if (selectedGroupSetting === 'SPECIAL' && participants.some(p => p.name.trim().toLowerCase() === 'svendev')) {
+      setShowDevFeatures(true);
+    }
+  }, [participants, selectedGroupSetting]);
+
+  useEffect(() => {
     console.log("App mounted. Resonance (Deck Sets Architecture).");
     if (!process.env.API_KEY) {
       setApiKeyMissing(true);
@@ -250,11 +257,6 @@ const App: React.FC = () => {
       if (isLoading || isShuffling) return;
       handleStopAudio();
 
-      // Check for SvenDEV special mode to enable dev log
-      if (selectedGroupSetting === 'SPECIAL' && participants.some(p => p.name.trim() === 'SvenDEV')) {
-        setShowDevFeatures(true);
-      }
-      
       const participantNames = participants.map(p => p.name).filter(Boolean);
       const groupSettingToUse = (selectedGroupSetting === 'SPECIAL' && participantNames.length < 2) ? 'GENERAL' : selectedGroupSetting;
 
@@ -282,10 +284,15 @@ const App: React.FC = () => {
 
       if (itemId === "RANDOM") {
           drawSource = 'RANDOM';
-          const availableDecks = ALL_MICRO_DECKS.filter(md => {
-            const suitability = md.group_setting_suitability[groupSettingToUse];
-            return suitability === 'PREFERRED' || suitability === 'OPTIONAL';
-          });
+          let availableDecks: MicroDeck[] = [];
+          if (groupSettingToUse === 'SPECIAL') {
+              availableDecks = ALL_MICRO_DECKS;
+          } else {
+              availableDecks = ALL_MICRO_DECKS.filter(md => {
+                const suitability = md.group_setting_suitability[groupSettingToUse];
+                return suitability === 'PREFERRED' || suitability === 'OPTIONAL';
+              });
+          }
           if (availableDecks.length === 0) {
             setError(`No suitable cards available for the "${groupSettingToUse}" setting.`);
             setIsLoading(false); setIsShuffling(false); return;
@@ -312,12 +319,16 @@ const App: React.FC = () => {
           if (!deckSet) { setError("Deck set not found"); setIsLoading(false); setIsShuffling(false); return; }
 
           const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === itemId);
-          const preferredDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
-          const optionalDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'OPTIONAL');
-          
-          let availableDecks = [];
-          if (preferredDecks.length > 0) availableDecks = preferredDecks;
-          else if (optionalDecks.length > 0) availableDecks = optionalDecks;
+          let availableDecks: MicroDeck[] = [];
+          if (groupSettingToUse === 'SPECIAL') {
+              availableDecks = microDecksInSet;
+          } else {
+              const preferredDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
+              const optionalDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'OPTIONAL');
+              
+              if (preferredDecks.length > 0) availableDecks = preferredDecks;
+              else if (optionalDecks.length > 0) availableDecks = optionalDecks;
+          }
       
           if (availableDecks.length === 0) {
               setError(`No suitable cards in "${deckSet.name}" for the "${groupSettingToUse}" setting.`);

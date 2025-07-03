@@ -56,7 +56,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   const mainButtonLabel = isRandomButton ? "Draw a Random Card" : `Draw a card from ${itemName}`;
   const mainButtonTitle = isRandomButton ? "Draw a Random Card" : `Draw from: ${itemName}`;
 
-  const utilityButtonBaseClasses = "p-[0.5vh] rounded-full text-white/70 hover:text-white z-30 transition-all duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100 bg-black/40 hover:bg-black/60";
+  const utilityButtonBaseClasses = "p-[0.5vh] rounded-full text-white/70 hover:text-white z-30 transition-all duration-200 opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 bg-black/20 hover:bg-black/50";
   const utilityButtonIconSize = "h-[2vh] w-[2vh] max-h-4 max-w-4"; 
   const deckGlyphSize = "text-[clamp(0.6rem,1.5vh,1rem)]"; 
   const deckGlyphGap = "gap-[0.2vh]";

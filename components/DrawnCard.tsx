@@ -19,7 +19,6 @@ export interface DrawnCardDisplayData {
   themeBeingDrawnNamePlaceholder?: string | null; 
   activeParticipantNameForPlaceholder?: string | null;
   currentDrawingThemeColorForPlaceholder?: string | null; 
-  isFirstEverCardForDisplay?: boolean;
   thinkingTextForPlaceholder?: string | null;
 }
 
@@ -31,7 +30,6 @@ interface DrawnCardProps extends DrawnCardDisplayData {
   allCustomDecksForLookup: CustomThemeData[]; 
   activeCardAudio: { cardId: string; type: 'prompt' | 'notes' } | null;
   onStopAudio: () => void;
-  isDrawingInProgress?: boolean;
 }
 
 const CARD_ASPECT_RATIO_MULTIPLIER = 7 / 5; 
@@ -67,15 +65,12 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   currentDrawingThemeColorForPlaceholder,
   activeCardAudio,
   onStopAudio,
-  isFirstEverCardForDisplay = false,
   thinkingTextForPlaceholder,
-  isDrawingInProgress,
 }) => {
   const [isRevealed, setIsRevealed] = useState(false);
   const [showCardBackView, setShowCardBackView] = useState(false);
   const [isLoadingCardBackAudio, setIsLoadingCardBackAudio] = useState(false);
   const [parsedGuidance, setParsedGuidance] = useState<ParsedGuidanceSection[]>([]);
-  const [showInitialButtons, setShowInitialButtons] = useState(false);
   
   const cardRef = useRef<HTMLDivElement>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -83,25 +78,12 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const finalPromptText = promptText;
 
   useEffect(() => {
-    if (isFirstEverCardForDisplay && isNewest) {
-        setShowInitialButtons(true);
-        const timer = setTimeout(() => {
-            setShowInitialButtons(false);
-        }, 10000); // 10 seconds
-        return () => clearTimeout(timer);
-    }
-  }, [isFirstEverCardForDisplay, isNewest, id]);
-
-
-  useEffect(() => {
     if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
     setShowCardBackView(false); setIsLoadingCardBackAudio(false); 
 
-    if (isLoadingPlaceholder || !promptText || !themeIdentifier) {
-      if (isNewest) { // Is a loading placeholder
-          setIsRevealed(false);
-      }
-      return;
+    // This handles the reveal animation for new cards
+    if (isNewest && (isLoadingPlaceholder || !promptText || !themeIdentifier)) {
+      setIsRevealed(false); return;
     }
     
     if (isNewest) {
@@ -113,7 +95,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
       setIsRevealed(true);
     }
     return () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current); };
-  }, [promptText, themeIdentifier, isNewest, id, isLoadingPlaceholder]);
+  }, [id, isNewest, isLoadingPlaceholder, promptText, themeIdentifier]);
 
   const cardFaceBaseClasses = "rounded-xl shadow-xl flex flex-col overflow-hidden font-normal"; 
   const subtleSolidBorder = "border border-slate-700/60"; 
@@ -204,11 +186,11 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const isThisPromptAudioPlaying = activeCardAudio?.cardId === id && activeCardAudio?.type === 'prompt';
   const isThisNotesAudioPlaying = activeCardAudio?.cardId === id && activeCardAudio?.type === 'notes';
 
-  let actionButtonOpacityClasses = "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100";
-  if (showInitialButtons) {
-      actionButtonOpacityClasses = "opacity-100";
-  }
-  const actionButtonBaseClasses = `rounded-full transition-all duration-500 ease-in-out ${actionButtonOpacityClasses}`;
+  const utilityAndActionButtonsVisibilityClasses = isNewest
+    ? 'opacity-80 hover:opacity-100'
+    : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100';
+
+  const actionButtonBaseClasses = `rounded-full transition-all duration-300 ease-in-out ${utilityAndActionButtonsVisibilityClasses}`;
 
   if (isLoadingPlaceholder) {
     let loadingText = `Drawing from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
@@ -332,13 +314,13 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
           <div className={`absolute w-full h-full backface-hidden rotate-y-180 
                            ${themeColor ? `bg-gradient-to-br ${themeColor}` : 'bg-slate-900'} 
                            ${cardFaceBaseClasses} ${subtleSolidBorder}
-                           ${(isRevealed && isNewest && !showCardBackView) ? 'shimmer-effect' : ''} flex flex-col`}>
+                           ${(isRevealed && isNewest && !showCardBackView) ? 'shimmer-effect' : ''} flex flex-col ${isFaded ? 'opacity-40' : ''}`}>
             <div className={`absolute inset-0 ${overlayBaseClasses} rounded-xl`}></div>
 
             {isRevealed && (
-              <div className="absolute top-[1vh] left-[1vh] z-30 flex space-x-2">
+              <div className={`absolute top-[1vh] left-[1vh] z-30 flex space-x-2 transition-opacity duration-300 ${utilityAndActionButtonsVisibilityClasses}`}>
                 {cardBackNotesText && cardBackNotesText.trim() !== "" && (
-                  <button onClick={handleToggleCardBackView} className={`${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-within:opacity-100`} aria-label={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`} title={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`}>
+                  <button onClick={handleToggleCardBackView} className={`${utilityButtonPadding} rounded-full bg-black/20 hover:bg-black/40 text-slate-300 hover:text-white transition-colors duration-200`} aria-label={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`} title={showCardBackView ? "Show Prompt Text" : `Show ${cardBackTitle}`}>
                     <span className={`${utilityButtonIconSize} flex items-center justify-center ${utilityButtonRotateIconFontSize}`}>↻</span>
                   </button>
                 )}

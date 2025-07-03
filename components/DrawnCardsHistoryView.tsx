@@ -111,7 +111,6 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
 
   const newestCard = history[0];
   const olderCards = history.slice(1);
-  const isFirstEverCardForDisplay = history.length === 1 && !newestCard.isFaded;
 
   return (
     <div className="w-full max-w-6xl px-[2vw] flex flex-col items-center font-normal">
@@ -131,7 +130,6 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
             drawnForParticipantName={newestCard.drawnForParticipantName}
             isLoadingPlaceholder={!newestCard.text}
             isFaded={newestCard.isFaded}
-            isFirstEverCardForDisplay={isFirstEverCardForDisplay}
             thinkingTextForPlaceholder={thinkingTextForNewestCard}
             onLike={onLike}
             onDislike={onDislike}
@@ -140,7 +138,6 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
             allCustomDecksForLookup={customDecks}
             activeCardAudio={activeCardAudio}
             onStopAudio={onStopAudio}
-            isDrawingInProgress={isDrawingInProgress}
         />
       </div>
 
