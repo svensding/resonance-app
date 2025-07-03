@@ -330,15 +330,20 @@ const App: React.FC = () => {
           }
           setShuffleColorClasses(colorsForShuffle);
   
-          let chosenAngle: AngleOfInquiry;
-          if ('default_angle' in chosenItem) { // It's a MicroDeck
-              const microDeck = chosenItem as MicroDeck;
-              const possibleAngleIds = [microDeck.default_angle, ...microDeck.alternative_angles];
-              const chosenAngleId = possibleAngleIds[Math.floor(Math.random() * possibleAngleIds.length)];
-              const foundAngle = ANGLES_OF_INQUIRY.find(a => a.id === chosenAngleId) || ANGLES_OF_INQUIRY[0];
-              chosenAngle = foundAngle;
-          } else { // It's a CustomThemeData
-              chosenAngle = ANGLES_OF_INQUIRY[Math.floor(Math.random() * ANGLES_OF_INQUIRY.length)];
+          let chosenAngle: AngleOfInquiry | null = null;
+          // There is a 60% chance that no angle will be chosen.
+          if (Math.random() > 0.60) {
+              if ('possible_angles' in chosenItem) { // It's a MicroDeck
+                  const microDeck = chosenItem as MicroDeck;
+                  if (microDeck.possible_angles.length > 0) {
+                      const chosenAngleId = microDeck.possible_angles[Math.floor(Math.random() * microDeck.possible_angles.length)];
+                      const foundAngle = ANGLES_OF_INQUIRY.find(a => a.id === chosenAngleId);
+                      if(foundAngle) chosenAngle = foundAngle;
+                  }
+              } else { // It's a CustomThemeData, choose from all angles
+                  const foundAngle = ANGLES_OF_INQUIRY[Math.floor(Math.random() * ANGLES_OF_INQUIRY.length)];
+                  if(foundAngle) chosenAngle = foundAngle;
+              }
           }
           
           const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;

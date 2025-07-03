@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 export interface DevLogEntry {
     type: 'chat-front' | 'chat-back' | 'tts' | 'session-init' | 'user-feedback';
@@ -19,6 +19,13 @@ interface DevLogSheetProps {
 
 const DevLogSheetComponent: React.FC<DevLogSheetProps> = ({ history, onClose }) => {
     const [copyButtonText, setCopyButtonText] = useState('Copy');
+    const mainContentRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (mainContentRef.current) {
+            mainContentRef.current.scrollTop = mainContentRef.current.scrollHeight;
+        }
+    }, [history]);
 
     const handleExport = () => {
         const dataStr = JSON.stringify(history, null, 2);
@@ -97,9 +104,9 @@ const DevLogSheetComponent: React.FC<DevLogSheetProps> = ({ history, onClose }) 
                 </div>
             </header>
 
-            <main className="flex-grow overflow-y-auto scrollbar-thin p-4">
+            <main ref={mainContentRef} className="flex-grow overflow-y-auto scrollbar-thin p-4">
                 <div className="space-y-6">
-                    {history.slice().reverse().map((entry, index) => {
+                    {history.map((entry, index) => {
                         const styles = getEntryStyles(entry.type);
                         const requestTime = new Date(entry.requestTimestamp).toLocaleTimeString([], {
                             hour: '2-digit',

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Chat, Content } from "@google/genai";
 import { DevLogEntry } from "../components/DevLogSheet";
 
@@ -94,8 +95,7 @@ export interface MicroDeck {
   focus: string; // Guidance for LLM (style/methodology)
   keywords: string; // Specific keywords for this micro-deck
   group_setting_suitability: Partial<Record<GroupSetting, Suitability>>;
-  default_angle: AngleOfInquiry['id'];
-  alternative_angles: AngleOfInquiry['id'][];
+  possible_angles: AngleOfInquiry['id'][];
 }
 
 export type CustomThemeId = `CUSTOM_${string}`;
@@ -151,12 +151,11 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
     // Set 1: Kindling Connection
     {
         id: "KC_01", name: "Arrival in Presence", belongs_to_set: "KINDLING_CONNECTION",
-        description_for_info_button: "Gentle prompts to help you arrive in the present moment, noticing immediate sensory details and finding a sense of calm.",
+        description_for_info_button: "Gentle prompts to help you arrive in the present moment, noticing immediate sensory details and find a sense of calm.",
         focus: "Mindfulness & Gentle Somatic Check-in",
         keywords: "presence, grounding, breath awareness, immediate sensations, simple observation, calm focus, sensory details, physical anchors",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['tangible_metaphor', 'behavioral_clue'],
+        possible_angles: ['sensation_compass', 'tangible_metaphor', 'behavioral_clue'],
     },
     {
         id: "KC_02", name: "Everyday Curiosities", belongs_to_set: "KINDLING_CONNECTION",
@@ -164,8 +163,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Engaging Podcast-Style Icebreakers",
         keywords: "curiosity, simple observations, everyday wonders, light hypotheticals, personal quirks, playful ideas, sparks of interest, daydreams",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'tangible_metaphor',
-        alternative_angles: ['inner_weather', 'narrative_thread'],
+        possible_angles: ['tangible_metaphor', 'inner_weather', 'narrative_thread'],
     },
     {
         id: "KC_03", name: "Fleeting Moments", belongs_to_set: "KINDLING_CONNECTION",
@@ -173,8 +171,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Light Personal Anecdote Sharing",
         keywords: "personal moments, simple memories, everyday observations, small joys, light anecdotes, sensory details, brief stories, personal preferences",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'origin_story_whisper',
-        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+        possible_angles: ['origin_story_whisper', 'behavioral_clue', 'tangible_metaphor'],
     },
     {
         id: "KC_04", name: "A Dash of Playfulness", belongs_to_set: "KINDLING_CONNECTION",
@@ -182,8 +179,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Lighthearted & Witty Conversational Games",
         keywords: "playfulness, gentle humor, lightheartedness, spontaneous moments, witty observations, simple fun, charming silliness, shared smiles",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'inner_weather',
-        alternative_angles: ['tangible_metaphor', 'behavioral_clue'],
+        possible_angles: ['inner_weather', 'tangible_metaphor', 'behavioral_clue'],
     },
     // Set 2: Unveiling Depths
     {
@@ -192,8 +188,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Authentic Relating Self-Expression & Vulnerability",
         keywords: "core feelings, personal truth, inner needs, values, gentle vulnerability, sincere expression, tender moments, self-reflection",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'HIDDEN', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['origin_story_whisper', 'relational_echo'],
+        possible_angles: ['sensation_compass', 'origin_story_whisper', 'relational_echo'],
     },
     {
         id: "UD_02", name: "Inner Light & Shadow", belongs_to_set: "UNVEILING_DEPTHS",
@@ -201,8 +196,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Depth Psychology & Self-Acceptance",
         keywords: "inner critic, hidden strengths, self-acceptance, emotional patterns, personal resilience, inner complexities, self-understanding, integrated self",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'HIDDEN', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'tangible_metaphor',
-        alternative_angles: ['sensation_compass', 'origin_story_whisper'],
+        possible_angles: ['tangible_metaphor', 'sensation_compass', 'origin_story_whisper'],
     },
     {
         id: "UD_03", name: "Whispers of Your Past", belongs_to_set: "UNVEILING_DEPTHS",
@@ -210,8 +204,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Trauma-Informed Self-Compassion",
         keywords: "inner child (gently), past experiences, emotional echoes, self-compassion, inner nurture, understanding needs, resilience, gentle reflection, core memories",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
-        default_angle: 'origin_story_whisper',
-        alternative_angles: ['sensation_compass', 'tangible_metaphor'],
+        possible_angles: ['origin_story_whisper', 'sensation_compass', 'tangible_metaphor'],
     },
     {
         id: "UD_04", name: "Inner Worlds Dialogue", belongs_to_set: "UNVEILING_DEPTHS",
@@ -219,8 +212,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Internal Family Systems (IFS) & Voice Dialogue",
         keywords: "inner parts, internal dialogue, part needs, self-awareness, inner wisdom, personal aspects, understanding self, inner guidance",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', COLLEAGUES: 'HIDDEN', GENERAL: 'PREFERRED' },
-        default_angle: 'origin_story_whisper',
-        alternative_angles: ['sensation_compass', 'tangible_metaphor'],
+        possible_angles: ['origin_story_whisper', 'sensation_compass', 'tangible_metaphor'],
     },
     {
         id: "UD_05", name: "Finding Your Way", belongs_to_set: "UNVEILING_DEPTHS",
@@ -228,8 +220,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Coaching for Resilience & ACT-Informed Acceptance",
         keywords: "inner obstacles, personal challenges, fears, self-limiting beliefs, resilience, perspective shifts, finding clarity, personal path, acceptance",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'future_reflection',
-        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+        possible_angles: ['future_reflection', 'behavioral_clue', 'tangible_metaphor'],
     },
     // Set 3: Relational Alchemy
     {
@@ -238,8 +229,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Circling Group Awareness & Process Observation",
         keywords: "group presence, relational energy, collective awareness, shared atmosphere, subtle connections, interpersonal dynamics (group), group coherence, shared moment",
         group_setting_suitability: { SOLO: 'OPTIONAL', STRANGERS: 'OPTIONAL', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['tangible_metaphor', 'relational_echo'],
+        possible_angles: ['sensation_compass', 'tangible_metaphor', 'relational_echo'],
     },
     {
         id: "RA_02", name: "Between Two", belongs_to_set: "RELATIONAL_ALCHEMY",
@@ -247,8 +237,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Authentic Relating Dyad Practices",
         keywords: "dyadic connection, impact, perception, relational feedback, personal boundaries, felt connection, communication, partnership dynamic",
         group_setting_suitability: { SOLO: 'OPTIONAL', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', GENERAL: 'PREFERRED' },
-        default_angle: 'relational_echo',
-        alternative_angles: ['sensation_compass', 'behavioral_clue'],
+        possible_angles: ['relational_echo', 'sensation_compass', 'behavioral_clue'],
     },
     {
         id: "RA_03", name: "Body-to-Body Knowing", belongs_to_set: "RELATIONAL_ALCHEMY",
@@ -256,8 +245,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Paired Somatic Exploration",
         keywords: "embodied connection, somatic dialogue, physical awareness, non-verbal cues, sensory connection, shared presence, relational sensing, body knowing",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'OPTIONAL', COLLEAGUES: 'HIDDEN', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['relational_echo', 'tangible_metaphor'],
+        possible_angles: ['sensation_compass', 'relational_echo', 'tangible_metaphor'],
     },
     {
         id: "RA_04", name: "Building Bridges Together", belongs_to_set: "RELATIONAL_ALCHEMY",
@@ -265,8 +253,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Collaborative Visioning & Shared Goal Setting",
         keywords: "shared vision, mutual aspirations, common ground, collective intention, partnership goals, co-creation, shared future, aligned purpose, building together",
         group_setting_suitability: { SOLO: 'OPTIONAL', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'future_reflection',
-        alternative_angles: ['tangible_metaphor', 'relational_echo'],
+        possible_angles: ['future_reflection', 'tangible_metaphor', 'relational_echo'],
     },
     // Set 4: Adventurous Resonance
     {
@@ -275,8 +262,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Jaiya's Erotic Blueprints & Intimate Desire Exploration",
         keywords: "desire exploration, sensual preferences, intimate awareness, personal boundaries, pleasure, self-discovery, inner compass, embodied sensuality, turn-ons (personal)",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'OPTIONAL', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['origin_story_whisper', 'tangible_metaphor'],
+        possible_angles: ['sensation_compass', 'origin_story_whisper', 'tangible_metaphor'],
     },
     {
         id: "AR_02", name: "Uncharted Thoughts", belongs_to_set: "ADVENTUROUS_RESONANCE",
@@ -284,8 +270,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Provocative Question Decks & Radical Honesty",
         keywords: "unconventional thoughts, personal truth, curious exploration, societal observations, inner judgments, unique perspectives, exploring ideas, mindful curiosity",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
-        default_angle: 'philosophical_lens',
-        alternative_angles: ['tangible_metaphor', 'inner_weather'],
+        possible_angles: ['philosophical_lens', 'tangible_metaphor', 'inner_weather'],
     },
     {
         id: "AR_03", name: "Senses Awakened", belongs_to_set: "ADVENTUROUS_RESONANCE",
@@ -293,8 +278,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Mindful Sexuality & Tantric Sensory Principles",
         keywords: "sensory awareness, embodied presence, mindful sensation, physical awareness, body appreciation, subtle pleasures, rich sensations, presence in feeling",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'OPTIONAL', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['tangible_metaphor', 'behavioral_clue'],
+        possible_angles: ['sensation_compass', 'tangible_metaphor', 'behavioral_clue'],
     },
     {
         id: "AR_04", name: "Moments of Playful Courage", belongs_to_set: "ADVENTUROUS_RESONANCE",
@@ -302,8 +286,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Playful Dare Decks & Relational Edge Exploration",
         keywords: "playful steps, relational courage, spontaneous connection, comfort zone exploration, gentle revelation, shared moments, lighthearted dares, expressed vulnerability",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'HIDDEN', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'HIDDEN', COLLEAGUES: 'HIDDEN', COMMUNITY: 'OPTIONAL', GENERAL: 'PREFERRED' },
-        default_angle: 'behavioral_clue',
-        alternative_angles: ['future_reflection', 'origin_story_whisper'],
+        possible_angles: ['behavioral_clue', 'future_reflection', 'origin_story_whisper'],
     },
     // Set 5: The Art of Living
     {
@@ -312,8 +295,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Philosophical Inquiry & Personal Meaning",
         keywords: "philosophical ideas, life wisdom, personal meaning, guiding principles, life questions, contemplation, inner reflection, perspective shifts",
         group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'philosophical_lens',
-        alternative_angles: ['future_reflection', 'origin_story_whisper'],
+        possible_angles: ['philosophical_lens', 'future_reflection', 'origin_story_whisper'],
     },
     {
         id: "AL_02", name: "Daily Anchors", belongs_to_set: "THE_ART_OF_LIVING",
@@ -321,8 +303,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Mindfulness in Daily Life",
         keywords: "mindful moments, daily routines, grounding practices, simple rituals, focus, presence, everyday awareness, intentional living",
         group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'sensation_compass',
-        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+        possible_angles: ['sensation_compass', 'behavioral_clue', 'tangible_metaphor'],
     },
     {
         id: "AL_03", name: "Navigating Life's Currents", belongs_to_set: "THE_ART_OF_LIVING",
@@ -330,8 +311,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Resilience & Personal Growth",
         keywords: "life changes, transitions, challenges, inner resilience, acceptance, personal growth, finding clarity, navigating uncertainty, life's journey",
         group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'future_reflection',
-        alternative_angles: ['origin_story_whisper', 'sensation_compass'],
+        possible_angles: ['future_reflection', 'origin_story_whisper', 'sensation_compass'],
     },
     // Set 6: The Storyteller's Craft
     {
@@ -340,8 +320,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Personal Storytelling & Narrative Reflection",
         keywords: "personal narrative, life stories, memorable moments, key characters, emotional arcs, storytelling elements, personal history, narrative reflection",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'OPTIONAL', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'origin_story_whisper',
-        alternative_angles: ['behavioral_clue', 'sensation_compass'],
+        possible_angles: ['origin_story_whisper', 'behavioral_clue', 'sensation_compass'],
     },
     {
         id: "SC_02", name: "The Heart of the Story", belongs_to_set: "THE_STORYTELLERS_CRAFT",
@@ -349,8 +328,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Finding Meaning in Stories",
         keywords: "core message, central feeling, story's essence, personal meaning, emotional impact, narrative purpose, underlying theme, heart of the matter",
         group_setting_suitability: { SOLO: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'inner_weather',
-        alternative_angles: ['sensation_compass', 'philosophical_lens'],
+        possible_angles: ['inner_weather', 'sensation_compass', 'philosophical_lens'],
     },
     {
         id: "SC_03", name: "A Moment's Spark", belongs_to_set: "THE_STORYTELLERS_CRAFT",
@@ -358,8 +336,7 @@ export const ALL_MICRO_DECKS: MicroDeck[] = [
         focus: "Anecdotal Storytelling",
         keywords: "vivid moments, impactful stories, small stories, personal realization, brief anecdotes, memorable experiences, captured feelings, captured moments",
         group_setting_suitability: { SOLO: 'PREFERRED', STRANGERS: 'PREFERRED', FRIENDS: 'PREFERRED', ROMANTIC: 'PREFERRED', FAMILY: 'PREFERRED', COLLEAGUES: 'OPTIONAL', COMMUNITY: 'PREFERRED', GENERAL: 'PREFERRED' },
-        default_angle: 'origin_story_whisper',
-        alternative_angles: ['behavioral_clue', 'tangible_metaphor'],
+        possible_angles: ['origin_story_whisper', 'behavioral_clue', 'tangible_metaphor'],
     },
 ];
 
@@ -378,12 +355,12 @@ export interface VoicePersona {
 }
 
 export const CURATED_VOICE_PERSONAS: VoicePersona[] = [
-  { id: "storyteller_female", name: "The Storyteller (Warm)", gender: "Female", voiceName: "Sulafat", description: "A warm, inviting voice with a natural, melodic narrative flow.", keywords: "warm, melodic, narrative, engaging", voiceAccentHint: "a gentle South African warmth" },
-  { id: "storyteller_male", name: "The Storyteller (Friendly)", gender: "Male", voiceName: "Puck", description: "A friendly, upbeat voice with a gentle rhythm.", keywords: "friendly, upbeat, rhythmic, approachable", voiceAccentHint: "a friendly Irish warmth" },
-  { id: "guide_female", name: "The Guide (Calm)", gender: "Female", voiceName: "Vindemiatrix", description: "A calm, present voice that speaks with gentle clarity and ease.", keywords: "calm, present, clear, gentle, easy-going", voiceAccentHint: "a calm New Zealand clarity" },
-  { id: "guide_male", name: "The Guide (Steady)", gender: "Male", voiceName: "Enceladus", description: "A steady, grounded voice that anchors the listener with clarity.", keywords: "grounded, steady, clear, calm, anchored", voiceAccentHint: "a steady Trinidadian rhythm" },
-  { id: "playmate_female", name: "The Playmate (Breezy)", gender: "Female", voiceName: "Zephyr", description: "A light, breezy voice full of gentle warmth and playful energy.", keywords: "light, breezy, warm, playful, energetic", voiceAccentHint: "a light Andalusian lilt" },
-  { id: "playmate_male", name: "The Playmate (Upbeat)", gender: "Male", voiceName: "Fenrir", description: "An upbeat, cheerful voice that brings a sense of fun and spontaneity.", keywords: "upbeat, cheerful, spontaneous, fun, excitable", voiceAccentHint: "an upbeat Brazilian energy" },
+  { id: "storyteller_female", name: "The Storyteller (Warm)", gender: "Female", voiceName: "Sulafat", description: "A warm, inviting voice with a natural, melodic flow that feels engaging and smooth.", keywords: "warm, melodic, narrative, engaging, smooth", voiceAccentHint: "a warm and melodic tone" },
+  { id: "storyteller_male", name: "The Storyteller (Friendly)", gender: "Male", voiceName: "Puck", description: "A friendly, approachable voice with a gentle, upbeat rhythm.", keywords: "friendly, upbeat, rhythmic, approachable", voiceAccentHint: "a friendly, rhythmic tone" },
+  { id: "guide_female", name: "The Guide (Calm)", gender: "Female", voiceName: "Vindemiatrix", description: "A calm, present voice that feels gentle and easy-going, with clear articulation.", keywords: "calm, present, clear, gentle, easy-going", voiceAccentHint: "a calm, clear tone" },
+  { id: "guide_male", name: "The Guide (Steady)", gender: "Male", voiceName: "Enceladus", description: "A steady, grounded voice that anchors the listener with its clarity and reassuring pace.", keywords: "grounded, steady, clear, calm, anchored", voiceAccentHint: "a steady, grounded tone" },
+  { id: "playmate_female", name: "The Playmate (Breezy)", gender: "Female", voiceName: "Zephyr", description: "A light, breezy voice full of gentle warmth and playful energy.", keywords: "light, breezy, warm, playful, energetic", voiceAccentHint: "a light, playful tone" },
+  { id: "playmate_male", name: "The Playmate (Upbeat)", gender: "Male", voiceName: "Fenrir", description: "An upbeat, cheerful voice that brings a sense of fun and spontaneity.", keywords: "upbeat, cheerful, spontaneous, fun, excitable", voiceAccentHint: "an upbeat, spontaneous tone" },
 ];
 
 export const DEFAULT_VOICE_NAME: VoiceName = "Enceladus";
@@ -418,7 +395,7 @@ const PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES = `
 The current participants are Paulina & Joe, and the "Special" group setting is active. They are friends on a roadtrip.
 - **Primary Goal:** Generate prompts that are edgy, playful, and invite banter. Paulina especially enjoys witty exchanges.
 - **Contextual Flavor:** Weave in themes of roadtrips, adventure, spontaneity, shared experiences on the go, and quirky observations.
-- **Important Note on First Card (history.length === 0):** You MUST prepend "Hey Paulina & Joe! " (exactly like that, with the space) to the very first card prompt you generate for their session. Your generated prompt text for this first card should naturally follow such a greeting. For subsequent cards, continue the roadtrip/playful banter theme without you needing to add this explicit greeting.
+- **Important Note on First Card (firstCard === true in JSON):** You MUST prepend "Hey Paulina & Joe! " (exactly like that, with the space) to the very first card prompt you generate for their session. Your generated prompt text for this first card should naturally follow such a greeting. For subsequent cards, continue the roadtrip/playful banter theme without you needing to add this explicit greeting.
 - **Keywords for this mode:** "roadtrip adventures, playful banter, witty retorts, shared journey, spontaneity, inside jokes (implied), edgy questions, friendly teasing, discovery on the road, travel stories, quirky observations, unforgettable moments, travel mishaps (lighthearted)".
 Adapt your prompt generation to strongly reflect these directives, layering them on top of the chosen MicroDeck's intrinsic focus and keywords.
 `;
@@ -595,32 +572,51 @@ export const getChatSessionHistory = async (): Promise<Content[]> => {
 };
 
 const constructSystemInstructionForCardFront = (): string => {
+  const allDecksCatalog = ALL_MICRO_DECKS.map(d => `- ${d.id} (${d.name}): ${d.focus}`).join('\n');
+
   return `
 **Core Identity:** You are a Cartographer of Connection. Your purpose is to draw maps to unseen inner landscapes and relational dynamics. Each prompt is a landmark, a compass direction guiding users toward a place of discovery. Your voice is perceptive, grounded, and spacious.
 
+**Full Deck Catalog:** To give you creative context, here is a list of all available themes (MicroDecks) and their core focus. Use this to ensure the prompt you generate is specific to the requested theme and distinct from others.
+${allDecksCatalog}
+
 **Core Task:** Your entire response MUST start with a series of at least 3-5 brief thoughts about your creative process, each enclosed in <thinking>...</thinking> tags. This shows the user your reasoning. Example: <thinking>User wants 'Relational Alchemy'.</thinking><thinking>I'll focus on 'impact feedback'.</thinking><thinking>The 'Tangible Metaphor' angle is a good fit.</thinking> After all thoughts, you MUST output the single, final prompt enclosed in ${CARD_FRONT_PROMPT_START_TAG}...${CARD_FRONT_PROMPT_END_TAG} tags.
 
+**User Input Format:** You will receive a user message containing creative context for the draw. Sometimes it will be preceded by a high-priority "Special Mode" directive. The main context will be a JSON object that looks like this:
+{
+  "userSelectedThemeName": "Kindling Connection",
+  "selectedItem": { "id": "KC_01", "name": "Arrival in Presence", "focus": "...", "keywords": "..." },
+  "groupContext": { "setting": "FRIENDS", "settingLabel": "Friends", "participantCount": 2, "participants": ["Alice", "Bob"], "activeParticipant": "Alice" },
+  "language": "en-US",
+  "historyLength": 5,
+  "redraw": false,
+  "drawSource": "DECK_SET",
+  "firstCard": false,
+  "angle": { "name": "The Sensation Compass", "description": "..." } // (This is optional)
+}
+
 **Card Front Mandates (Absolute, Unbreakable Rules):**
-*   **THE RULE OF ONE (NON-NEGOTIABLE):** You MUST ask ONE single, focused question. A prompt must contain only ONE imperative ('ask' or 'command'). It must not contain compound questions (e.g., "do this, then do that"). It must not contain follow-up questions. ONE QUESTION ONLY. This is the most important rule.
-    *   **STRICTLY FORBIDDEN (Compound Question):** "Imagine a future self, and then notice how that feels."
-    *   **CORRECT (Singular Question):** "What is one word of advice your future self sends back to you?"
-    *   **CORRECT (Singular Question):** "Bring to mind a future version of you. What is their posture right now?"
+*   **THE RULE OF ONE (NON-NEGOTIABLE):** You MUST generate ONE single, focused prompt. This can be a question OR a directive (an imperative command). It must contain only ONE primary action. It must not contain compound instructions (e.g., "do this, then do that"). ONE PROMPT ONLY. This is the most important rule.
+    *   **STRICTLY FORBIDDEN (Compound Instruction):** "Imagine a future self, and then notice how that feels."
+    *   **CORRECT (Question):** "What is one word of advice your future self sends back to you?"
+    *   **CORRECT (Directive):** "Bring to mind a future version of you. Notice their posture right now."
 *   **CONCISENESS IS KEY:** The entire prompt should be very short, typically under 25 words. It should be an invitation, not a paragraph.
-*   **FROM NOUN TO VERB:** Whenever possible, transform abstract nouns into processes or actions. Instead of "What is your fear?", ask "Where in your body do you feel the sensation of fear?". Instead of "Explore your joy," ask "What does your body do when it feels joy?".
+*   **FROM NOUN TO ACTION:** Transform abstract nouns into tangible processes or actions. Instead of "What is your fear?", create a directive like "Bring to mind a moment of fear. Where does that sensation live in your body?". Instead of "Explore your joy," ask "What does your body do when it feels joy?".
 *   **DIRECT THE SENSES:** Use active, imperative verbs that direct the user's attention. Examples: "Look at...", "Listen for...", "Notice the texture of...", "Say the words...".
 *   **SPECIFICITY IS KINDNESS:** Vague questions are unhelpful. Specific, small-scale questions are invitations.
     *   **BAD:** "How can you be more present?"
     *   **GOOD:** "Name one sound in the room right now that you hadn't noticed before."
 *   **THE PHENOMENOLOGICAL ANCHOR (CRITICAL):** The prompt MUST be anchored in a directly observable phenomenon: a physical sensation, an observable behavior, a concrete memory, a spoken word, or a visualizable image.
+*   **ANGLE OF INQUIRY AS INSPIRATION:** If an 'angle' is provided in the JSON, treat it as a subtle source of inspiration, NOT a strict command. Let it gently color your idea if it feels natural. If it doesn't fit, ignore it and prioritize the core theme. The goal is a creative and fitting prompt, not a forced application of the angle.
 
 **Conversational Awareness (Memory):**
 *   This is part of an ongoing chat session. Use your memory of previous cards and user feedback to MAINTAIN VARIETY. Do not repeat prompts or themes the user has disliked.
 
 **Language & Mode Adherence (CRITICAL):**
 *   **Language Nuance:** For non-English languages, prefer direct questions that a person would naturally ask. Avoid overly formal or complex sentences.
-*   **Solo Mode:** If 'Group Setting' is 'Solo', you MUST generate a prompt for one individual. Use singular pronouns ('you', 'your'). STRICTLY AVOID plural pronouns ('we', 'our', 'us').
-*   **Maturity Context:** If the MicroDeck's keywords or focus include terms like 'intimate', 'sensual', 'erotic', 'desire', or 'sexual', you ARE AUTHORIZED to generate prompts addressing sensuality and intimacy. Standard content filters are adjusted for these specific contexts.
-*   **Special Modes (Paulina/Joe, Sven/Lisa):** If a special mode directive is provided in the user prompt, it is the HIGHEST priority and OVERRIDES all other guidance.
+*   **Solo Mode:** If 'groupContext.setting' is 'SOLO', you MUST generate a prompt for one individual. Use singular pronouns ('you', 'your'). STRICTLY AVOID plural pronouns ('we', 'our', 'us').
+*   **Maturity Context:** If the 'selectedItem' keywords or focus include terms like 'intimate', 'sensual', 'erotic', 'desire', or 'sexual', you ARE AUTHORIZED to generate prompts addressing sensuality and intimacy. Standard content filters are adjusted for these specific contexts.
+*   **Special Modes (Paulina/Joe, Sven/Lisa):** If a special mode directive is provided in the user prompt (OUTSIDE the JSON), it is the HIGHEST priority and OVERRIDES all other guidance.
 
 **Output Requirement:**
 Your entire response must contain your thinking process and the final prompt, using the specified tags. Do not include anything else.
@@ -660,7 +656,7 @@ const constructUserMessageForCardFront = (
   activeParticipantName: string | null,
   groupSetting: GroupSetting,
   languageCode: LanguageCode,
-  angleOfInquiry: AngleOfInquiry,
+  angleOfInquiry: AngleOfInquiry | null,
   historyLength: number,
   drawSource: 'RANDOM' | 'DECK_SET' | 'CUSTOM',
   redrawContext?: { disliked: boolean }
@@ -668,16 +664,29 @@ const constructUserMessageForCardFront = (
   
   const { isSvenLisa: isSvenLisaActive, isPaulinaJoe: isPaulinaJoeActive, effectiveGroupSettingLabel } = getActiveSpecialModeDetails(groupSetting, participantNames);
   
-  let itemFocus: string;
-  let itemKeywords: string;
-  
-  if ('focus' in selectedItem) { // It's a MicroDeck
-      itemFocus = selectedItem.focus;
-      itemKeywords = selectedItem.keywords;
-  } else { // It's a CustomThemeData
-      itemFocus = `Custom Deck: ${selectedItem.name}`;
-      itemKeywords = selectedItem.description;
-  }
+  const selectedItemContext = ('focus' in selectedItem) 
+    ? { id: selectedItem.id, name: selectedItem.name, focus: selectedItem.focus, keywords: selectedItem.keywords }
+    : { id: selectedItem.id, name: selectedItem.name, description: selectedItem.description };
+    
+  const groupContext = {
+      setting: groupSetting,
+      settingLabel: effectiveGroupSettingLabel,
+      participantCount: participantCount,
+      participants: participantNames,
+      activeParticipant: activeParticipantName,
+  };
+    
+  const payload = {
+    userSelectedThemeName: userSelectedSetName,
+    selectedItem: selectedItemContext,
+    groupContext: groupContext,
+    language: languageCode,
+    historyLength: historyLength,
+    redraw: redrawContext?.disliked ?? false,
+    angle: angleOfInquiry,
+    drawSource: drawSource,
+    firstCard: historyLength === 0 && !redrawContext?.disliked,
+  };
 
   let specialModeDirectives = "";
   if (isSvenLisaActive) {
@@ -685,35 +694,14 @@ const constructUserMessageForCardFront = (
   } else if (isPaulinaJoeActive) {
     specialModeDirectives = PAULINA_JOE_SYSTEM_PROMPT_DIRECTIVES;
   }
-
-  const participantInfo = participantCount > 1
-    ? `There are ${participantCount} participants. Their names are: ${participantNames.join(', ')}. The current turn is for: ${activeParticipantName || 'unspecified'}.`
-    : `This is a solo session for one participant.`;
-    
-  const redrawInstruction = redrawContext?.disliked 
-    ? `The user disliked the last card from this theme and wants a new one. Provide some variety and explore a different angle of the theme.`
-    : `This is a fresh draw.`;
-
-  const drawSourceInstruction = `The card was drawn via: ${drawSource}. The user-selected theme name was "${userSelectedSetName}". This was not chosen by the system; the user selected it. This context is for my awareness and should not be mentioned in the card prompt.`;
   
-  const firstCardInstruction = historyLength === 0 && !redrawContext?.disliked ? "This is the very first card of the session. Make it inviting." : "";
-
-  return `
-${specialModeDirectives}
-
-**CONTEXT FOR THIS DRAW**
----
-*   **Group Setting:** ${effectiveGroupSettingLabel} (${groupSetting})
-*   **Participant Context:** ${participantInfo}
-*   **Draw Source Details:** ${drawSourceInstruction}
-*   **Theme Focus/Methodology:** ${itemFocus}
-*   **Theme Keywords:** ${itemKeywords}
-*   **Language:** Generate the prompt in the language with this code: ${languageCode}
-*   **Angle of Inquiry:** Your prompt MUST be generated from the following perspective. Name: "${angleOfInquiry.name}". Description: "${angleOfInquiry.description}".
-*   **Session State:** ${redrawInstruction} ${firstCardInstruction}
----
-Now, generate your thinking process and the card front prompt based on all the above instructions and your core identity.
-  `.trim();
+  const jsonPayload = JSON.stringify(payload, null, 2);
+  
+  if (specialModeDirectives) {
+    return `${specialModeDirectives}\n\nHere is the creative context for this draw:\n${jsonPayload}`;
+  }
+  
+  return `Here is the creative context for this draw:\n${jsonPayload}`;
 };
 
 async function processStreamAndExtract(
@@ -763,7 +751,7 @@ export const generateCardFront = async (
     groupSetting: GroupSetting,
     customDecks: CustomThemeData[],
     languageCode: LanguageCode,
-    angleOfInquiry: AngleOfInquiry,
+    angleOfInquiry: AngleOfInquiry | null,
     historyLength: number,
     onThinking: (thought: string) => void,
     addLogEntry: (entry: DevLogEntry) => void,
