@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { DrawnCardDisplayData as SingleDrawnCardData } from './components/DrawnCard'; 
 import { 
@@ -108,10 +109,7 @@ const App: React.FC = () => {
   const [showCustomDeckModal, setShowCustomDeckModal] = useState<boolean>(false);
   const [editingCustomDeck, setEditingCustomDeck] = useState<CustomThemeData | null>(null);
   
-  const [themeBeingDrawnName, setThemeBeingDrawnName] = useState<string | null>(null);
-  const [activeParticipantNameForPlaceholder, setActiveParticipantNameForPlaceholder] = useState<string | null>(null);
   const [shuffleColorClasses, setShuffleColorClasses] = useState<string[]>([]);
-  const [thinkingText, setThinkingText] = useState<string | null>(null);
 
   const [showDeckInfoModal, setShowDeckInfoModal] = useState<boolean>(false);
   const [itemForInfoModal, setItemForInfoModal] = useState<DeckSet | CustomThemeData | null>(null);
@@ -256,10 +254,10 @@ const App: React.FC = () => {
   const handleDrawNewCard = useCallback(async (itemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM", options?: { isRedraw?: boolean }) => {
       if (isLoading || isShuffling) return;
       handleStopAudio();
-
+  
       const participantNames = participants.map(p => p.name).filter(Boolean);
       const groupSettingToUse = (selectedGroupSetting === 'SPECIAL' && participantNames.length < 2) ? 'GENERAL' : selectedGroupSetting;
-
+  
       const { isPaulinaJoe, isSvenLisa } = getActiveSpecialModeDetails(groupSettingToUse, participantNames);
       if ((isPaulinaJoe && !hasShownPaulinaAndJoeOnboarding) || (isSvenLisa && !hasShownSvenAndLisaOnboarding)) {
           setSpecialModeOnboardingDrawFn(() => () => handleDrawNewCard(itemId, options));
@@ -271,213 +269,162 @@ const App: React.FC = () => {
       setIsLoading(true);
       setIsShuffling(true);
       setError(null);
-      setThinkingText(null);
-      
-      const activeParticipant = participants.find(p => p.id === activeParticipantId);
-      setActiveParticipantNameForPlaceholder(activeParticipant?.name || null);
-      
-      let chosenItem: MicroDeck | CustomThemeData;
-      let userSelectedSetName: string = "A Random Mix";
-      let colorsForShuffle: string[] = [];
-      let deckSetIdForHistory: string | null = null;
-      let drawSource: 'RANDOM' | 'DECK_SET' | 'CUSTOM';
-
-      if (itemId === "RANDOM") {
-          drawSource = 'RANDOM';
-          let availableDecks: MicroDeck[] = [];
-          if (groupSettingToUse === 'SPECIAL') {
-              availableDecks = ALL_MICRO_DECKS;
-          } else {
-              availableDecks = ALL_MICRO_DECKS.filter(md => {
-                const suitability = md.group_setting_suitability[groupSettingToUse];
-                return suitability === 'PREFERRED' || suitability === 'OPTIONAL';
-              });
-          }
-          if (availableDecks.length === 0) {
-            setError(`No suitable cards available for the "${groupSettingToUse}" setting.`);
-            setIsLoading(false); setIsShuffling(false); return;
-          }
-          const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
-          chosenItem = chosenMicroDeck;
-          const parentSet = chosenMicroDeck.belongs_to_set ? getDeckSetById(chosenMicroDeck.belongs_to_set) : null;
-          userSelectedSetName = parentSet?.name || "A Random Mix";
-          deckSetIdForHistory = parentSet?.id || null;
-          setThemeBeingDrawnName(userSelectedSetName);
-          colorsForShuffle = DECK_SETS.map(ds => ds.colorClass);
-      } else if (itemId.startsWith("CUSTOM_")) {
-          drawSource = 'CUSTOM';
-          const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
-          if (!customDeck) { setError("Custom deck not found"); setIsLoading(false); setIsShuffling(false); return; }
-          chosenItem = customDeck;
-          userSelectedSetName = customDeck.name;
-          deckSetIdForHistory = null;
-          setThemeBeingDrawnName(customDeck.name);
-          colorsForShuffle = [customDeck.colorClass];
-      } else {
-          drawSource = 'DECK_SET';
-          const deckSet = getDeckSetById(itemId as DeckSet['id']);
-          if (!deckSet) { setError("Deck set not found"); setIsLoading(false); setIsShuffling(false); return; }
-
-          const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === itemId);
-          let availableDecks: MicroDeck[] = [];
-          if (groupSettingToUse === 'SPECIAL') {
-              availableDecks = microDecksInSet;
-          } else {
-              const preferredDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
-              const optionalDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'OPTIONAL');
-              
-              if (preferredDecks.length > 0) availableDecks = preferredDecks;
-              else if (optionalDecks.length > 0) availableDecks = optionalDecks;
-          }
-      
-          if (availableDecks.length === 0) {
-              setError(`No suitable cards in "${deckSet.name}" for the "${groupSettingToUse}" setting.`);
-              setIsLoading(false); setIsShuffling(false); return;
-          }
-
-          const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
-          chosenItem = chosenMicroDeck;
-          userSelectedSetName = deckSet.name;
-          deckSetIdForHistory = deckSet.id;
-          setThemeBeingDrawnName(deckSet.name);
-          colorsForShuffle = [deckSet.colorClass];
-      }
-      setShuffleColorClasses(colorsForShuffle);
-
-      let chosenAngle: AngleOfInquiry;
-      if ('default_angle' in chosenItem) { // It's a MicroDeck
-          const microDeck = chosenItem as MicroDeck;
-          const possibleAngleIds = [microDeck.default_angle, ...microDeck.alternative_angles];
-          const chosenAngleId = possibleAngleIds[Math.floor(Math.random() * possibleAngleIds.length)];
-          const foundAngle = ANGLES_OF_INQUIRY.find(a => a.id === chosenAngleId);
-          if (foundAngle) {
-              chosenAngle = foundAngle;
-          } else {
-              console.warn(`Angle with id ${chosenAngleId} not found. Defaulting to a random angle.`);
-              chosenAngle = ANGLES_OF_INQUIRY[Math.floor(Math.random() * ANGLES_OF_INQUIRY.length)];
-          }
-      } else { // It's a CustomThemeData
-          chosenAngle = ANGLES_OF_INQUIRY[Math.floor(Math.random() * ANGLES_OF_INQUIRY.length)];
-      }
-      
-      const placeholderCardId = `card-placeholder-${Date.now()}`;
-      const placeholderCard: DrawnCardData = {
-          id: placeholderCardId,
-          themeIdentifier: chosenItem.id,
-          deckSetId: deckSetIdForHistory,
-          feedback: null,
-          timestamp: Date.now(),
-          drawnForParticipantId: activeParticipantId,
-          drawnForParticipantName: activeParticipant?.name || null,
-          text: "", audioData: null, audioMimeType: null,
-          cardBackNotesText: null,
-      };
-
-      setDrawnCardHistory(prev => [placeholderCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
-      
-      const minimumShuffleTimePromise = new Promise(resolve => setTimeout(resolve, 3000));
       
       try {
-        const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;
-        const historyLength = drawnCardHistory.length;
-        
-        const frontResult = await generateCardFront(
-            userSelectedSetName, chosenItem, participants.length, participantNames, activePName,
-            groupSettingToUse, customDecks, selectedLanguageCode, chosenAngle,
-            historyLength, (thought) => setThinkingText(thought), addLogEntry, drawSource, { disliked: options?.isRedraw ?? false }
-        );
-
-        addLogEntry({
-            type: 'chat-front',
-            requestTimestamp: frontResult.requestTimestamp,
-            responseTimestamp: frontResult.responseTimestamp,
-            data: { input: frontResult.inputPrompt, output: frontResult.rawLlmOutput, error: frontResult.error }
-        });
-        
-        if (frontResult.error || !frontResult.text) {
-            throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
-        }
-        
-        setDrawnCardHistory(prev => prev.map(c => c.id === placeholderCardId ? { ...c, text: frontResult.text } : c));
-        
-        const backgroundGenerations = [];
-        let audioPromise = Promise.resolve(null);
-        if (!isAudioMuted) {
-            const effectiveMicroDeck = !chosenItem.id.startsWith("CUSTOM_")
-                ? getMicroDeckById(chosenItem.id as MicroDeck['id'])
-                : null;
-            const styleDirective = getStyleDirectiveForMicroDeck(effectiveMicroDeck, false, selectedVoiceName);
-            
-            audioPromise = generateAudioForText(frontResult.text, selectedVoiceName, styleDirective)
-                .then(audioGenResult => {
-                    addLogEntry({
-                        type: 'tts',
-                        requestTimestamp: audioGenResult.requestTimestamp,
-                        responseTimestamp: audioGenResult.responseTimestamp,
-                        data: { ...audioGenResult.logData, error: audioGenResult.error }
-                    });
-                    if (audioGenResult.error) {
-                        setError(`Audio narration failed: ${audioGenResult.error}`);
-                    }
-                    return audioGenResult;
-                });
-        }
-        backgroundGenerations.push(audioPromise);
-
-        const cardBackPromise = generateCardBack(frontResult.text, chosenItem)
-            .then(backResult => {
-                addLogEntry({
-                    type: 'chat-back',
-                    requestTimestamp: backResult.requestTimestamp,
-                    responseTimestamp: backResult.responseTimestamp,
-                    data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error }
-                });
-                return backResult;
-            });
-        backgroundGenerations.push(cardBackPromise);
-        backgroundGenerations.push(minimumShuffleTimePromise);
-
-        const [audioResult, backResult] = await Promise.all(backgroundGenerations);
-        setIsLoading(false); 
-        setIsShuffling(false); 
-
-        setDrawnCardHistory(prev => prev.map(c => {
-            if (c.id !== placeholderCardId) return c;
-            const updatedCard = { ...c, cardBackNotesText: backResult?.cardBackNotesText || null };
-            if (audioResult && audioResult.audioData && audioResult.audioMimeType) {
-                updatedCard.audioData = audioResult.audioData;
-                updatedCard.audioMimeType = audioResult.audioMimeType;
-            }
-            return updatedCard;
-        }));
-
-        if (audioResult && audioResult.audioData && audioResult.audioMimeType && !isAudioMuted) {
-            setActiveCardAudio({ cardId: placeholderCardId, type: 'prompt' });
-            playAudioData(audioResult.audioData, audioResult.audioMimeType, false, () => {
-                setActiveCardAudio(null);
-            });
-        }
-        
-        if (participants.length > 1 && !options?.isRedraw) {
-            const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
-            const nextIndex = (currentIndex + 1) % participants.length;
-            setActiveParticipantId(participants[nextIndex].id);
-        }
-
+          let chosenItem: MicroDeck | CustomThemeData;
+          let userSelectedSetName: string = "A Random Mix";
+          let colorsForShuffle: string[] = [];
+          let deckSetIdForHistory: string | null = null;
+          let drawSource: 'RANDOM' | 'DECK_SET' | 'CUSTOM';
+  
+          if (itemId === "RANDOM") {
+              drawSource = 'RANDOM';
+              let availableDecks: MicroDeck[] = [];
+              if (groupSettingToUse === 'SPECIAL') {
+                  availableDecks = ALL_MICRO_DECKS;
+              } else {
+                  availableDecks = ALL_MICRO_DECKS.filter(md => {
+                    const suitability = md.group_setting_suitability[groupSettingToUse];
+                    return suitability === 'PREFERRED' || suitability === 'OPTIONAL';
+                  });
+              }
+              if (availableDecks.length === 0) throw new Error(`No suitable cards available for the "${groupSettingToUse}" setting.`);
+              
+              const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
+              chosenItem = chosenMicroDeck;
+              const parentSet = chosenMicroDeck.belongs_to_set ? getDeckSetById(chosenMicroDeck.belongs_to_set) : null;
+              userSelectedSetName = parentSet?.name || "A Random Mix";
+              deckSetIdForHistory = parentSet?.id || null;
+              colorsForShuffle = DECK_SETS.map(ds => ds.colorClass);
+          } else if (itemId.startsWith("CUSTOM_")) {
+              drawSource = 'CUSTOM';
+              const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
+              if (!customDeck) throw new Error("Custom deck not found");
+              chosenItem = customDeck;
+              userSelectedSetName = customDeck.name;
+              deckSetIdForHistory = null;
+              colorsForShuffle = [customDeck.colorClass];
+          } else {
+              drawSource = 'DECK_SET';
+              const deckSet = getDeckSetById(itemId as DeckSet['id']);
+              if (!deckSet) throw new Error("Deck set not found");
+  
+              const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === itemId);
+              let availableDecks: MicroDeck[] = [];
+              if (groupSettingToUse === 'SPECIAL') {
+                  availableDecks = microDecksInSet;
+              } else {
+                  const preferredDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
+                  const optionalDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'OPTIONAL');
+                  if (preferredDecks.length > 0) availableDecks = preferredDecks;
+                  else if (optionalDecks.length > 0) availableDecks = optionalDecks;
+              }
+          
+              if (availableDecks.length === 0) throw new Error(`No suitable cards in "${deckSet.name}" for the "${groupSettingToUse}" setting.`);
+  
+              const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
+              chosenItem = chosenMicroDeck;
+              userSelectedSetName = deckSet.name;
+              deckSetIdForHistory = deckSet.id;
+              colorsForShuffle = [deckSet.colorClass];
+          }
+          setShuffleColorClasses(colorsForShuffle);
+  
+          let chosenAngle: AngleOfInquiry;
+          if ('default_angle' in chosenItem) { // It's a MicroDeck
+              const microDeck = chosenItem as MicroDeck;
+              const possibleAngleIds = [microDeck.default_angle, ...microDeck.alternative_angles];
+              const chosenAngleId = possibleAngleIds[Math.floor(Math.random() * possibleAngleIds.length)];
+              const foundAngle = ANGLES_OF_INQUIRY.find(a => a.id === chosenAngleId) || ANGLES_OF_INQUIRY[0];
+              chosenAngle = foundAngle;
+          } else { // It's a CustomThemeData
+              chosenAngle = ANGLES_OF_INQUIRY[Math.floor(Math.random() * ANGLES_OF_INQUIRY.length)];
+          }
+          
+          const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;
+          const historyLength = drawnCardHistory.length;
+          
+          const frontResult = await generateCardFront(
+              userSelectedSetName, chosenItem, participants.length, participantNames, activePName,
+              groupSettingToUse, customDecks, selectedLanguageCode, chosenAngle,
+              historyLength, () => {}, addLogEntry, drawSource, { disliked: options?.isRedraw ?? false }
+          );
+  
+          addLogEntry({
+              type: 'chat-front',
+              requestTimestamp: frontResult.requestTimestamp,
+              responseTimestamp: frontResult.responseTimestamp,
+              data: { input: frontResult.inputPrompt, output: frontResult.rawLlmOutput, error: frontResult.error }
+          });
+          
+          if (frontResult.error || !frontResult.text) {
+              throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
+          }
+          
+          const effectiveMicroDeck = !chosenItem.id.startsWith("CUSTOM_")
+              ? getMicroDeckById(chosenItem.id as MicroDeck['id'])
+              : null;
+          const styleDirective = getStyleDirectiveForMicroDeck(effectiveMicroDeck, false, selectedVoiceName);
+  
+          const audioPromise = isAudioMuted 
+              ? Promise.resolve(null)
+              : generateAudioForText(frontResult.text, selectedVoiceName, styleDirective);
+  
+          const cardBackPromise = generateCardBack(frontResult.text, chosenItem);
+  
+          const [audioGenResult, backResult] = await Promise.all([audioPromise, cardBackPromise]);
+  
+          if (audioGenResult) {
+              addLogEntry({
+                  type: 'tts',
+                  requestTimestamp: audioGenResult.requestTimestamp,
+                  responseTimestamp: audioGenResult.responseTimestamp,
+                  data: { ...audioGenResult.logData, error: audioGenResult.error }
+              });
+              if (audioGenResult.error) setError(`Audio narration failed: ${audioGenResult.error}`);
+          }
+  
+          addLogEntry({
+              type: 'chat-back',
+              requestTimestamp: backResult.requestTimestamp,
+              responseTimestamp: backResult.responseTimestamp,
+              data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error }
+          });
+  
+          const newCardId = `card-${Date.now()}`;
+          const activeParticipant = participants.find(p => p.id === activeParticipantId);
+          const newCard: DrawnCardData = {
+            id: newCardId,
+            themeIdentifier: chosenItem.id,
+            deckSetId: deckSetIdForHistory,
+            feedback: null,
+            timestamp: Date.now(),
+            drawnForParticipantId: activeParticipantId,
+            drawnForParticipantName: activeParticipant?.name || null,
+            isFaded: false,
+            text: frontResult.text,
+            audioData: audioGenResult?.audioData || null,
+            audioMimeType: audioGenResult?.audioMimeType || null,
+            cardBackNotesText: backResult?.cardBackNotesText || null
+          };
+          
+          setDrawnCardHistory(prev => [newCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
+          
+          if (participants.length > 1 && !options?.isRedraw) {
+              const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
+              const nextIndex = (currentIndex + 1) % participants.length;
+              setActiveParticipantId(participants[nextIndex].id);
+          }
+  
       } catch (err: any) {
         console.error("Error drawing card:", err.message ? JSON.stringify(err.message) : JSON.stringify(err));
         setError(err.message || "An unknown error occurred while drawing the card.");
-        setDrawnCardHistory(prev => prev.filter(c => c.id !== placeholderCardId));
-        setIsLoading(false);
-        setIsShuffling(false);
       } finally {
-        setThemeBeingDrawnName(null);
-        setActiveParticipantNameForPlaceholder(null);
+        setIsShuffling(false);
+        setIsLoading(false);
         setShuffleColorClasses([]);
-        setThinkingText(null);
       }
   }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, hasShownPaulinaAndJoeOnboarding, hasShownSvenAndLisaOnboarding, drawnCardHistory.length, addLogEntry]);
-
 
   const handleLike = useCallback(async (cardId: string) => {
     const cardToUpdate = drawnCardHistory.find(c => c.id === cardId);
@@ -631,15 +578,87 @@ const App: React.FC = () => {
   };
 
   const handleOpenDevLog = () => {
-    setShowDevLogSheet(true);
+    setShowDevLogSheet(prev => !prev);
   };
 
 
   return (
     <div 
-      className="h-full w-full flex flex-col bg-slate-900 text-slate-200 overflow-hidden" 
+      className="h-screen w-screen flex bg-slate-900 text-slate-200 overflow-hidden" 
       style={{ fontFamily: "'Atkinson Hyperlegible', sans-serif" }}
     >
+      {/* Main App Content Area */}
+      <div className="flex-1 flex flex-col relative min-w-0">
+          <header 
+            className="absolute top-0 left-0 right-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm shadow-lg"
+            style={{ height: 'var(--header-height-actual)' }}
+          >
+            <ThemeDeckSelection 
+              onDraw={handleDrawNewCard} isDrawingInProgress={isLoading || isShuffling} interactionsDisabled={isLoading || isShuffling}
+              customDecks={customDecks} onAddCustomDeck={handleAddCustomDeck}
+              onEditCustomDeck={handleEditCustomDeck} onShowDeckInfo={handleShowDeckInfo}
+              groupSetting={selectedGroupSetting}
+            />
+          </header>
+          
+          <main 
+            className="flex-grow w-full overflow-y-auto overflow-x-hidden scrollbar-thin flex justify-center"
+            style={{ 
+                paddingTop: 'var(--main-content-top-padding)', 
+                paddingBottom: 'var(--main-content-bottom-padding)' 
+            }}
+          >
+            {apiKeyMissing ? (
+                <div className="flex justify-center items-center h-full"><ApiKeyMessage /></div>
+            ) : error ? (
+                <div className="flex justify-center items-center p-4">
+                    <div className="bg-red-800/80 border border-red-600 text-red-100 px-4 py-3 rounded-lg shadow-md max-w-lg w-full text-center" role="alert">
+                      <strong className="font-bold block sm:inline">An error occurred:</strong>
+                      <span className="block sm:inline ml-2">{error}</span>
+                      <button onClick={() => setError(null)} className="ml-4 px-2 py-1 bg-red-700 rounded-md hover:bg-red-600">Dismiss</button>
+                    </div>
+                </div>
+            ) : (
+              <DrawnCardsHistoryView
+                history={drawnCardHistory} 
+                onLike={handleLike} onDislike={handleDislike}
+                onPlayAudioForMainPrompt={handlePlayAudioForMainPrompt}
+                onFetchAndPlayCardBackAudio={handleFetchAndPlayCardBackAudio}
+                customDecks={customDecks}
+                activeCardAudio={activeCardAudio} onStopAudio={handleStopAudio}
+                isDrawingInProgress={isLoading || isShuffling}
+              />
+            )}
+          </main>
+
+          <footer 
+            className="absolute bottom-0 left-0 right-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm"
+            style={{ minHeight: 'var(--footer-height-actual)' }}
+          >
+              <BottomToolbar 
+                participants={participants} setParticipants={setParticipants}
+                activeParticipantId={activeParticipantId} setActiveParticipantId={setActiveParticipantId}
+                onRemoveParticipant={handleRemoveParticipant} groupSetting={selectedGroupSetting}
+                onOpenGroupSettingModal={() => setShowGroupSettingModal(true)} 
+                onOpenVoiceSettingsModal={() => setShowVoiceSettingsModal(true)}
+                onOpenDevLog={handleOpenDevLog}
+                showDevLogButton={showDevFeatures}
+                disabled={isLoading || isShuffling}
+              />
+          </footer>
+      </div>
+      
+      {/* Dev Log Panel */}
+      {showDevLogSheet && (
+          <aside className="w-full max-w-lg md:max-w-xl lg:max-w-2xl h-full flex-shrink-0 border-l border-slate-700/80">
+              <DevLogSheet 
+                  history={devLog} 
+                  onClose={() => setShowDevLogSheet(false)} 
+              />
+          </aside>
+      )}
+
+      {/* Global Modals and Overlays */}
       {isShuffling && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
              <CardShuffleAnimation colorClasses={shuffleColorClasses} />
@@ -679,71 +698,6 @@ const App: React.FC = () => {
               onClose={() => setShowPaulinaAndJoeOnboardingModal(false)} onConfirm={handleConfirmPaulinaJoeOnboarding}
           />
       )}
-      {showDevLogSheet && (
-          <DevLogSheet 
-              history={devLog} 
-              onClose={() => setShowDevLogSheet(false)} 
-          />
-      )}
-
-      <header 
-        className="fixed top-0 left-0 right-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm shadow-lg"
-        style={{ height: 'var(--header-height-actual)' }}
-      >
-        <ThemeDeckSelection 
-          onDraw={handleDrawNewCard} isDrawingInProgress={isLoading || isShuffling} interactionsDisabled={isLoading || isShuffling}
-          customDecks={customDecks} onAddCustomDeck={handleAddCustomDeck}
-          onEditCustomDeck={handleEditCustomDeck} onShowDeckInfo={handleShowDeckInfo}
-          groupSetting={selectedGroupSetting}
-        />
-      </header>
-      
-      <main 
-        className="flex-grow w-full overflow-y-auto overflow-x-hidden scrollbar-thin flex justify-center"
-        style={{ 
-            paddingTop: 'var(--main-content-top-padding)', 
-            paddingBottom: 'var(--main-content-bottom-padding)' 
-        }}
-      >
-        {apiKeyMissing ? (
-            <div className="flex justify-center items-center h-full"><ApiKeyMessage /></div>
-        ) : error ? (
-            <div className="flex justify-center items-center p-4">
-                <div className="bg-red-800/80 border border-red-600 text-red-100 px-4 py-3 rounded-lg shadow-md max-w-lg w-full text-center" role="alert">
-                  <strong className="font-bold block sm:inline">An error occurred:</strong>
-                  <span className="block sm:inline ml-2">{error}</span>
-                  <button onClick={() => setError(null)} className="ml-4 px-2 py-1 bg-red-700 rounded-md hover:bg-red-600">Dismiss</button>
-                </div>
-            </div>
-        ) : (
-          <DrawnCardsHistoryView
-            history={drawnCardHistory} 
-            onLike={handleLike} onDislike={handleDislike}
-            onPlayAudioForMainPrompt={handlePlayAudioForMainPrompt}
-            onFetchAndPlayCardBackAudio={handleFetchAndPlayCardBackAudio}
-            customDecks={customDecks}
-            activeCardAudio={activeCardAudio} onStopAudio={handleStopAudio}
-            thinkingTextForNewestCard={thinkingText}
-            isDrawingInProgress={isLoading || isShuffling}
-          />
-        )}
-      </main>
-
-      <footer 
-        className="fixed bottom-0 left-0 right-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm"
-        style={{ minHeight: 'var(--footer-height-actual)' }}
-      >
-          <BottomToolbar 
-            participants={participants} setParticipants={setParticipants}
-            activeParticipantId={activeParticipantId} setActiveParticipantId={setActiveParticipantId}
-            onRemoveParticipant={handleRemoveParticipant} groupSetting={selectedGroupSetting}
-            onOpenGroupSettingModal={() => setShowGroupSettingModal(true)} 
-            onOpenVoiceSettingsModal={() => setShowVoiceSettingsModal(true)}
-            onOpenDevLog={handleOpenDevLog}
-            showDevLogButton={showDevFeatures}
-            disabled={isLoading || isShuffling}
-          />
-      </footer>
     </div>
   );
 }

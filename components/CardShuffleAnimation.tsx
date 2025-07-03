@@ -65,15 +65,17 @@ export const CardShuffleAnimation: React.FC<CardShuffleAnimationProps> = ({ colo
     }
 
     return (
-        <div className={`${baseWidthClass} perspective mx-auto relative`} style={{ height: 'auto' }}>
-            <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-full h-full relative">
-                        {[0, 1, 2, 3, 4, 5].map(i => (
-                            <div key={i} className={`shuffle-card animate-shuffle-${i + 1} bg-gradient-to-br ${getColorClass(i)}`}>
-                                <ShuffleCardContent />
-                            </div>
-                        ))}
+        <div className="flex flex-col items-center justify-center">
+            <div className={`${baseWidthClass} perspective mx-auto relative`} style={{ height: 'auto' }}>
+                <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-full h-full relative">
+                            {[0, 1, 2, 3, 4, 5].map(i => (
+                                <div key={i} className={`shuffle-card animate-shuffle-${i + 1} bg-gradient-to-br ${getColorClass(i)}`}>
+                                    <ShuffleCardContent />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

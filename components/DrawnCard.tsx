@@ -1,25 +1,20 @@
+
 import React, { useEffect, useState, useRef } from 'react';
-import { ThemeIdentifier, CustomThemeData, MicroDeck, DeckSet, getDisplayDataForCard } from '../services/geminiService'; 
+import { ThemeIdentifier, CustomThemeData, getDisplayDataForCard } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
-import { GlyphPatternRow } from './DrawnCardsHistoryView'; 
 
 export interface DrawnCardDisplayData {
   id: string;
-  promptText: string | null; 
+  promptText: string;
   themeIdentifier: ThemeIdentifier; 
   deckSetId?: string | null; 
   feedback: 'liked' | 'disliked' | null;
-  audioData?: string | null; 
-  audioMimeType?: string | null;
-  cardBackNotesText?: string | null;
+  audioData: string | null; 
+  audioMimeType: string | null;
+  cardBackNotesText: string | null;
   isNewest?: boolean;
   drawnForParticipantName?: string | null; 
-  isLoadingPlaceholder?: boolean; 
   isFaded?: boolean; 
-  themeBeingDrawnNamePlaceholder?: string | null; 
-  activeParticipantNameForPlaceholder?: string | null;
-  currentDrawingThemeColorForPlaceholder?: string | null; 
-  thinkingTextForPlaceholder?: string | null;
 }
 
 interface DrawnCardProps extends DrawnCardDisplayData {
@@ -53,49 +48,57 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   cardBackNotesText,
   isNewest = false,
   drawnForParticipantName,
-  isLoadingPlaceholder = false,
   onLike,
   onDislike,
   onPlayAudioForMainPrompt,
   onFetchAndPlayCardBackAudio,
   isFaded = false, 
-  themeBeingDrawnNamePlaceholder,
-  activeParticipantNameForPlaceholder,
   allCustomDecksForLookup = [],
-  currentDrawingThemeColorForPlaceholder,
   activeCardAudio,
   onStopAudio,
-  thinkingTextForPlaceholder,
 }) => {
-  const [isRevealed, setIsRevealed] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(!isNewest);
   const [showCardBackView, setShowCardBackView] = useState(false);
   const [isLoadingCardBackAudio, setIsLoadingCardBackAudio] = useState(false);
   const [parsedGuidance, setParsedGuidance] = useState<ParsedGuidanceSection[]>([]);
   
-  const cardRef = useRef<HTMLDivElement>(null);
-  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasPlayedAudioRef = useRef(false);
+  const cardFlipRef = useRef<HTMLDivElement>(null);
 
-  const finalPromptText = promptText;
+  // This effect handles the reveal animation and auto-playing audio for new cards.
+  useEffect(() => {
+    // Reset state for new cards
+    setShowCardBackView(false);
+    setIsLoadingCardBackAudio(false);
+    hasPlayedAudioRef.current = false;
+
+    if (isNewest) {
+        setIsRevealed(false); // Start face down
+        const revealTimer = setTimeout(() => setIsRevealed(true), 100);
+        return () => clearTimeout(revealTimer);
+    }
+  }, [id, isNewest]);
 
   useEffect(() => {
-    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
-    setShowCardBackView(false); setIsLoadingCardBackAudio(false); 
-
-    // This handles the reveal animation for new cards
-    if (isNewest && (isLoadingPlaceholder || !promptText || !themeIdentifier)) {
-      setIsRevealed(false); return;
-    }
+    const cardNode = cardFlipRef.current;
     
-    if (isNewest) {
-      setIsRevealed(false); 
-      revealTimerRef.current = setTimeout(() => {
-        setIsRevealed(true); 
-      }, 50); 
-    } else {
-      setIsRevealed(true);
+    const handleTransitionEnd = () => {
+        if (isRevealed && isNewest && !hasPlayedAudioRef.current) {
+            hasPlayedAudioRef.current = true;
+            onPlayAudioForMainPrompt({ cardId: id, text: promptText, audioData, audioMimeType });
+        }
+    };
+
+    if (cardNode) {
+        cardNode.addEventListener('transitionend', handleTransitionEnd);
     }
-    return () => { if (revealTimerRef.current) clearTimeout(revealTimerRef.current); };
-  }, [id, isNewest, isLoadingPlaceholder, promptText, themeIdentifier]);
+    return () => {
+        if (cardNode) {
+            cardNode.removeEventListener('transitionend', handleTransitionEnd);
+        }
+    };
+  }, [isRevealed, isNewest, id, promptText, audioData, audioMimeType, onPlayAudioForMainPrompt]);
+
 
   const cardFaceBaseClasses = "rounded-xl shadow-xl flex flex-col overflow-hidden font-normal"; 
   const subtleSolidBorder = "border border-slate-700/60"; 
@@ -105,7 +108,6 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
   const glyphColor = "text-white/70"; 
   const glyphSize = isNewest ? "text-[clamp(1rem,2.5vh,1.5rem)]" : "text-[clamp(0.8rem,2vh,1.2rem)]";
   const glyphGap = isNewest ? "gap-[0.5vh]" : "gap-[0.3vh]";
-
 
   const handleToggleCardBackView = () => {
     if (cardBackNotesText && cardBackNotesText.trim() !== "") { 
@@ -180,9 +182,6 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     color: 'rgba(255,255,255,0.7)',
   };
 
-  const loadingGlyphBaseSize = "text-[clamp(1rem,3.5vh,2rem)]";
-  const loadingGlyphColor = "text-slate-200/60";
-
   const isThisPromptAudioPlaying = activeCardAudio?.cardId === id && activeCardAudio?.type === 'prompt';
   const isThisNotesAudioPlaying = activeCardAudio?.cardId === id && activeCardAudio?.type === 'notes';
 
@@ -191,61 +190,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100';
 
   const actionButtonBaseClasses = `rounded-full transition-all duration-300 ease-in-out ${utilityAndActionButtonsVisibilityClasses}`;
-
-  if (isLoadingPlaceholder) {
-    let loadingText = `Drawing from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
-    if (activeParticipantNameForPlaceholder) loadingText = `Drawing for ${activeParticipantNameForPlaceholder} from ${themeBeingDrawnNamePlaceholder || 'a source'}...`;
-    
-    const loadingResonanceTextStyle: React.CSSProperties = {
-      fontFamily: "'Atkinson Hyperlegible', sans-serif",
-      fontWeight: 200, 
-      letterSpacing: '0.15em', 
-      fontSize: 'clamp(1.5rem, 4.5vh, 2.5rem)',
-      textTransform: 'uppercase',
-      color: 'rgba(203, 213, 225, 0.8)', 
-    };
-
-    return (
-      <div className={`${baseWidthClass} perspective mx-auto relative`} style={{ height: 'auto' }}>
-        <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
-          <div 
-            className={`absolute inset-0 ${currentDrawingThemeColorForPlaceholder ? `bg-gradient-to-br ${currentDrawingThemeColorForPlaceholder}` : 'bg-slate-900'} 
-                       rounded-xl shadow-xl ${subtleSolidBorder} 
-                       flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}
-          >
-            <div className={`absolute inset-0 ${overlayBaseClasses} rounded-xl`}></div>
-            <CornerGlyphGrid position="top-left" glyphColorClass="text-slate-600" glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
-            
-            {thinkingTextForPlaceholder ? (
-                 <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-2 px-4">
-                     <p className="text-sm text-slate-400 font-semibold">Thinking...</p>
-                     <p className="text-lg text-slate-200 text-center" style={{ textWrap: 'balance' as any }}>
-                        "{thinkingTextForPlaceholder}"
-                     </p>
-                 </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center flex-grow relative z-10 space-y-[0.3em] sm:space-y-[0.5em]">
-                  <GlyphPatternRow glyphs={[{ char: "⦾", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
-                  <GlyphPatternRow glyphs={[
-                      { char: "⦾", opacity: 0.33 }, { char: "⟁", opacity: 0.66 }, { char: "⦾", opacity: 0.33 }
-                  ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
-                  <div className="my-[0.5em] sm:my-[0.8em]"><p style={loadingResonanceTextStyle}>RESONANCE</p></div>
-                  <GlyphPatternRow glyphs={[
-                      { char: "⟁", opacity: 0.33 }, { char: "⦾", opacity: 0.66 }, { char: "⟁", opacity: 0.33 }
-                  ]} spacingClass="gap-x-[1em]" baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor}/>
-                  <GlyphPatternRow glyphs={[{ char: "⟁", opacity: 0.33 }]} baseSizeClass={loadingGlyphBaseSize} colorClass={loadingGlyphColor} spacingClass="gap-x-[1em]" />
-                  <p className="text-[clamp(0.65rem,2vh,0.9rem)] text-slate-300/80 mt-[1vh] relative z-10">{loadingText}</p>
-                </div>
-            )}
-            <CornerGlyphGrid position="bottom-right" glyphColorClass="text-slate-600" glyphSizeClass={glyphSize} gridGapClass={glyphGap}/>
-          </div>
-        </div>
-      </div>
-    );
-  }
   
-  if (!finalPromptText && !isLoadingPlaceholder) return null;
-
   const { name: themeDisplayName, colorClass: themeColor } = getDisplayDataForCard(themeIdentifier, deckSetId || null, allCustomDecksForLookup);
   
   const themeNameSizeClasses = isNewest ? "text-[clamp(0.6rem,1.8vw,0.9rem)]" : "text-[clamp(0.55rem,1.5vw,0.8rem)]";
@@ -263,15 +208,15 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
 
   let promptTextSizeClasses = "font-normal"; 
   if (isNewest && !showCardBackView) {
-     if (finalPromptText && finalPromptText.length > VERY_LONG_PROMPT_THRESHOLD_NEWEST) {
+     if (promptText && promptText.length > VERY_LONG_PROMPT_THRESHOLD_NEWEST) {
         promptTextSizeClasses = "text-[clamp(1rem,2.8vw,1.65rem)] font-normal"; 
-     } else if (finalPromptText && finalPromptText.length > LONG_PROMPT_THRESHOLD) {
+     } else if (promptText && promptText.length > LONG_PROMPT_THRESHOLD) {
         promptTextSizeClasses = "text-[clamp(1.1rem,3.5vw,1.9rem)] font-normal";    
      } else {
         promptTextSizeClasses = "text-[clamp(1.2rem,4vw,2.2rem)] font-normal";   
      }
   } else if (!isNewest) { 
-    promptTextSizeClasses = (finalPromptText && finalPromptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)] font-normal" : "text-[clamp(0.75rem,2.5vw,1.1rem)] font-normal";
+    promptTextSizeClasses = (promptText && promptText.length > LONG_PROMPT_THRESHOLD) ? "text-[clamp(0.7rem,2.2vw,1rem)] font-normal" : "text-[clamp(0.75rem,2.5vw,1.1rem)] font-normal";
   }
 
   const cardBackTitle = "Guidance"; 
@@ -287,30 +232,25 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
     fontWeight: 400, 
   }
 
-
-  // Consolidated rotation logic to fix reveal animation and prevent conflicts.
-  // When a card is revealed, it rotates 180 degrees.
   const rotationClass = isRevealed ? 'rotate-y-180' : '';
 
   return (
     <div 
-      ref={cardRef} 
       className={`${baseWidthClass} perspective break-inside-avoid-column mx-auto relative group opacity-100`} 
       style={{ height: 'auto' }} 
     >
       <div style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} className="relative">
-        <div className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${rotationClass}`}>
-          {/* Card Pre-Reveal Face */}
+        <div ref={cardFlipRef} className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${rotationClass}`}>
+          {/* Card Pre-Reveal Face (Back) */}
           <div className={`absolute w-full h-full backface-hidden ${overlayBaseClasses} ${overlayDashedBorderClasses} rounded-xl shadow-xl flex flex-col items-center justify-center p-[2vh] text-center overflow-hidden`}>
             <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />
              <div className="flex flex-col items-center justify-center space-y-0"> 
                 <div style={preRevealLogoTextStyle}>RESONANCE</div>
             </div>
-            {isNewest && !isRevealed && <p className="text-[clamp(0.6rem,1.8vh,0.8rem)] text-slate-400/80 mt-[0.5vh] font-normal">(Drawing...)</p>}
             <CornerGlyphGrid position="bottom-right" glyphColorClass={glyphColor} glyphSizeClass={glyphSize} gridGapClass={glyphGap} />
           </div>
 
-          {/* Card Post-Reveal Face */}
+          {/* Card Post-Reveal Face (Front) */}
           <div className={`absolute w-full h-full backface-hidden rotate-y-180 
                            ${themeColor ? `bg-gradient-to-br ${themeColor}` : 'bg-slate-900'} 
                            ${cardFaceBaseClasses} ${subtleSolidBorder}
@@ -365,7 +305,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                         {drawnForParticipantName && (<span className={`block text-white/70 ${participantNameSizeClasses} font-normal tracking-wide truncate -mt-[0.2vh] leading-[1.2]`}>for {drawnForParticipantName}</span>)}
                     </div>
                     <div className={`flex-grow flex items-center justify-center ${promptTextHorizontalPadding}`}>
-                        <p className={`${promptTextSizeClasses} text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{finalPromptText}</p>
+                        <p className={`${promptTextSizeClasses} text-white text-center whitespace-pre-wrap`} style={promptTextStyle}>{promptText}</p>
                     </div>
                   </>
                 )}
@@ -379,8 +319,8 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = ({
                       <svg xmlns="http://www.w3.org/2000/svg" className={actionButtonIconSize} viewBox="0 0 20 20" fill="currentColor"><path d="M15.707 4.293a1 1 0 00-1.414 0L10 8.586 5.707 4.293a1 1 0 00-1.414 1.414L8.586 10l-4.293 4.293a1 1 0 101.414 1.414L10 11.414l4.293 4.293a1 1 0 001.414-1.414L11.414 10l4.293-4.293a1 1 0 000-1.414z" /></svg>
                     </button>
                     <button 
-                      onClick={isThisPromptAudioPlaying ? onStopAudio : () => onPlayAudioForMainPrompt({ cardId: id, text: finalPromptText, audioData, audioMimeType })} 
-                      disabled={(!finalPromptText && !audioData) || isLoadingPlaceholder || (finalPromptText && finalPromptText.startsWith("The Resonance seems to be quiet"))} 
+                      onClick={isThisPromptAudioPlaying ? onStopAudio : () => onPlayAudioForMainPrompt({ cardId: id, text: promptText, audioData, audioMimeType })} 
+                      disabled={!promptText || (promptText && promptText.startsWith("The Resonance seems to be quiet"))} 
                       className={`${actionButtonBaseClasses} ${actionButtonSizeClasses} bg-black/30 hover:bg-sky-600/80 text-slate-300 hover:text-white disabled:opacity-50 disabled:hover:bg-black/30`} 
                       aria-label={isThisPromptAudioPlaying ? "Stop Audio" : "Play Audio"} 
                       title={isThisPromptAudioPlaying ? "Stop Audio" : "Play Audio"}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DrawnCard, DrawnCardDisplayData } from './DrawnCard';
 import { DrawnCardData as CardHistoryItemType } from '../App';
@@ -13,7 +14,6 @@ interface DrawnCardsHistoryViewProps {
   customDecks: CustomThemeData[];
   activeCardAudio: { cardId: string; type: 'prompt' | 'notes' } | null;
   onStopAudio: () => void;
-  thinkingTextForNewestCard?: string | null;
   isDrawingInProgress: boolean;
 }
 
@@ -52,7 +52,6 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
   customDecks, 
   activeCardAudio,
   onStopAudio,
-  thinkingTextForNewestCard,
   isDrawingInProgress,
 }) => {
 
@@ -101,12 +100,16 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
     </div>
   );
   
-  if (history.length === 0) {
+  if (history.length === 0 && !isDrawingInProgress) {
     return (
       <div className="w-full max-w-6xl px-[2vw] flex flex-col items-center font-normal">
         {renderEmptyState()}
       </div>
     );
+  }
+
+  if (history.length === 0) {
+      return null;
   }
 
   const newestCard = history[0];
@@ -128,9 +131,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
             cardBackNotesText={newestCard.cardBackNotesText}
             isNewest={true}
             drawnForParticipantName={newestCard.drawnForParticipantName}
-            isLoadingPlaceholder={!newestCard.text}
             isFaded={newestCard.isFaded}
-            thinkingTextForPlaceholder={thinkingTextForNewestCard}
             onLike={onLike}
             onDislike={onDislike}
             onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
