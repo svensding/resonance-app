@@ -138,6 +138,16 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    const setAppHeight = () => {
+        const doc = document.documentElement;
+        doc.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+    window.addEventListener('resize', setAppHeight);
+    setAppHeight();
+    return () => window.removeEventListener('resize', setAppHeight);
+  }, []);
+
+  useEffect(() => {
     saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.SVEN_LISA_ONBOARDING_SHOWN, hasShownSvenAndLisaOnboarding);
   }, [hasShownSvenAndLisaOnboarding]);
 
@@ -589,14 +599,13 @@ const App: React.FC = () => {
 
   return (
     <div 
-      className="h-screen w-screen flex bg-slate-900 text-slate-200 overflow-hidden" 
+      className="h-full w-full flex bg-slate-900 text-slate-200 overflow-hidden" 
       style={{ fontFamily: "'Atkinson Hyperlegible', sans-serif" }}
     >
       {/* Main App Content Area */}
       <div className="flex-1 flex flex-col relative min-w-0">
           <header 
-            className="absolute top-0 left-0 right-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm shadow-lg"
-            style={{ height: 'var(--header-height-actual)' }}
+            className="flex-shrink-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm shadow-lg h-28 md:h-32"
           >
             <ThemeDeckSelection 
               onDraw={handleDrawNewCard} isDrawingInProgress={isLoading || isShuffling} interactionsDisabled={isLoading || isShuffling}
@@ -607,11 +616,7 @@ const App: React.FC = () => {
           </header>
           
           <main 
-            className="flex-grow w-full overflow-y-auto overflow-x-hidden scrollbar-thin flex justify-center"
-            style={{ 
-                paddingTop: 'var(--main-content-top-padding)', 
-                paddingBottom: 'var(--main-content-bottom-padding)' 
-            }}
+            className="flex-grow w-full overflow-y-auto overflow-x-hidden scrollbar-thin flex justify-center p-4 md:p-6"
           >
             {apiKeyMissing ? (
                 <div className="flex justify-center items-center h-full"><ApiKeyMessage /></div>
@@ -637,8 +642,7 @@ const App: React.FC = () => {
           </main>
 
           <footer 
-            className="absolute bottom-0 left-0 right-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm"
-            style={{ minHeight: 'var(--footer-height-actual)' }}
+            className="flex-shrink-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm"
           >
               <BottomToolbar 
                 participants={participants} setParticipants={setParticipants}
@@ -655,7 +659,7 @@ const App: React.FC = () => {
       
       {/* Dev Log Panel */}
       {showDevLogSheet && (
-          <aside className="w-full max-w-lg md:max-w-xl lg:max-w-2xl h-full flex-shrink-0 border-l border-slate-700/80">
+          <aside className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl h-full flex-shrink-0 border-l border-slate-700/80">
               <DevLogSheet 
                   history={devLog} 
                   onClose={() => setShowDevLogSheet(false)} 

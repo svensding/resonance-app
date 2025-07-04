@@ -29,34 +29,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,200;0,400;0,700;1,200;1,400;1,700&family=Atkinson+Hyperlegible+Mono&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
   <style>
-    :root {
-      /* Base (Mobile) Viewport Heights */
-      --header-height-actual: 15vh;
-      --footer-height-actual: 7.5vh; 
-
-      /* Calculated Padding for Main Content Area */
-      --main-content-top-padding: calc(var(--header-height-actual) + 3vh);
-      --main-content-bottom-padding: calc(var(--footer-height-actual) + 7vh); 
-    }
-
-    @media (min-width: 768px) { /* md breakpoint and up */
-      :root {
-        --header-height-actual: 14vh;
-        --footer-height-actual: 6.75vh; 
-      }
-    }
-    @media (min-width: 1024px) { /* lg breakpoint and up */
-      :root {
-        --header-height-actual: 13vh;
-        --footer-height-actual: 6vh; 
-      }
-    }
-
-    html, body {
-      height: 100vh; 
-      overflow: hidden; 
+    html {
+      height: 100%;
+      overflow: hidden;
     }
     body {
+      height: var(--app-height, 100vh);
+      overflow: hidden; 
       background-color: #0f172a; /* bg-slate-900 */
       color: #e2e8f0; /* text-slate-200 */
       overscroll-behavior-y: contain; 
@@ -67,13 +46,10 @@
     }
     #root {
       height: 100%;
-      overflow-y: auto;
-      overflow-x: hidden;
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      justify-content: center; 
+      display: flex;
+      flex-direction: column;
     }
+
     body::after { 
       content: "⦾ \00a0 \00a0 \00a0 ⋈ \00a0 \00a0 \00a0 ⟁ \00a0 \00a0 \00a0 ⟐";
       position: fixed;
@@ -154,7 +130,7 @@
       border-radius: 1rem; /* rounded-xl */
       border: 1px solid rgba(71, 85, 105, 0.6); /* border-slate-700/60 */
       box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
-      will-change: transform, z-index;
+      will-change: transform, opacity, z-index;
       backface-visibility: hidden;
     }
 
@@ -195,6 +171,7 @@
       padding: 20px;
       color: #cbd5e1; /* slate-300 for glyphs */
       font-family: 'Atkinson Hyperlegible', sans-serif;
+      flex-grow: 1;
     }
     .brand-logo-initial-text {
       font-family: 'Atkinson Hyperlegible', sans-serif;
@@ -230,7 +207,7 @@
 <link rel="stylesheet" href="/index.css">
 </head>
 <body class="font-normal">
-  <div id="root" class="hide-scrollbar">
+  <div id="root">
     <!-- Initial loading state: will be replaced by React app -->
     <div class="initial-loading-state">
       <div class="glyph-pattern-row-initial">

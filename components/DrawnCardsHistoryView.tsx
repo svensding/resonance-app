@@ -102,7 +102,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
   
   if (history.length === 0 && !isDrawingInProgress) {
     return (
-      <div className="w-full max-w-6xl px-[2vw] flex flex-col items-center font-normal">
+      <div className="w-full max-w-6xl px-2 flex flex-col items-center font-normal">
         {renderEmptyState()}
       </div>
     );
@@ -116,9 +116,9 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
   const olderCards = history.slice(1);
 
   return (
-    <div className="w-full max-w-6xl px-[2vw] flex flex-col items-center font-normal">
+    <div className="w-full max-w-6xl px-2 flex flex-col items-center font-normal">
       {/* Newest Card */}
-      <div className="mb-[3vh] w-full flex justify-center">
+      <div className="mb-6 w-full flex justify-center">
         <DrawnCard
             key={newestCard.id}
             id={newestCard.id}
@@ -144,8 +144,8 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
 
       {/* History Grid */}
       {olderCards.length > 0 && (
-        <div className="w-full border-t-2 border-slate-700/50 pt-[3vh]">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-[2vw] gap-y-[3vh]">
+        <div className="w-full border-t-2 border-slate-700/50 pt-6 pb-12">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-4 sm:gap-x-6 gap-y-6 sm:gap-y-8">
             {olderCards.map((card) => (
               <DrawnCard
                 key={card.id}

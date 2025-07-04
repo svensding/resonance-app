@@ -79,7 +79,7 @@ const DevLogSheetComponent: React.FC<DevLogSheetProps> = ({ history, onClose }) 
                 <div className="flex items-center space-x-2 sm:space-x-4">
                     <button
                         onClick={handleCopy}
-                        className="px-3 py-1.5 text-sm font-semibold text-white bg-slate-600 hover:bg-slate-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 w-20"
+                        className="px-3 py-1.5 text-sm font-semibold text-white bg-slate-600 hover:bg-slate-500 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400 min-w-[5rem] text-center"
                         title="Copy Log to Clipboard"
                     >
                         {copyButtonText}

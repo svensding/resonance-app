@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { VoiceName, LanguageCode, VoicePersona } from '../services/geminiService';
 
@@ -55,12 +56,6 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
       setShowCustomInput(false);
       onLanguageChange(code);
     }
-  };
-
-  const personasGrouped = {
-    storyteller: { title: "The Storyteller", personas: voicePersonas.filter(p => p.id.startsWith('storyteller')) },
-    guide: { title: "The Guide", personas: voicePersonas.filter(p => p.id.startsWith('guide')) },
-    playmate: { title: "The Playmate", personas: voicePersonas.filter(p => p.id.startsWith('playmate')) },
   };
 
   const getVoiceButtonLabel = (personaName: string): string => {
@@ -144,36 +139,29 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
           
           {/* Voice Selection */}
           <div>
-            <label className="block text-[clamp(0.7rem,1.8vh,0.9rem)] font-bold text-slate-300 mb-2">
+            <label className="block text-[clamp(0.8rem,2vh,1rem)] font-bold text-slate-300 mb-3">
               Narration Voice
             </label>
-            <div className="flex flex-col space-y-4">
-              {Object.values(personasGrouped).map((group, index) => (
-                <div key={index} className="bg-slate-700/40 p-4 rounded-lg">
-                  <h3 className="text-lg font-bold text-slate-200 mb-3">{group.title}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {group.personas.map(persona => (
-                      <button
-                        key={persona.id}
-                        onClick={() => onVoiceChange(persona.voiceName)}
-                        className={`w-full p-3 text-left rounded-lg transition-all duration-150 ease-in-out border flex flex-col h-full
-                          ${currentVoice === persona.voiceName
-                            ? 'bg-sky-600/20 border-sky-500 ring-2 ring-sky-500'
-                            : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500'
-                          }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-slate-100">{getVoiceButtonLabel(persona.name)}</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-600 text-slate-300">
-                            {persona.gender}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-300 mt-auto pt-2">{persona.description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {voicePersonas.map(persona => (
+                  <button
+                    key={persona.id}
+                    onClick={() => onVoiceChange(persona.voiceName)}
+                    className={`w-full p-3 text-left rounded-lg transition-all duration-150 ease-in-out border flex flex-col h-full
+                      ${currentVoice === persona.voiceName
+                        ? 'bg-sky-600/20 border-sky-500 ring-2 ring-sky-500'
+                        : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500'
+                      }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-100">{getVoiceButtonLabel(persona.name)}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-600 text-slate-300">
+                        {persona.gender}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-300 mt-auto pt-2">{persona.description}</p>
+                  </button>
+                ))}
             </div>
           </div>
         </div>
