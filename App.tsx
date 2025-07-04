@@ -27,6 +27,11 @@ import {
   getChatSessionHistory,
   DrawnCardData,
   AgeFilters,
+  getVisibleDecks,
+  CoreTheme,
+  CardType,
+  IntensityLevel,
+  CUSTOM_DECK_COLOR_PALETTE,
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { ApiKeyMessage } from './components/ApiKeyMessage';
@@ -45,11 +50,11 @@ import { CardShuffleAnimation } from './components/CardShuffleAnimation';
 const MAX_HISTORY_WITH_AUDIO = 13; 
 
 const LOCALSTORAGE_KEYS = {
-  CUSTOM_DECKS: 'resonanceClio_customDecks_v3',
+  CUSTOM_DECKS: 'resonanceClio_customDecks_v4', // version bump for new data structure
   VOICE_NAME: 'resonanceClio_selectedVoiceName_v1',
   LANGUAGE_CODE: 'resonanceClio_selectedLanguageCode_v1',
   IS_MUTED: 'resonanceClio_isAudioMuted_v1',
-  GROUP_SETTING: 'resonanceClio_groupSetting_v2', // version bump for new type
+  GROUP_SETTING: 'resonanceClio_groupSetting_v2',
   AGE_FILTERS: 'resonanceClio_ageFilters_v1',
 };
 
@@ -106,6 +111,7 @@ const App: React.FC = () => {
     message: string;
     onConfirm: () => void;
   } | null>(null);
+  const [consentedIntensityLevels, setConsentedIntensityLevels] = useState<Set<IntensityLevel>>(new Set());
   const pendingDrawRef = useRef<(() => Promise<void>) | null>(null);
 
   const [showDevLogSheet, setShowDevLogSheet] = useState(false);
@@ -129,6 +135,20 @@ const App: React.FC = () => {
   useEffect(() => {
     saveToLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, ageFilters);
   }, [ageFilters]);
+
+  // Special participant check
+  useEffect(() => {
+    const hasSpecialParticipant = participants.some(p => p.name.toLowerCase().trim() === 'svendev');
+    if (hasSpecialParticipant) {
+        setShowDevFeatures(true);
+    } else {
+        // Allow #devlog hash to also enable it
+        if (window.location.hash !== '#devlog') {
+            setShowDevFeatures(false);
+        }
+    }
+  }, [participants]);
+
 
   useEffect(() => {
     const checkHash = () => {
@@ -201,7 +221,7 @@ const App: React.FC = () => {
         
         const deck = !cardToUse.themedDeckId.startsWith("CUSTOM_")
             ? getThemedDeckById(cardToUse.themedDeckId as ThemedDeck['id'])
-            : null;
+            : getCustomDeckById(cardToUse.themedDeckId as CustomThemeId, customDecks);
         const styleDirective = getStyleDirectiveForCard(selectedVoiceName, true, deck);
 
         const audioResult = await generateAudioForText(textToSpeak, selectedVoiceName, styleDirective);
@@ -225,9 +245,9 @@ const App: React.FC = () => {
         setError("Could not generate guidance audio.");
         setActiveCardAudio(null);
     }
-  }, [selectedVoiceName, isAudioMuted, drawnCardHistory, handleStopAudio, addLogEntry]);
+  }, [selectedVoiceName, isAudioMuted, drawnCardHistory, handleStopAudio, addLogEntry, customDecks]);
   
-  const handleDrawNewCard = useCallback(async (itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM", options?: { isRedraw?: boolean }) => {
+  const handleDrawNewCard = useCallback(async (itemId: ThemeIdentifier | "RANDOM" | `CATEGORY_${string}`, options?: { isRedraw?: boolean }) => {
     if (isLoading || isShuffling) return;
 
     const performDraw = async () => {
@@ -239,22 +259,18 @@ const App: React.FC = () => {
         try {
             let chosenDeck: ThemedDeck | CustomThemeData;
             let colorsForShuffle: string[] = [];
+            const visibleDecks = getVisibleDecks(selectedGroupSetting, ageFilters, showDevFeatures);
 
             if (itemId === "RANDOM") {
-                const availableDecks = ALL_THEMED_DECKS.filter(d => {
-                    if (!d.socialContexts?.includes(selectedGroupSetting)) return false;
-                    const isAgeMatch = d.ageGroups.some(ag => 
-                        (ageFilters.adults && ag === 'Adults') ||
-                        (ageFilters.teens && ag === 'Teens') ||
-                        (ageFilters.kids && ag === 'Kids')
-                    );
-                    if (!isAgeMatch) return false;
-                    if ((ageFilters.teens || ageFilters.kids) && d.intensity.some(level => level >= 4)) return false;
-                    return true;
-                });
-                if (availableDecks.length === 0) throw new Error(`No suitable random decks available for the current settings.`);
-                chosenDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
+                if (visibleDecks.length === 0) throw new Error(`No suitable random decks available for the current settings.`);
+                chosenDeck = visibleDecks[Math.floor(Math.random() * visibleDecks.length)];
                 colorsForShuffle = DECK_CATEGORIES.map(dc => getDisplayDataForCard(ALL_THEMED_DECKS.find(d => d.category === dc.id)!.id, customDecks).colorClass);
+            } else if (itemId.startsWith("CATEGORY_")) {
+                const categoryId = itemId.replace("CATEGORY_", "");
+                const decksInCategory = visibleDecks.filter(d => d.category === categoryId);
+                if (decksInCategory.length === 0) throw new Error(`No suitable decks available for the category "${categoryId}".`);
+                chosenDeck = decksInCategory[Math.floor(Math.random() * decksInCategory.length)];
+                colorsForShuffle = [getDisplayDataForCard(chosenDeck.id, customDecks).colorClass];
             } else if (itemId.startsWith("CUSTOM_")) {
                 const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
                 if (!customDeck) throw new Error("Custom deck not found");
@@ -286,8 +302,8 @@ const App: React.FC = () => {
                 throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
             }
             
-            const effectiveDeck = 'themes' in chosenDeck ? chosenDeck : null;
-            const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, effectiveDeck);
+            const effectiveDeck = 'themes' in chosenDeck ? chosenDeck : getCustomDeckById(chosenDeck.id, customDecks);
+            const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, effectiveDeck, frontResult.voiceStyle);
 
             const audioPromise = isAudioMuted 
                 ? Promise.resolve(null)
@@ -322,7 +338,8 @@ const App: React.FC = () => {
                 cardBackNotesText: backResult?.cardBackNotesText || null,
                 isTimed: isTimed,
                 hasFollowUp: isTimed,
-                timerDuration: 60, // Default, can be refined
+                timerDuration: frontResult.timerDuration,
+                voiceStyle: frontResult.voiceStyle,
                 followUpPromptText: frontResult.reflectionText || null,
                 isCompletedActivity: false,
                 isFollowUp: false,
@@ -351,26 +368,28 @@ const App: React.FC = () => {
     pendingDrawRef.current = performDraw;
     
     // Consent/Warning Logic
-    if (itemId !== 'RANDOM' && !itemId.startsWith('CUSTOM_')) {
-        const deck = getThemedDeckById(itemId);
+    if (itemId !== 'RANDOM' && !itemId.startsWith('CUSTOM_') && !itemId.startsWith('CATEGORY_')) {
+        const deck = getThemedDeckById(itemId as ThemedDeck['id']);
         if (deck) {
-            const hasHighIntensity = deck.intensity.some(level => level >= 4);
-            const hasSensitiveTheme = deck.themes.includes('Desire & Intimacy');
-            const isSensitiveContext = ['FAMILY', 'TEAM'].includes(selectedGroupSetting);
+            const highestIntensity = Math.max(...deck.intensity) as IntensityLevel;
+            const hasHighIntensity = highestIntensity >= 4;
 
-            if (hasHighIntensity) {
+            if (hasHighIntensity && !consentedIntensityLevels.has(highestIntensity)) {
                 setConfirmationState({
                     show: true,
-                    title: `Entering Level ${Math.max(...deck.intensity)}: ${deck.name}`,
+                    title: `Entering Level ${highestIntensity}: ${deck.name}`,
                     message: "These prompts can be challenging and bring up difficult material. Please ensure everyone in your group consents to this level of depth.",
                     onConfirm: () => {
                         setConfirmationState(null);
+                        setConsentedIntensityLevels(prev => new Set(prev).add(highestIntensity));
                         pendingDrawRef.current?.();
                     }
                 });
                 return;
             }
 
+            const hasSensitiveTheme = deck.themes.includes('Desire & Intimacy');
+            const isSensitiveContext = ['FAMILY', 'TEAM'].includes(selectedGroupSetting);
             if (hasSensitiveTheme && isSensitiveContext) {
                  setConfirmationState({
                     show: true,
@@ -389,7 +408,7 @@ const App: React.FC = () => {
     // No confirmation needed, draw immediately
     await performDraw();
 
-  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, ageFilters, drawnCardHistory.length, addLogEntry]);
+  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, ageFilters, drawnCardHistory.length, addLogEntry, showDevFeatures, consentedIntensityLevels]);
 
   // This effect handles generating the follow-up card after a timed activity is completed.
   useEffect(() => {
@@ -429,12 +448,13 @@ const App: React.FC = () => {
           text: followUpText,
           audioData: null, audioMimeType: null, cardBackNotesText: null,
           isTimed: false, hasFollowUp: false, timerDuration: null, followUpPromptText: null,
-          isCompletedActivity: false, isFollowUp: true, activeFollowUpCard: null,
+          isCompletedActivity: false, isFollowUp: true, activeFollowUpCard: null, voiceStyle: null,
         };
         
         setDrawnCardHistory(prev => prev.map(c => c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: placeholderFollowUpCard } : c));
 
-        const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, 'themes' in themeItem ? themeItem : null);
+        // Use a neutral style for follow-up audio
+        const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, 'themes' in themeItem ? themeItem : getCustomDeckById(themeItem.id as CustomThemeId, customDecks), 'neutral');
         const audioPromise = isAudioMuted ? Promise.resolve(null) : generateAudioForText(followUpText, selectedVoiceName, styleDirective);
         const cardBackPromise = generateCardBack(followUpText, themeItem, cardToUpdate.text);
 
@@ -569,19 +589,25 @@ const App: React.FC = () => {
     setShowCustomDeckModal(true);
   };
 
-  const handleSaveCustomDeck = (name: string, description: string) => {
-    const colorClasses = ["from-blue-500 to-indigo-600", "from-cyan-500 to-sky-600", "from-teal-500 to-emerald-600", "from-fuchsia-500 to-purple-600"];
-    
+  const handleSaveCustomDeck = (
+    name: string, 
+    description: string, 
+    options: {
+        themes: CoreTheme[],
+        cardTypes: CardType[],
+        intensity: IntensityLevel[]
+    }
+  ) => {
     if (editingCustomDeck) {
       const updatedDecks = customDecks.map(deck =>
-        deck.id === editingCustomDeck.id ? { ...deck, name, description } : deck
+        deck.id === editingCustomDeck.id ? { ...deck, name, description, ...options } : deck
       );
       setCustomDecks(updatedDecks);
       saveToLocalStorage(LOCALSTORAGE_KEYS.CUSTOM_DECKS, updatedDecks);
     } else {
       const newDeck: CustomThemeData = {
-        id: `CUSTOM_${Date.now()}`, name, description,
-        colorClass: colorClasses[customDecks.length % colorClasses.length],
+        id: `CUSTOM_${Date.now()}`, name, description, ...options,
+        colorClass: CUSTOM_DECK_COLOR_PALETTE[customDecks.length % CUSTOM_DECK_COLOR_PALETTE.length],
       };
       const updatedDecks = [...customDecks, newDeck];
       setCustomDecks(updatedDecks);
@@ -668,6 +694,7 @@ const App: React.FC = () => {
               onEditCustomDeck={handleEditCustomDeck} onShowDeckInfo={handleShowDeckInfo}
               groupSetting={selectedGroupSetting}
               ageFilters={ageFilters}
+              showAllDecks={showDevFeatures}
             />
           </header>
           

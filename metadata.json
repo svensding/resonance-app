@@ -1,6 +1,9 @@
+
 {
   "name": "Copy of Resonance ⦾ - 4Jul25 New Decks",
   "description": "Make a moment for profound connection and insight with Resonance ⦾ \n\nConversation Cards and Reflective Prompts based on a wide rang of practices and wisdom systems.\n\nExplore solo or with others.",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
   "requestFramePermissions": [],
   "prompt": ""
 }

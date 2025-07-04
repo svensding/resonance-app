@@ -1,9 +1,10 @@
+
 import React from 'react';
 import { CustomThemeData, ThemedDeck } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
 
 interface ThemedDeckButtonProps {
-  itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM"; 
+  itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM" | `CATEGORY_${string}`;
   itemName: string;
   colorClass: string;
   onDrawClick: () => void; 
@@ -14,6 +15,7 @@ interface ThemedDeckButtonProps {
   onEditCustomDeck?: (deck: CustomThemeData) => void; 
   onShowInfo?: () => void; 
   isDeckSet?: boolean; // To distinguish from custom decks for info button logic
+  isCategoryButton?: boolean;
 }
 
 export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({ 
@@ -28,6 +30,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   onEditCustomDeck,
   onShowInfo,
   isDeckSet = false,
+  isCategoryButton = false,
 }) => {
   const baseBg = colorClass.split(' ')[0] + " " + colorClass.split(' ')[1];
   
@@ -54,6 +57,32 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   const mainButtonLabel = isRandomButton ? "Draw a Random Card" : `Draw a card from ${itemName}`;
   const mainButtonTitle = isRandomButton ? "Draw a Random Card" : `Draw from: ${itemName}`;
 
+  const ringClasses = 'focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-slate-800';
+
+  if (isCategoryButton) {
+    return (
+        <div
+            role="button"
+            tabIndex={drawActionDisabled ? -1 : 0}
+            onClick={handleMainAction}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleMainAction();}}
+            aria-disabled={drawActionDisabled}
+            aria-label={`Draw a random card from the ${itemName} category`}
+            title={`Draw from: ${itemName}`}
+            className={`relative w-full h-full group font-normal transition-all duration-300 ease-out rounded-lg focus:outline-none ${drawActionDisabled ? 'cursor-not-allowed opacity-70' : `hover:scale-105 active:scale-95 cursor-pointer ${ringClasses}`}`}
+        >
+            <div className={`relative w-full h-full rounded-md bg-gradient-to-b ${colorClass} shadow-md flex items-center justify-center p-1 border border-slate-600`}>
+                <h3 
+                    className="font-semibold text-white uppercase tracking-wider text-xs"
+                    style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
+                >
+                    {itemName}
+                </h3>
+            </div>
+        </div>
+    );
+  }
+
   const utilityButtonBaseClasses = "p-[0.5vh] rounded-full text-white/70 hover:text-white z-30 transition-all duration-200 opacity-70 group-hover:opacity-100 group-focus-within:opacity-100 bg-black/20 hover:bg-black/50";
   const utilityButtonIconSize = "h-[2vh] w-[2vh] max-h-4 max-w-4"; 
   const deckGlyphSize = "text-[clamp(0.6rem,1.5vh,1rem)]"; 
@@ -62,11 +91,11 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   
   const titleTextSize = isRandomButton 
     ? "text-[clamp(0.55rem,1.5vh,0.85rem)]"
-    : "text-[clamp(0.48rem,1.4vh,0.75rem)]";
+    : "text-[clamp(0.5rem,1.3vh,0.75rem)]";
 
-  const titleMarginTop = isRandomButton ? "mt-[1vh]" : "mt-[0.5vh]";
+  const titleMarginTop = isRandomButton ? "mt-[1vh]" : "mt-0";
 
-  const ringClasses = 'focus:ring-2 focus:ring-white/50 focus:ring-offset-1 focus:ring-offset-slate-800';
+  const showStackEffect = !isRandomButton;
 
   return (
     <div
@@ -77,37 +106,27 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
       aria-disabled={drawActionDisabled}
       aria-label={mainButtonLabel}
       title={mainButtonTitle}
-      className={`relative w-full h-full group font-normal
-                  transition-all duration-300 ease-out rounded-lg
-                  focus:outline-none 
-                  ${drawActionDisabled ? 'cursor-not-allowed opacity-70' : `hover:scale-105 active:scale-95 cursor-pointer ${ringClasses}`}
-                  `}
+      className={`relative w-full h-full group font-normal transition-all duration-300 ease-out rounded-lg focus:outline-none ${drawActionDisabled ? 'cursor-not-allowed opacity-70' : `hover:scale-105 active:scale-95 cursor-pointer ${ringClasses}`}`}
     >
       <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
-        {!isRandomButton && (
-          <div
-            className={`absolute w-full h-full rounded-lg bg-gradient-to-br ${baseBg} opacity-50 transform rotate-[-6deg] translate-x-[-2px] translate-y-[2px] shadow-sm group-hover:shadow-md transition-all duration-300 ease-out border border-black/10`}
-          ></div>
-        )}
-        {!isRandomButton && (
-           <div
-            className={`absolute w-full h-full rounded-lg bg-gradient-to-br ${baseBg} opacity-75 transform rotate-[4deg] translate-x-[1px] translate-y-[-1px] shadow-md group-hover:shadow-lg transition-all duration-300 ease-out border border-black/15`}
-          ></div>
+        {showStackEffect && (
+          <>
+            <div
+              className={`absolute w-full h-full rounded-lg bg-gradient-to-br ${baseBg} opacity-50 transform rotate-[-6deg] translate-x-[-2px] translate-y-[2px] shadow-sm group-hover:shadow-md transition-all duration-300 ease-out border border-black/10`}
+            ></div>
+            <div
+              className={`absolute w-full h-full rounded-lg bg-gradient-to-br ${baseBg} opacity-75 transform rotate-[4deg] translate-x-[1px] translate-y-[-1px] shadow-md group-hover:shadow-lg transition-all duration-300 ease-out border border-black/15`}
+            ></div>
+          </>
         )}
        
         <div 
-          className={`relative w-full h-full rounded-lg bg-gradient-to-br ${colorClass} shadow-lg group-hover:shadow-xl
-                      flex flex-col justify-center items-center text-center p-[1vh] 
-                      border ${isRandomButton ? 'border-dashed border-indigo-300' : 'border-white/80'} 
-                      transition-all duration-300 ease-out overflow-hidden
-                      `}
+          className={`relative w-full h-full rounded-lg bg-gradient-to-br ${colorClass} shadow-lg group-hover:shadow-xl flex flex-col justify-center items-center text-center p-[1vh] border ${isRandomButton ? 'border-dashed border-indigo-300' : 'border-white/80'} transition-all duration-300 ease-out overflow-hidden`}
         >
           <div className="absolute inset-0 bg-black/15 rounded-lg z-10"></div> 
-          <div className={`relative z-20 flex flex-col items-center justify-center flex-grow w-full h-full 
-                           ${drawActionDisabled ? 'opacity-70' : ''}
-                          `}>
+          <div className={`relative z-20 flex flex-col items-center justify-center flex-grow w-full h-full ${drawActionDisabled ? 'opacity-70' : ''}`}>
             
-            {!isRandomButton && (
+            {showStackEffect && (
               <>
                 <CornerGlyphGrid position="top-left" glyphColorClass={glyphColor} glyphSizeClass={deckGlyphSize} gridGapClass={deckGlyphGap} />
                 <CornerGlyphGrid position="bottom-right" glyphColorClass={glyphColor} glyphSizeClass={deckGlyphSize} gridGapClass={deckGlyphGap} />
@@ -147,7 +166,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
                 className={`font-normal ${titleTextSize} ${titleMarginTop} text-white break-words`}
                 style={{ lineHeight: '1.2' }}
               >
-                {itemName}
+                {isRandomButton ? <span className="uppercase tracking-wider">{itemName}</span> : itemName}
               </h3>
             </div>
             

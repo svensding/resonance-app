@@ -35,10 +35,22 @@ export type CoreTheme =
   | 'Past & Memory' | 'Vision & Future' | 'Play & Creativity' | 'Spirit & Awe'
   | 'Transcendence & Mystery';
 
+export const ALL_CORE_THEMES: CoreTheme[] = [
+  'Body & Sensation', 'Mind & Thoughts', 'Heart & Emotions', 'Shadow & Depth',
+  'Light & Essence', 'Desire & Intimacy', 'Parts & Voices', 'Outer World',
+  'Past & Memory', 'Vision & Future', 'Play & Creativity', 'Spirit & Awe',
+  'Transcendence & Mystery'
+];
+
 export type IntensityLevel = 1 | 2 | 3 | 4 | 5;
+export const ALL_INTENSITY_LEVELS: IntensityLevel[] = [1, 2, 3, 4, 5];
 
 export type CardType = 
   | 'Question' | 'Directive' | 'Reflection' | 'Practice' | 'Wildcard' | 'Connector';
+
+export const ALL_CARD_TYPES: CardType[] = [
+    'Question', 'Directive', 'Reflection', 'Practice', 'Wildcard', 'Connector'
+];
 
 export interface DeckCategory {
   id: string;
@@ -326,6 +338,25 @@ export const ALL_THEMED_DECKS: ThemedDeck[] = [
     },
 ];
 
+export const DECK_CATEGORY_COLORS: Record<string, string> = {
+    'INTRODUCTIONS': "from-sky-600 to-cyan-700 hover:from-sky-500 hover:to-cyan-600",
+    'IMAGE_OF_SELF': "from-emerald-600 to-green-700 hover:from-emerald-500 hover:to-green-600",
+    'INTIMACY_CONNECTION': "from-rose-600 to-red-700 hover:from-rose-500 hover:to-red-600",
+    'EXTERNAL_VIEWS': "from-purple-600 to-pink-700 hover:from-purple-500 hover:to-pink-600",
+    'RELATIONAL': "from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500",
+    'IMAGINATIVE': "from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500",
+    'EDGY_CONFRONTATIONS': "from-indigo-700 to-slate-800 hover:from-indigo-600 hover:to-slate-700",
+};
+
+export const CUSTOM_DECK_COLOR_PALETTE = [
+    "from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600",
+    "from-cyan-600 to-sky-700 hover:from-cyan-500 hover:to-sky-600",
+    "from-teal-600 to-emerald-700 hover:from-teal-500 hover:to-emerald-600",
+    "from-fuchsia-600 to-purple-700 hover:from-fuchsia-500 hover:to-purple-600",
+    "from-lime-600 to-green-700 hover:from-lime-500 hover:to-green-600",
+    "from-amber-600 to-orange-700 hover:from-amber-500 hover:to-orange-600",
+];
+
 export type CustomThemeId = `CUSTOM_${string}`;
 
 export interface CustomThemeData {
@@ -333,6 +364,9 @@ export interface CustomThemeData {
   name: string;
   description: string;
   colorClass: string;
+  themes?: CoreTheme[];
+  cardTypes?: CardType[];
+  intensity?: IntensityLevel[];
 }
 
 export type ThemeIdentifier = ThemedDeck['id'] | CustomThemeId;
@@ -356,6 +390,7 @@ export interface DrawnCardData {
   isCompletedActivity?: boolean;
   isFollowUp?: boolean;
   activeFollowUpCard?: DrawnCardData | null;
+  voiceStyle: string | null;
 }
 
 export type VoiceName = "Sulafat" | "Puck" | "Vindemiatrix" | "Enceladus" | "Zephyr" | "Fenrir";
@@ -397,7 +432,9 @@ export const GROUP_SETTINGS: GroupSettingOption[] = [
 export const DEFAULT_GROUP_SETTING: SocialContext = "GENERAL";
 
 
-export const getVisibleDecks = (groupSetting: SocialContext, ageFilters: AgeFilters): ThemedDeck[] => {
+export const getVisibleDecks = (groupSetting: SocialContext, ageFilters: AgeFilters, forceShowAll: boolean = false): ThemedDeck[] => {
+    if (forceShowAll) return ALL_THEMED_DECKS;
+    
     return ALL_THEMED_DECKS.filter(deck => {
         // Age Group Filtering (Hard Lock)
         const activeAgeGroups: AgeGroup[] = [];
@@ -449,17 +486,7 @@ export const getDisplayDataForCard = (
   
   const deck = getThemedDeckById(themedDeckId as ThemedDeck['id']);
   if (deck) {
-      // Temporary color logic until colors are added to decks
-      const categoryColors: Record<string, string> = {
-          'INTRODUCTIONS': "from-sky-400 to-cyan-400",
-          'IMAGE_OF_SELF': "from-emerald-400 to-green-500",
-          'INTIMACY_CONNECTION': "from-rose-500 to-red-600",
-          'EXTERNAL_VIEWS': "from-purple-400 to-pink-500",
-          'RELATIONAL': "from-yellow-500 to-orange-600",
-          'IMAGINATIVE': "from-teal-400 to-cyan-500",
-          'EDGY_CONFRONTATIONS': "from-purple-500 to-indigo-600",
-      };
-    return { name: deck.name, colorClass: categoryColors[deck.category] || "from-slate-600 to-slate-700" };
+    return { name: deck.name, colorClass: DECK_CATEGORY_COLORS[deck.category] || "from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600" };
   }
   
   return { name: "Card", colorClass: "from-gray-500 to-gray-600" };
@@ -468,33 +495,44 @@ export const getDisplayDataForCard = (
 export const getStyleDirectiveForCard = (
     selectedVoiceName: VoiceName,
     isForCardBack: boolean,
-    deck?: ThemedDeck | null
+    deck?: ThemedDeck | CustomThemeData | null,
+    voiceStyle?: string | null
 ): string => {
-    const selectedPersona = CURATED_VOICE_PERSONAS.find(p => p.voiceName === selectedVoiceName) 
+    let selectedPersona = CURATED_VOICE_PERSONAS.find(p => p.voiceName === selectedVoiceName) 
         || CURATED_VOICE_PERSONAS.find(p => p.voiceName === DEFAULT_VOICE_NAME)!;
+
+    // Override persona based on LLM-suggested style
+    if (voiceStyle) {
+        switch (voiceStyle) {
+            case 'playful':
+                selectedPersona = CURATED_VOICE_PERSONAS.find(p => p.id.startsWith('playmate')) || selectedPersona;
+                break;
+            case 'intense':
+            case 'calm':
+                selectedPersona = CURATED_VOICE_PERSONAS.find(p => p.id.startsWith('guide')) || selectedPersona;
+                break;
+            case 'warm':
+                selectedPersona = CURATED_VOICE_PERSONAS.find(p => p.id.startsWith('storyteller')) || selectedPersona;
+                break;
+            // 'neutral' will use the default user-selected voice
+        }
+    }
+    
     const baseDirective = `Speak with ${selectedPersona.voiceAccentHint}.`;
 
     let thematicToneDirective = "";
     if (isForCardBack) {
         thematicToneDirective = "Your tone is gentle and helpful, with a clear, encouraging cadence.";
-    } else if (deck) {
-        if (deck.intensity.some(l => l >= 4)) {
+    } else if (deck && !voiceStyle) { // Fallback to deck-based logic if no style is provided
+        if (deck.intensity && deck.intensity.some(l => l >= 4)) {
             thematicToneDirective = "Your tone is very calm, steady, and grounded, creating a feeling of supportive quiet.";
-        } else if (deck.themes.includes('Play & Creativity')) {
+        } else if (deck.themes && deck.themes.includes('Play & Creativity')) {
             thematicToneDirective = "A light, easy warmth infuses your voice, as if sharing a private smile.";
-        } else if (deck.themes.includes('Body & Sensation')) {
-            thematicToneDirective = "Your pace is calm and anchored, with a focus on gentle, sensory awareness.";
-        } else if (deck.themes.includes('Heart & Emotions')) {
-            thematicToneDirective = "Your tone is warm and inviting, with a gentle curiosity about the connection.";
-        } else if (deck.themes.includes('Desire & Intimacy')) {
-            thematicToneDirective = "Your voice softens, taking on a more textured and intimate quality.";
-        } else if (deck.themes.includes('Spirit & Awe')) {
-            thematicToneDirective = "Your tone is calm and wise, like a gentle teacher sharing profound insights.";
         } else {
             thematicToneDirective = "Your tone is grounded and inviting.";
         }
     } else {
-        thematicToneDirective = "Your tone is warm and inviting.";
+         thematicToneDirective = "Your tone is warm and inviting.";
     }
 
     const cleanedDirective = thematicToneDirective.trim().replace(/\s\s+/g, ' ');
@@ -502,12 +540,17 @@ export const getStyleDirectiveForCard = (
     return finalDirective.trim().replace(/\s\s+/g, ' ');
 };
 
+
 export const CARD_FRONT_PROMPT_START_TAG = "<card_front_prompt>";
 export const CARD_FRONT_PROMPT_END_TAG = "</card_front_prompt>";
 export const ACTIVITY_PROMPT_START_TAG = "<activity_prompt>";
 export const ACTIVITY_PROMPT_END_TAG = "</activity_prompt>";
 export const REFLECTION_PROMPT_START_TAG = "<reflection_prompt>";
 export const REFLECTION_PROMPT_END_TAG = "</reflection_prompt>";
+export const DURATION_START_TAG = "<duration>";
+export const DURATION_END_TAG = "</duration>";
+export const VOICE_STYLE_START_TAG = "<voice_style>";
+export const VOICE_STYLE_END_TAG = "</voice_style>";
 const THINKING_START_TAG = "<thinking>";
 const THINKING_END_TAG = "</thinking>";
 const CARD_BACK_NOTES_START_TAG = "<card_back_notes>";
@@ -554,15 +597,18 @@ const constructSystemInstructionForCardFront = (): string => {
 **Core Task & Output Format:**
 Your entire response MUST start with a series of at least 3-5 brief thoughts about your creative process, each enclosed in <thinking>...</thinking> tags. This shows the user your reasoning.
 
-After your thoughts, you MUST choose ONE of the following output formats based on the user's JSON input:
+After your thoughts and before the main prompt, you MUST provide a suggested voice style for text-to-speech narration, enclosed in ${VOICE_STYLE_START_TAG}...${VOICE_STYLE_END_TAG} tags. Choose one of: 'calm', 'playful', 'intense', 'warm', 'neutral'.
+
+Then, you MUST choose ONE of the following output formats based on the user's JSON input:
 1.  **For Standard Prompts:** Output a single, final prompt enclosed in ${CARD_FRONT_PROMPT_START_TAG}...${CARD_FRONT_PROMPT_END_TAG} tags.
-2.  **For Timed Prompts with a Follow-up (e.g., a 'Practice' or 'Directive' card type):** You MUST generate TWO related prompts.
-    *   First, a short directive for a timed activity. It MUST be enclosed in ${ACTIVITY_PROMPT_START_TAG}...${ACTIVITY_PROMPT_END_TAG} tags. Mention the duration (e.g., from 'timedDuration' in the JSON if provided, otherwise choose a suitable short duration like 30 or 60 seconds).
+2.  **For Timed Prompts with a Follow-up (e.g., a 'Practice' or 'Directive' card type):** You MUST generate THREE tags.
+    *   First, a short directive for a timed activity. It MUST be enclosed in ${ACTIVITY_PROMPT_START_TAG}...${ACTIVITY_PROMPT_END_TAG} tags.
     *   Second, a concise follow-up reflection prompt. It MUST be enclosed in ${REFLECTION_PROMPT_START_TAG}...${REFLECTION_PROMPT_END_TAG} tags.
+    *   Third, a duration for the activity in seconds. It MUST be enclosed in ${DURATION_START_TAG}...${DURATION_END_TAG} tags. e.g., <duration>30</duration>.
 
 **User Input Format:** You will receive a JSON object with creative context:
 {
-  "deck": { "name": "The Shadow Cabinet", "themes": ["Shadow & Depth"], "intensity": [3, 4], "cardTypes": ["Question", "Reflection"] },
+  "deck": { "name": "The Shadow Cabinet", "category": "Edgy Confrontations", "themes": ["Shadow & Depth"], "intensity": [3, 4], "cardTypes": ["Question", "Reflection"] },
   "socialContext": { "setting": "FRIENDS", "participantCount": 2, "participants": ["Alice", "Bob"], "activeParticipant": "Alice", "ageGroups": ["Adults"] },
   "language": "en-US",
   "historyLength": 5,
@@ -572,15 +618,21 @@ After your thoughts, you MUST choose ONE of the following output formats based o
 
 **Card Front Mandates (Absolute, Unbreakable Rules):**
 *   **THE RULE OF ONE (NON-NEGOTIABLE):** Each generated prompt (whether single, activity, or reflection) MUST be ONE single, focused action. It must not contain compound instructions (e.g., "do this, then do that").
+*   **NO TIME IN TEXT (CRITICAL for Timed Prompts):** You MUST NOT mention the duration of the activity (e.g., "for 30 seconds") inside the ${ACTIVITY_PROMPT_START_TAG} or ${REFLECTION_PROMPT_START_TAG} text. The duration MUST ONLY be provided inside the ${DURATION_START_TAG}...${DURATION_END_TAG} tag.
 *   **CONCISENESS IS KEY:** Each prompt should be very short, typically under 25 words.
 *   **FROM NOUN TO ACTION:** Transform abstract nouns into tangible processes or actions. Instead of "What is your fear?", create "Bring to mind a moment of fear. Where does that sensation live in your body?".
 *   **DIRECT THE SENSES:** Use active, imperative verbs: "Look at...", "Listen for...", "Notice the texture of...", "Say the words...".
 *   **SPECIFICITY IS KINDNESS:** Vague questions are unhelpful. Specific, small-scale questions are invitations.
 *   **THE PHENOMENOLOGICAL ANCHOR (CRITICAL):** The prompt MUST be anchored in a directly observable phenomenon: a physical sensation, an observable behavior, a concrete memory, a spoken word, or a visualizable image.
-*   **ADHERE TO CONTEXT:** Generate a prompt that perfectly fits the \\\`deck\\\` properties (themes, intensity, card types) and the \\\`socialContext\\\`. A \\\`[Wildcard]\\\` for a \\\`[Play & Creativity]\\\` deck should feel very different from a \\\`[Question]\\\` for a \\\`[Shadow & Depth]\\\` deck. A prompt for \\\`[SOLO]\\\` should use 'you', while a prompt for \\\`[FRIENDS]\\\` might use 'you' or 'share with your friend'.
-*   **INTENSITY MATTERS:** A level 1 prompt is gentle. A level 5 prompt is deeply challenging and direct. Calibrate your language accordingly.
-*   **CONNECTOR CARDS:** If the \\\`deck.cardTypes\\\` includes 'Connector' and \\\`historyLength\\\` > 5, you are encouraged to generate a Connector-style prompt that links to previous moments in the conversation.
-*   **TIMED ACTIVITIES:** If the \\\`deck.cardTypes\\\` includes 'Practice' or 'Directive', you may choose to generate a timed activity using the activity/reflection tag format.
+*   **ADHERE TO CONTEXT:** Generate a prompt that perfectly fits the \`deck\` properties (themes, intensity, card types) and the \`socialContext\`. A \`[Wildcard]\` for a \`[Play & Creativity]\` deck should feel very different from a \`[Question]\` for a \`[Shadow & Depth]\` deck. A prompt for \`[SOLO]\` should use 'you', while a prompt for \`[FRIENDS]\` might use 'you' or 'share with your friend'.
+*   **INTENSITY MATTERS:** Calibrate your language precisely to the requested intensity level.
+    - Level 1 (Surface): Light, safe, icebreakers. Avoid depth.
+    - Level 2 (Connecting): Invites personal stories, opinions. Gentle vulnerability.
+    - Level 3 (Vulnerable): Asks for feelings, needs, deeper self-revelation. Requires more trust.
+    - Level 4 (Edgy): Touches on shadow, withheld truths, charged topics. Be direct and challenging.
+    - Level 5 (Exposing): Deep, direct, unfiltered, uncensored. For radical honesty. Be bold and provocative.
+*   **CONNECTOR CARDS:** If the \`deck.cardTypes\` includes 'Connector' and \`historyLength\` > 5, you are encouraged to generate a Connector-style prompt that links to previous moments in the conversation.
+*   **TIMED ACTIVITIES:** If the \`deck.cardTypes\` includes 'Practice' or 'Directive', you may choose to generate a timed activity using the activity/reflection/duration tag format.
 
 **Conversational Awareness (Memory):**
 This is part of an ongoing chat session. Use your memory of previous cards and user feedback to MAINTAIN VARIETY. Do not repeat prompts or themes the user has disliked.
@@ -589,7 +641,7 @@ This is part of an ongoing chat session. Use your memory of previous cards and u
 For non-English languages, prefer direct questions that a person would naturally ask. Avoid overly formal or complex sentences.
 
 **Output Requirement:**
-Your entire response must contain your thinking process and the final prompt(s), using the specified tags. Do not include anything else.
+Your entire response must contain your thinking process, the voice style, and the final prompt(s), using the specified tags. Do not include anything else.
   `.trim();
 }
 
@@ -626,9 +678,25 @@ const constructUserMessageForCardFront = (
   redrawContext?: { disliked: boolean }
 ): string => {
   
-  const deckContext = ('themes' in selectedDeck) 
-    ? { name: selectedDeck.name, themes: selectedDeck.themes, intensity: selectedDeck.intensity, cardTypes: selectedDeck.cardTypes }
-    : { name: selectedDeck.name, description: selectedDeck.description };
+  const deckContext: any = { name: selectedDeck.name };
+  if ('category' in selectedDeck) {
+    const category = getDeckCategoryById(selectedDeck.category);
+    if (category) deckContext.category = category.name;
+  }
+  
+  // Consolidate properties from either ThemedDeck or CustomThemeData if they exist
+  if ('themes' in selectedDeck && selectedDeck.themes && selectedDeck.themes.length > 0) {
+      deckContext.themes = selectedDeck.themes;
+  }
+  if ('cardTypes' in selectedDeck && selectedDeck.cardTypes && selectedDeck.cardTypes.length > 0) {
+      deckContext.cardTypes = selectedDeck.cardTypes;
+  }
+  if ('intensity' in selectedDeck && selectedDeck.intensity && selectedDeck.intensity.length > 0) {
+      deckContext.intensity = selectedDeck.intensity;
+  }
+  if ('description' in selectedDeck && selectedDeck.description) {
+      deckContext.description = selectedDeck.description;
+  }
 
   const activeAgeGroups: AgeGroup[] = [];
   if (ageFilters.adults) activeAgeGroups.push('Adults');
@@ -660,7 +728,7 @@ const constructUserMessageForCardFront = (
 async function processStreamAndExtract(
     stream: AsyncGenerator<GenerateContentResponse>,
     onThinking: (thought: string) => void
-): Promise<{ text: string; reflectionText: string | null; rawLlmOutput: string; }> {
+): Promise<{ text: string; reflectionText: string | null; timerDuration: number | null, voiceStyle: string | null, rawLlmOutput: string; }> {
     let fullLlmOutput = "";
 
     for await (const chunk of stream) {
@@ -683,8 +751,14 @@ async function processStreamAndExtract(
     let text: string | null = null;
     let reflectionText: string | null = null;
 
-    const activityMatch = fullLlmOutput.match(/<activity_prompt>([\s\S]*?)<\/activity_prompt>/);
-    const reflectionMatch = fullLlmOutput.match(/<reflection_prompt>([\s\S]*?)<\/reflection_prompt>/);
+    const voiceStyleMatch = fullLlmOutput.match(new RegExp(`${VOICE_STYLE_START_TAG}(.*?)${VOICE_STYLE_END_TAG}`));
+    const voiceStyle = voiceStyleMatch ? voiceStyleMatch[1].trim() : null;
+
+    const durationMatch = fullLlmOutput.match(new RegExp(`${DURATION_START_TAG}(\\d+)${DURATION_END_TAG}`));
+    const timerDuration = durationMatch ? parseInt(durationMatch[1], 10) : null;
+
+    const activityMatch = fullLlmOutput.match(new RegExp(`${ACTIVITY_PROMPT_START_TAG}([\\s\\S]*?)${ACTIVITY_PROMPT_END_TAG}`));
+    const reflectionMatch = fullLlmOutput.match(new RegExp(`${REFLECTION_PROMPT_START_TAG}([\\s\\S]*?)${REFLECTION_PROMPT_END_TAG}`));
 
     if (activityMatch && reflectionMatch) {
         text = activityMatch[1].trim();
@@ -701,7 +775,7 @@ async function processStreamAndExtract(
         throw new Error("The AI returned an incomplete response. Please try drawing again.");
     }
 
-    return { text, reflectionText, rawLlmOutput: fullLlmOutput };
+    return { text, reflectionText, timerDuration, voiceStyle, rawLlmOutput: fullLlmOutput };
 }
 
 export const generateCardFront = async (
@@ -716,11 +790,21 @@ export const generateCardFront = async (
     onThinking: (thought: string) => void,
     addLogEntry: (entry: DevLogEntry) => void,
     redrawContext?: { disliked: boolean }
-): Promise<{ text: string | null; reflectionText: string | null; error: string | null; rawLlmOutput: string, inputPrompt: string, requestTimestamp: number, responseTimestamp: number }> => {
+): Promise<{ 
+    text: string | null; 
+    reflectionText: string | null; 
+    timerDuration: number | null;
+    voiceStyle: string | null;
+    error: string | null; 
+    rawLlmOutput: string, 
+    inputPrompt: string, 
+    requestTimestamp: number, 
+    responseTimestamp: number 
+}> => {
     const requestTimestamp = Date.now();
     if (!ai) {
         const error = "Gemini AI not initialized.";
-        return { text: null, reflectionText: null, error, rawLlmOutput: "", inputPrompt: "", requestTimestamp, responseTimestamp: Date.now() };
+        return { text: null, reflectionText: null, timerDuration: null, voiceStyle: null, error, rawLlmOutput: "", inputPrompt: "", requestTimestamp, responseTimestamp: Date.now() };
     }
 
     const inputPrompt = constructUserMessageForCardFront(
@@ -739,14 +823,14 @@ export const generateCardFront = async (
             setTimeout(() => reject(new Error(`The request to the AI timed out after ${GENERATION_TIMEOUT_MS / 1000} seconds.`)), GENERATION_TIMEOUT_MS)
         );
 
-        const result = await Promise.race([generationPromise, timeoutPromise]) as { text: string; reflectionText: string | null; rawLlmOutput: string; };
+        const result = await Promise.race([generationPromise, timeoutPromise]) as { text: string; reflectionText: string | null; timerDuration: number | null; voiceStyle: string | null; rawLlmOutput: string; };
 
-        return { text: result.text, reflectionText: result.reflectionText, error: null, rawLlmOutput: result.rawLlmOutput, inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
+        return { ...result, error: null, inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
 
     } catch (e: any) {
         console.error("Error generating card front:", e);
         const error = e.message || "An unknown error occurred.";
-        return { text: null, reflectionText: null, error, rawLlmOutput: e.toString(), inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
+        return { text: null, reflectionText: null, timerDuration: null, voiceStyle: null, error, rawLlmOutput: e.toString(), inputPrompt, requestTimestamp, responseTimestamp: Date.now() };
     }
 };
 
@@ -755,7 +839,7 @@ export const generateCardBack = async (cardFrontText: string, selectedDeck: Them
     if (!ai) return { cardBackNotesText: null, error: "Gemini AI not initialized.", rawLlmOutput: "", inputPrompt: "" };
 
     const systemInstruction = constructSystemInstructionForCardBack();
-    const themeContext = 'themes' in selectedDeck ? `Themes: ${selectedDeck.themes.join(', ')}` : selectedDeck.description;
+    const themeContext = ('themes' in selectedDeck && selectedDeck.themes) ? `Themes: ${selectedDeck.themes.join(', ')}` : selectedDeck.description;
     
     let inputPrompt = `The card front prompt is: "${cardFrontText}". It is from a deck with the context: "${themeContext}".`;
     if (contextPrompt) {

@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { 
     ThemeIdentifier, CustomThemeData, ThemedDeck,
@@ -11,7 +12,7 @@ import { ThemedDeckButton } from './ThemedDeckButton';
 import { useDragToScroll } from '../hooks/useDragToScroll'; 
 
 interface ThemeDeckSelectionProps {
-  onDraw: (itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM") => void;
+  onDraw: (itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM" | `CATEGORY_${string}`) => void;
   isDrawingInProgress?: boolean;
   interactionsDisabled?: boolean;
   customDecks: CustomThemeData[];
@@ -20,6 +21,7 @@ interface ThemeDeckSelectionProps {
   onShowDeckInfo: (itemId: ThemedDeck['id'] | CustomThemeData['id']) => void;
   groupSetting: SocialContext;
   ageFilters: AgeFilters;
+  showAllDecks?: boolean;
 }
 
 export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({ 
@@ -32,6 +34,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
     onShowDeckInfo,
     groupSetting,
     ageFilters,
+    showAllDecks = false,
 }) => {
   const scrollContainerRef = useDragToScroll<HTMLDivElement>(); 
 
@@ -39,7 +42,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;
 
-  const visibleDecks = useMemo(() => getVisibleDecks(groupSetting, ageFilters), [groupSetting, ageFilters]);
+  const visibleDecks = useMemo(() => getVisibleDecks(groupSetting, ageFilters, showAllDecks), [groupSetting, ageFilters, showAllDecks]);
 
   const categorizedDecks = useMemo(() => {
     const categories: { category: typeof DECK_CATEGORIES[0]; decks: ThemedDeck[] }[] = [];
@@ -63,7 +66,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
             <ThemedDeckButton
                 itemId="RANDOM" 
                 itemName="Surprise Me!"
-                colorClass="from-indigo-400 to-violet-500 hover:from-indigo-500 hover:to-violet-600"
+                colorClass="from-indigo-500 to-violet-600 hover:from-indigo-400 hover:to-violet-500"
                 onDrawClick={() => onDraw("RANDOM")}
                 drawActionDisabled={drawActionDisabled}
                 utilityActionsDisabled={utilityActionsDisabled}
@@ -73,8 +76,16 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
 
         {categorizedDecks.map(({ category, decks }) => (
             <React.Fragment key={category.id}>
-                <div className="flex-shrink-0 h-full flex items-center justify-center text-center font-bold text-slate-500 uppercase tracking-widest text-xs transform -rotate-90">
-                   {category.name}
+                <div className="flex-shrink-0 h-full w-10">
+                    <ThemedDeckButton
+                        itemId={`CATEGORY_${category.id}`}
+                        itemName={category.name}
+                        colorClass="from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700"
+                        onDrawClick={() => onDraw(`CATEGORY_${category.id}`)}
+                        drawActionDisabled={drawActionDisabled}
+                        utilityActionsDisabled={utilityActionsDisabled}
+                        isCategoryButton={true}
+                    />
                 </div>
                 {decks.map(deck => {
                     const { colorClass } = getDisplayDataForCard(deck.id, customDecks);
