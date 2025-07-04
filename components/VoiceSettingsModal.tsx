@@ -111,31 +111,6 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
               )}
             </button>
           </div>
-
-          {/* Language Selection */}
-          <div>
-            <label className="block text-[clamp(0.7rem,1.8vh,0.9rem)] font-bold text-slate-300 mb-2">
-              Language
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PRESET_LANGUAGES.map(lang => (
-                <LanguageButton key={lang.code} {...lang} isActive={!showCustomInput && currentLanguage === lang.code} onClick={handleLanguageClick} />
-              ))}
-              <LanguageButton code="other" label="Other..." isActive={showCustomInput} onClick={handleLanguageClick} />
-            </div>
-            {showCustomInput && (
-              <div className="mt-3">
-                <input
-                  type="text"
-                  value={currentLanguage}
-                  onChange={(e) => onLanguageChange(e.target.value)}
-                  placeholder="e.g., fr-FR"
-                  className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400"
-                />
-                 <p className="text-[clamp(0.6rem,1.8vh,0.85rem)] text-slate-400 mt-1">Enter a BCP-47 language code.</p>
-              </div>
-            )}
-          </div>
           
           {/* Voice Selection */}
           <div>
@@ -164,6 +139,32 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
                 ))}
             </div>
           </div>
+          
+          {/* Language Selection */}
+          <div className="border-t border-slate-700/80 pt-[2vh] sm:pt-[3vh]">
+            <label className="block text-[clamp(0.7rem,1.8vh,0.9rem)] font-bold text-slate-300 mb-2">
+              Language
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {PRESET_LANGUAGES.map(lang => (
+                <LanguageButton key={lang.code} {...lang} isActive={!showCustomInput && currentLanguage === lang.code} onClick={handleLanguageClick} />
+              ))}
+              <LanguageButton code="other" label="Other..." isActive={showCustomInput} onClick={handleLanguageClick} />
+            </div>
+            {showCustomInput && (
+              <div className="mt-3">
+                <input
+                  type="text"
+                  value={currentLanguage}
+                  onChange={(e) => onLanguageChange(e.target.value)}
+                  placeholder="e.g., fr-FR"
+                  className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400"
+                />
+                 <p className="text-[clamp(0.6rem,1.8vh,0.85rem)] text-slate-400 mt-1">Enter a BCP-47 language code.</p>
+              </div>
+            )}
+          </div>
+
         </div>
 
         <div className="mt-[2.5vh] sm:mt-[4vh] flex justify-end flex-shrink-0">

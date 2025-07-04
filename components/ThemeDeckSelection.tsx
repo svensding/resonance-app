@@ -2,8 +2,9 @@
 import React from 'react';
 import { 
     ThemeIdentifier, CustomThemeData, DeckSet, 
-    getVisibleDeckSetsForGroupSetting, isDeckSetPreferredForGroupSetting,
-    GroupSetting
+    getVisibleDeckSets, isDeckSetPreferredForGroupSetting,
+    GroupSetting,
+    AgeFilters
 } from '../services/geminiService';
 import { ThemedDeckButton } from './ThemedDeckButton';
 import { useDragToScroll } from '../hooks/useDragToScroll'; 
@@ -17,6 +18,7 @@ interface ThemeDeckSelectionProps {
   onEditCustomDeck: (deck: CustomThemeData) => void; 
   onShowDeckInfo: (itemId: DeckSet['id'] | CustomThemeData['id']) => void;
   groupSetting: GroupSetting;
+  ageFilters: AgeFilters;
 }
 
 export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({ 
@@ -27,7 +29,8 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
     onAddCustomDeck,
     onEditCustomDeck,
     onShowDeckInfo,
-    groupSetting
+    groupSetting,
+    ageFilters,
 }) => {
   const scrollContainerRef = useDragToScroll<HTMLDivElement>(); 
 
@@ -51,7 +54,7 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;
 
-  const visibleDeckSets = getVisibleDeckSetsForGroupSetting(groupSetting);
+  const visibleDeckSets = getVisibleDeckSets(groupSetting, ageFilters);
 
   const itemsToDisplay: (DeckSet | CustomThemeData | "RANDOM")[] = [
     "RANDOM",

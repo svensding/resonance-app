@@ -29,7 +29,10 @@ import {
   getDisplayDataForCard,
   getStyleDirectiveForMicroDeck,
   getActiveSpecialModeDetails,
-  getChatSessionHistory
+  getChatSessionHistory,
+  DrawnCardData,
+  AgeFilters,
+  getVisibleDeckSets,
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { ApiKeyMessage } from './components/ApiKeyMessage';
@@ -48,21 +51,6 @@ import { CardShuffleAnimation } from './components/CardShuffleAnimation';
 
 const MAX_HISTORY_WITH_AUDIO = 13; 
 
-export interface DrawnCardData { 
-  id: string;
-  themeIdentifier: ThemeIdentifier; // MicroDeckId or CustomThemeId
-  deckSetId?: string | null; // ID of the DeckSet it was drawn from, if applicable
-  feedback: 'liked' | 'disliked' | null;
-  timestamp: number;
-  drawnForParticipantId?: string | null;
-  drawnForParticipantName?: string | null;
-  isFaded?: boolean; 
-  text: string;
-  audioData: string | null;
-  audioMimeType: string | null;
-  cardBackNotesText: string | null;
-}
-
 const LOCALSTORAGE_KEYS = {
   CUSTOM_DECKS: 'resonanceClio_customDecks_v3',
   VOICE_NAME: 'resonanceClio_selectedVoiceName_v1',
@@ -71,6 +59,7 @@ const LOCALSTORAGE_KEYS = {
   GROUP_SETTING: 'resonanceClio_groupSetting_v1',
   SVEN_LISA_ONBOARDING_SHOWN: 'resonanceClio_svenLisaOnboardingShown_v1',
   PAULINA_JOE_ONBOARDING_SHOWN: 'resonanceClio_paulinaJoeOnboardingShown_v1',
+  AGE_FILTERS: 'resonanceClio_ageFilters_v1',
 };
 
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -100,7 +89,7 @@ const App: React.FC = () => {
   
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [activeParticipantId, setActiveParticipantId] = useState<string | null>(null);
-  const [selectedGroupSetting, setSelectedGroupSetting] = useState<GroupSetting>(DEFAULT_GROUP_SETTING);
+  const [selectedGroupSetting, setSelectedGroupSetting] = useState<GroupSetting>(() => loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING));
   const [showGroupSettingModal, setShowGroupSettingModal] = useState<boolean>(false);
   
   const [activeCardAudio, setActiveCardAudio] = useState<{ cardId: string; type: 'prompt' | 'notes' } | null>(null);
@@ -118,6 +107,7 @@ const App: React.FC = () => {
   const [selectedLanguageCode, setSelectedLanguageCode] = useState<LanguageCode>("en-US");
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(false);
   const [showVoiceSettingsModal, setShowVoiceSettingsModal] = useState<boolean>(false);
+  const [ageFilters, setAgeFilters] = useState<AgeFilters>(() => loadFromLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, { adults: true, teens: false, kids: false }));
   
   const [specialModeOnboardingDrawFn, setSpecialModeOnboardingDrawFn] = useState<(() => Promise<void>) | null>(null);
   const [showSvenAndLisaOnboardingModal, setShowSvenAndLisaOnboardingModal] = useState<boolean>(false);
@@ -154,6 +144,10 @@ const App: React.FC = () => {
   useEffect(() => {
     saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.PAULINA_JOE_ONBOARDING_SHOWN, hasShownPaulinaAndJoeOnboarding);
   }, [hasShownPaulinaAndJoeOnboarding]);
+  
+  useEffect(() => {
+    saveToLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, ageFilters);
+  }, [ageFilters]);
 
   useEffect(() => {
     const checkHash = () => {
@@ -189,9 +183,6 @@ const App: React.FC = () => {
     setSelectedLanguageCode(loadedLang);
     const loadedMute = loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.IS_MUTED, false);
     setIsAudioMuted(loadedMute);
-
-    const loadedGroupSetting = loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING);
-    setSelectedGroupSetting(loadedGroupSetting);
     
     if (participants.length === 0) {
         const defaultParticipant = { id: `participant-${Date.now()}`, name: '' };
@@ -230,11 +221,12 @@ const App: React.FC = () => {
     setActiveCardAudio({ cardId, type: 'notes' });
 
     try {
-        const cardInHistory = drawnCardHistory.find(c => c.id === cardId);
-        if (!cardInHistory) throw new Error("Card not found in history");
+        const cardInHistory = drawnCardHistory.find(c => c.id === cardId || c.activeFollowUpCard?.id === cardId);
+        const cardToUse = cardInHistory?.id === cardId ? cardInHistory : cardInHistory?.activeFollowUpCard;
+        if (!cardToUse) throw new Error("Card not found in history");
         
-        const microDeck = !cardInHistory.themeIdentifier.startsWith("CUSTOM_")
-            ? getMicroDeckById(cardInHistory.themeIdentifier as MicroDeck['id'])
+        const microDeck = !cardToUse.themeIdentifier.startsWith("CUSTOM_")
+            ? getMicroDeckById(cardToUse.themeIdentifier as MicroDeck['id'])
             : null;
         const styleDirective = getStyleDirectiveForMicroDeck(microDeck, true, selectedVoiceName);
 
@@ -294,11 +286,23 @@ const App: React.FC = () => {
                   availableDecks = ALL_MICRO_DECKS;
               } else {
                   availableDecks = ALL_MICRO_DECKS.filter(md => {
-                    const suitability = md.group_setting_suitability[groupSettingToUse];
-                    return suitability === 'PREFERRED' || suitability === 'OPTIONAL';
+                    const groupSuitability = md.group_setting_suitability[groupSettingToUse];
+                    const isGroupSuitable = groupSuitability === 'PREFERRED' || groupSuitability === 'OPTIONAL';
+                    
+                    const isMinorSelected = ageFilters.teens || ageFilters.kids;
+                    if (isMinorSelected) {
+                        const isAdultOnly = md.age_suitability.length === 1 && md.age_suitability[0] === 'adult';
+                        if (isAdultOnly) return false;
+                    }
+
+                    const isAgeSuitable = (ageFilters.adults && md.age_suitability.includes('adult')) || 
+                                          (ageFilters.teens && md.age_suitability.includes('teen')) ||
+                                          (ageFilters.kids && md.age_suitability.includes('kid'));
+
+                    return isGroupSuitable && isAgeSuitable;
                   });
               }
-              if (availableDecks.length === 0) throw new Error(`No suitable cards available for the "${groupSettingToUse}" setting.`);
+              if (availableDecks.length === 0) throw new Error(`No suitable cards available for the "${groupSettingToUse}" setting and selected age groups.`);
               
               const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
               chosenItem = chosenMicroDeck;
@@ -324,10 +328,15 @@ const App: React.FC = () => {
               if (groupSettingToUse === 'SPECIAL') {
                   availableDecks = microDecksInSet;
               } else {
-                  const preferredDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
-                  const optionalDecks = microDecksInSet.filter(md => md.group_setting_suitability[groupSettingToUse] === 'OPTIONAL');
+                  const decksForGroup = microDecksInSet.filter(md => {
+                      const groupSuitability = md.group_setting_suitability[groupSettingToUse];
+                      return groupSuitability === 'PREFERRED' || groupSuitability === 'OPTIONAL';
+                  });
+                  
+                  const preferredDecks = decksForGroup.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
+                  
                   if (preferredDecks.length > 0) availableDecks = preferredDecks;
-                  else if (optionalDecks.length > 0) availableDecks = optionalDecks;
+                  else availableDecks = decksForGroup;
               }
           
               if (availableDecks.length === 0) throw new Error(`No suitable cards in "${deckSet.name}" for the "${groupSettingToUse}" setting.`);
@@ -362,7 +371,7 @@ const App: React.FC = () => {
           const frontResult = await generateCardFront(
               userSelectedSetName, chosenItem, participants.length, participantNames, activePName,
               groupSettingToUse, customDecks, selectedLanguageCode, chosenAngle,
-              historyLength, () => {}, addLogEntry, drawSource, { disliked: options?.isRedraw ?? false }
+              historyLength, () => {}, addLogEntry, drawSource, ageFilters, { disliked: options?.isRedraw ?? false }
           );
   
           addLogEntry({
@@ -408,6 +417,9 @@ const App: React.FC = () => {
   
           const newCardId = `card-${Date.now()}`;
           const activeParticipant = participants.find(p => p.id === activeParticipantId);
+          const hasFollowUp = 'hasFollowUp' in chosenItem && (chosenItem.hasFollowUp ?? 0) > 0;
+          const angle = (Math.random() - 0.5) * 6; // -3 to +3 degrees
+          
           const newCard: DrawnCardData = {
             id: newCardId,
             themeIdentifier: chosenItem.id,
@@ -420,12 +432,20 @@ const App: React.FC = () => {
             text: frontResult.text,
             audioData: audioGenResult?.audioData || null,
             audioMimeType: audioGenResult?.audioMimeType || null,
-            cardBackNotesText: backResult?.cardBackNotesText || null
+            cardBackNotesText: backResult?.cardBackNotesText || null,
+            isTimed: 'isTimed' in chosenItem && !!chosenItem.isTimed,
+            hasFollowUp: hasFollowUp,
+            timerDuration: 'timedDuration' in chosenItem ? chosenItem.timedDuration : null,
+            followUpPromptText: frontResult.reflectionText || null,
+            isCompletedActivity: false,
+            isFollowUp: false,
+            activeFollowUpCard: null,
+            angle: angle,
           };
           
           setDrawnCardHistory(prev => [newCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
           
-          if (participants.length > 1 && !options?.isRedraw) {
+          if (participants.length > 1 && !options?.isRedraw && !newCard.isTimed) {
               const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
               const nextIndex = (currentIndex + 1) % participants.length;
               setActiveParticipantId(participants[nextIndex].id);
@@ -439,41 +459,164 @@ const App: React.FC = () => {
         setIsLoading(false);
         setShuffleColorClasses([]);
       }
-  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, hasShownPaulinaAndJoeOnboarding, hasShownSvenAndLisaOnboarding, drawnCardHistory.length, addLogEntry]);
+  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, ageFilters, hasShownPaulinaAndJoeOnboarding, hasShownSvenAndLisaOnboarding, drawnCardHistory.length, addLogEntry]);
+
+  // This effect handles generating the follow-up card after a timed activity is completed.
+  useEffect(() => {
+    // Find the first card that has completed its activity but doesn't have a follow-up card yet.
+    const sourceCard = drawnCardHistory.find(c =>
+      c.isCompletedActivity && c.hasFollowUp && c.followUpPromptText && !c.activeFollowUpCard
+    );
+
+    if (!sourceCard || isLoading || isShuffling) {
+      return;
+    }
+
+    const generateFollowUp = async (cardToUpdate: DrawnCardData) => {
+      handleStopAudio(); // Stop any currently playing audio before starting the new process
+      setIsLoading(true);
+      try {
+        const followUpText = cardToUpdate.followUpPromptText!;
+        const themeItem = getMicroDeckById(cardToUpdate.themeIdentifier as MicroDeck['id']) || getCustomDeckById(cardToUpdate.themeIdentifier as CustomThemeId, customDecks);
+        
+        if (!themeItem) {
+          setError("Could not find the theme for the follow-up prompt.");
+          setIsLoading(false);
+          return;
+        }
+
+        const activeP = participants.find(p => p.id === activeParticipantId);
+        const newId = `card-${Date.now()}`;
+
+        const placeholderFollowUpCard: DrawnCardData = {
+          id: newId,
+          themeIdentifier: cardToUpdate.themeIdentifier,
+          deckSetId: cardToUpdate.deckSetId,
+          feedback: null,
+          timestamp: Date.now(),
+          drawnForParticipantId: activeP?.id || null,
+          drawnForParticipantName: activeP?.name || null,
+          isFaded: false,
+          text: followUpText,
+          audioData: null, audioMimeType: null, cardBackNotesText: null,
+          isTimed: false, hasFollowUp: false, timerDuration: null, followUpPromptText: null,
+          isCompletedActivity: false, isFollowUp: true,
+          angle: cardToUpdate.angle, // Inherit angle
+        };
+        
+        // Optimistically set the placeholder to avoid re-triggering the effect
+        setDrawnCardHistory(prev => prev.map(c => c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: placeholderFollowUpCard } : c));
+
+        const styleDirective = getStyleDirectiveForMicroDeck(themeItem as MicroDeck, false, selectedVoiceName);
+        const audioPromise = isAudioMuted ? Promise.resolve(null) : generateAudioForText(followUpText, selectedVoiceName, styleDirective);
+        const cardBackPromise = generateCardBack(followUpText, themeItem, cardToUpdate.text);
+
+        const [audioGenResult, backResult] = await Promise.all([audioPromise, cardBackPromise]);
+
+        if (audioGenResult) addLogEntry({ type: 'tts', requestTimestamp: audioGenResult.requestTimestamp, responseTimestamp: audioGenResult.responseTimestamp, data: { ...audioGenResult.logData, error: audioGenResult.error } });
+        if (backResult) addLogEntry({ type: 'chat-back', requestTimestamp: backResult.requestTimestamp, responseTimestamp: backResult.responseTimestamp, data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error } });
+
+        const finalFollowUpCard: DrawnCardData = {
+          ...placeholderFollowUpCard,
+          audioData: audioGenResult?.audioData || null,
+          audioMimeType: audioGenResult?.audioMimeType || null,
+          cardBackNotesText: backResult?.cardBackNotesText || null,
+        };
+        
+        // Replace placeholder with the final card
+        setDrawnCardHistory(prev => prev.map(c =>
+          c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: finalFollowUpCard } : c
+        ));
+        
+        // Explicitly play the audio for the newly created follow-up card
+        if (!isAudioMuted && finalFollowUpCard.audioData && finalFollowUpCard.audioMimeType) {
+            handlePlayAudioForMainPrompt({
+                cardId: finalFollowUpCard.id,
+                text: finalFollowUpCard.text,
+                audioData: finalFollowUpCard.audioData,
+                audioMimeType: finalFollowUpCard.audioMimeType,
+            });
+        }
+        
+        if (participants.length > 1) {
+          const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
+          const nextIndex = (currentIndex + 1) % participants.length;
+          setActiveParticipantId(participants[nextIndex].id);
+        }
+      } catch (err: any) {
+        console.error("Error generating follow-up card:", err);
+        setError("Failed to generate the follow-up card.");
+        // Revert the optimistic update on error
+        setDrawnCardHistory(prev => prev.map(c => c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: null } : c));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    generateFollowUp(sourceCard);
+
+  }, [drawnCardHistory, isLoading, isShuffling, customDecks, selectedVoiceName, isAudioMuted, participants, activeParticipantId, addLogEntry, handlePlayAudioForMainPrompt, handleStopAudio]);
+
+
+  const handleTimerEnd = useCallback((completedCardId: string) => {
+      setDrawnCardHistory(prev => prev.map(c => 
+          c.id === completedCardId ? { ...c, isCompletedActivity: true } : c
+      ));
+  }, []);
+  
+  const handleRedoTimedActivity = useCallback((cardId: string) => {
+    handleStopAudio();
+    setDrawnCardHistory(prev => prev.map(c => 
+      c.id === cardId 
+        ? { ...c, isCompletedActivity: false, activeFollowUpCard: null } 
+        : c
+    ));
+  }, [handleStopAudio]);
 
   const handleLike = useCallback(async (cardId: string) => {
-    const cardToUpdate = drawnCardHistory.find(c => c.id === cardId);
+    const cardToUpdate = drawnCardHistory.find(c => c.id === cardId || c.activeFollowUpCard?.id === cardId);
     if (!cardToUpdate) return;
-
-    // Optimistic UI update
-    setDrawnCardHistory(prev => prev.map(card => card.id === cardId ? { ...card, feedback: 'liked' } : card));
-
-    // Send feedback to AI
-    if (cardToUpdate.text) {
-        await sendFeedbackToChat(cardToUpdate.text, 'liked', addLogEntry);
+  
+    const isFollowUp = cardToUpdate.activeFollowUpCard?.id === cardId;
+  
+    setDrawnCardHistory(prev => prev.map(card => {
+      if (card.id === cardId) {
+        return { ...card, feedback: 'liked' };
+      }
+      if (card.activeFollowUpCard && card.activeFollowUpCard.id === cardId) {
+        return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, feedback: 'liked' } };
+      }
+      return card;
+    }));
+  
+    const cardText = isFollowUp ? cardToUpdate.activeFollowUpCard?.text : cardToUpdate.text;
+    if (cardText) {
+      await sendFeedbackToChat(cardText, 'liked', addLogEntry);
     }
   }, [drawnCardHistory, addLogEntry]);
-
+  
   const handleDislike = useCallback(async (cardId: string) => {
     if (isLoading || isShuffling) return;
 
-    const cardToUpdate = drawnCardHistory.find(c => c.id === cardId);
+    const cardToUpdate = drawnCardHistory.find(c => c.id === cardId || c.activeFollowUpCard?.id === cardId);
     if (!cardToUpdate) return;
+
+    const isFollowUp = cardToUpdate.activeFollowUpCard?.id === cardId;
+    const isNewestCard = cardToUpdate.id === drawnCardHistory[0]?.id && !isFollowUp && !drawnCardHistory[0].isFaded;
+
+    // Optimistic UI update for feedback
+    setDrawnCardHistory(prev => prev.map(card => {
+        if (card.id === cardId) return { ...card, feedback: 'disliked' };
+        if (card.activeFollowUpCard?.id === cardId) return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, feedback: 'disliked' }};
+        return card;
+    }));
     
-    const isNewestCard = cardId === drawnCardHistory[0]?.id && !drawnCardHistory[0].isFaded;
-
-    // Optimistic UI update for feedback state on the card
-    setDrawnCardHistory(prev => prev.map(card => 
-        card.id === cardId ? { ...card, feedback: 'disliked' } : card
-    ));
-
-    // Send 'disliked' feedback to the AI for ANY disliked card.
-    if (cardToUpdate.text) {
-        await sendFeedbackToChat(cardToUpdate.text, 'disliked', addLogEntry);
+    const cardText = isFollowUp ? cardToUpdate.activeFollowUpCard!.text : cardToUpdate.text;
+    if (cardText) {
+        await sendFeedbackToChat(cardText, 'disliked', addLogEntry);
     }
-
+    
     if (isNewestCard) {
-        // This is the newest card, so we fade it and trigger a redraw.
         setDrawnCardHistory(prev => prev.map(card => 
             card.id === cardId ? { ...card, isFaded: true } : card
         ));
@@ -481,17 +624,21 @@ const App: React.FC = () => {
         let originalItemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM";
         const { deckSetId, themeIdentifier } = cardToUpdate;
 
-        if (deckSetId) {
-            originalItemId = deckSetId as DeckSet['id'];
-        } else if (themeIdentifier.startsWith("CUSTOM_")) {
-            originalItemId = themeIdentifier as CustomThemeData['id'];
-        } else {
-            originalItemId = "RANDOM";
-        }
+        if (deckSetId) originalItemId = deckSetId as DeckSet['id'];
+        else if (themeIdentifier.startsWith("CUSTOM_")) originalItemId = themeIdentifier as CustomThemeData['id'];
+        else originalItemId = "RANDOM";
         
         await new Promise(resolve => setTimeout(resolve, 300));
         await handleDrawNewCard(originalItemId, { isRedraw: true });
 
+    } else if (isFollowUp) {
+        // Fade the follow-up card
+        setDrawnCardHistory(prev => prev.map(card => {
+            if (card.activeFollowUpCard?.id === cardId) {
+                return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, isFaded: true }};
+            }
+            return card;
+        }));
     }
   }, [drawnCardHistory, isLoading, isShuffling, handleDrawNewCard, addLogEntry]);
 
@@ -574,6 +721,19 @@ const App: React.FC = () => {
     setSelectedGroupSetting(setting);
     saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, setting);
   };
+  const handleAgeFilterChange = (newFilters: AgeFilters) => {
+    if (!newFilters.adults && !newFilters.teens && !newFilters.kids) {
+        setAgeFilters({ adults: true, teens: false, kids: false });
+    } else {
+        setAgeFilters(newFilters);
+        // If 'Kids' is selected and the current setting is 'Romantic', switch to 'Friends'.
+        if (newFilters.kids && selectedGroupSetting === 'ROMANTIC') {
+            setSelectedGroupSetting('FRIENDS');
+            saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, 'FRIENDS');
+        }
+    }
+  };
+
 
   const handleConfirmSvenLisaOnboarding = async () => {
     setShowSvenAndLisaOnboardingModal(false);
@@ -612,6 +772,7 @@ const App: React.FC = () => {
               customDecks={customDecks} onAddCustomDeck={handleAddCustomDeck}
               onEditCustomDeck={handleEditCustomDeck} onShowDeckInfo={handleShowDeckInfo}
               groupSetting={selectedGroupSetting}
+              ageFilters={ageFilters}
             />
           </header>
           
@@ -634,6 +795,8 @@ const App: React.FC = () => {
                 onLike={handleLike} onDislike={handleDislike}
                 onPlayAudioForMainPrompt={handlePlayAudioForMainPrompt}
                 onFetchAndPlayCardBackAudio={handleFetchAndPlayCardBackAudio}
+                onTimerEnd={handleTimerEnd}
+                onRedoTimedActivity={handleRedoTimedActivity}
                 customDecks={customDecks}
                 activeCardAudio={activeCardAudio} onStopAudio={handleStopAudio}
                 isDrawingInProgress={isLoading || isShuffling}
@@ -685,7 +848,7 @@ const App: React.FC = () => {
         <VoiceSettingsModal 
           currentVoice={selectedVoiceName} currentLanguage={selectedLanguageCode} isMuted={isAudioMuted}
           onVoiceChange={handleVoiceChange} onLanguageChange={handleLanguageChange} onMuteChange={handleMuteChange}
-          onClose={() => setShowVoiceSettingsModal(false)} voicePersonas={CURATED_VOICE_PERSONAS} 
+          onClose={() => setShowVoiceSettingsModal(false)} voicePersonas={CURATED_VOICE_PERSONAS}
         />
       )}
       {showDeckInfoModal && itemForInfoModal && (
@@ -695,6 +858,7 @@ const App: React.FC = () => {
         <GroupSettingModal 
           currentSetting={selectedGroupSetting} onSettingChange={handleGroupSettingChange}
           onClose={() => setShowGroupSettingModal(false)} groupSettingsOptions={GROUP_SETTINGS} disabled={isLoading || isShuffling}
+          ageFilters={ageFilters} onAgeFilterChange={handleAgeFilterChange}
         />
       )}
       {showSvenAndLisaOnboardingModal && (

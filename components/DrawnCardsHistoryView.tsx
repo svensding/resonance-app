@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { DrawnCard, DrawnCardDisplayData } from './DrawnCard';
-import { DrawnCardData as CardHistoryItemType } from '../App';
+import { DrawnCardData as CardHistoryItemType } from '../services/geminiService';
 import { CustomThemeData } from '../services/geminiService';
 import { CornerGlyphGrid } from './CornerGlyphGrid';
 
@@ -11,6 +10,8 @@ interface DrawnCardsHistoryViewProps {
   onDislike: (id: string) => void;
   onPlayAudioForMainPrompt: (audioDetails: { cardId: string; text: string | null; audioData: string | null; audioMimeType: string | null }) => void;
   onFetchAndPlayCardBackAudio: (cardId: string, textToSpeak: string) => void;
+  onTimerEnd: (id: string) => void;
+  onRedoTimedActivity: (id: string) => void;
   customDecks: CustomThemeData[];
   activeCardAudio: { cardId: string; type: 'prompt' | 'notes' } | null;
   onStopAudio: () => void;
@@ -49,6 +50,8 @@ export const GlyphPatternRow: React.FC<GlyphPatternRowProps> = ({
 
 export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({ 
   history, onLike, onDislike, onPlayAudioForMainPrompt, onFetchAndPlayCardBackAudio,
+  onTimerEnd,
+  onRedoTimedActivity,
   customDecks, 
   activeCardAudio,
   onStopAudio,
@@ -136,9 +139,17 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
             onDislike={onDislike}
             onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
             onFetchAndPlayCardBackAudio={onFetchAndPlayCardBackAudio}
+            onTimerEnd={onTimerEnd}
+            onRedoTimedActivity={onRedoTimedActivity}
             allCustomDecksForLookup={customDecks}
             activeCardAudio={activeCardAudio}
             onStopAudio={onStopAudio}
+            isTimed={newestCard.isTimed}
+            timerDuration={newestCard.timerDuration}
+            isCompletedActivity={newestCard.isCompletedActivity}
+            isFollowUp={newestCard.isFollowUp}
+            followUpPromptText={newestCard.followUpPromptText}
+            activeFollowUpCard={newestCard.activeFollowUpCard}
         />
       </div>
 
@@ -160,6 +171,8 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
                 onDislike={onDislike}
                 onPlayAudioForMainPrompt={onPlayAudioForMainPrompt}
                 onFetchAndPlayCardBackAudio={onFetchAndPlayCardBackAudio}
+                onTimerEnd={onTimerEnd}
+                onRedoTimedActivity={onRedoTimedActivity}
                 allCustomDecksForLookup={customDecks}
                 audioData={card.audioData}
                 audioMimeType={card.audioMimeType}
@@ -167,6 +180,12 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
                 isFaded={card.isFaded}
                 activeCardAudio={activeCardAudio}
                 onStopAudio={onStopAudio}
+                isTimed={card.isTimed}
+                timerDuration={card.timerDuration}
+                isCompletedActivity={card.isCompletedActivity}
+                isFollowUp={card.isFollowUp}
+                followUpPromptText={card.followUpPromptText}
+                activeFollowUpCard={card.activeFollowUpCard}
               />
             ))}
           </div>
