@@ -1,23 +1,24 @@
-
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
-    ThemeIdentifier, CustomThemeData, DeckSet, 
-    getVisibleDeckSets, isDeckSetPreferredForGroupSetting,
-    GroupSetting,
-    AgeFilters
+    ThemeIdentifier, CustomThemeData, ThemedDeck,
+    getVisibleDecks,
+    SocialContext,
+    AgeFilters,
+    DECK_CATEGORIES,
+    getDisplayDataForCard
 } from '../services/geminiService';
 import { ThemedDeckButton } from './ThemedDeckButton';
 import { useDragToScroll } from '../hooks/useDragToScroll'; 
 
 interface ThemeDeckSelectionProps {
-  onDraw: (itemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM") => void;
+  onDraw: (itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM") => void;
   isDrawingInProgress?: boolean;
   interactionsDisabled?: boolean;
   customDecks: CustomThemeData[];
   onAddCustomDeck: () => void;
   onEditCustomDeck: (deck: CustomThemeData) => void; 
-  onShowDeckInfo: (itemId: DeckSet['id'] | CustomThemeData['id']) => void;
-  groupSetting: GroupSetting;
+  onShowDeckInfo: (itemId: ThemedDeck['id'] | CustomThemeData['id']) => void;
+  groupSetting: SocialContext;
   ageFilters: AgeFilters;
 }
 
@@ -34,33 +35,22 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
 }) => {
   const scrollContainerRef = useDragToScroll<HTMLDivElement>(); 
 
-  const getHoverColorClass = (baseColor: string | undefined): string => {
-    if (!baseColor) return "hover:from-gray-700 hover:to-gray-800";
-    const [fromColor, toColor] = baseColor.split(' '); 
-    const darken = (colorClass: string) => {
-      if (!colorClass) return '';
-      const parts = colorClass.split('-'); 
-      if (parts.length < 2) return colorClass;
-      const shade = parseInt(parts[parts.length -1]);
-      if (isNaN(shade)) return colorClass;
-      const newShade = Math.min(900, shade + 100); 
-      return parts.slice(0, -1).join('-') + `-${newShade}`;
-    }
-    return `hover:${darken(fromColor)} hover:${darken(toColor)}`;
-  };
-
   const deckButtonContainerStyle = "flex-shrink-0 h-full aspect-[5/7]";
-
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;
 
-  const visibleDeckSets = getVisibleDeckSets(groupSetting, ageFilters);
+  const visibleDecks = useMemo(() => getVisibleDecks(groupSetting, ageFilters), [groupSetting, ageFilters]);
 
-  const itemsToDisplay: (DeckSet | CustomThemeData | "RANDOM")[] = [
-    "RANDOM",
-    ...visibleDeckSets,
-    ...customDecks
-  ];
+  const categorizedDecks = useMemo(() => {
+    const categories: { category: typeof DECK_CATEGORIES[0]; decks: ThemedDeck[] }[] = [];
+    DECK_CATEGORIES.forEach(cat => {
+      const decksInCategory = visibleDecks.filter(deck => deck.category === cat.id);
+      if (decksInCategory.length > 0) {
+        categories.push({ category: cat, decks: decksInCategory });
+      }
+    });
+    return categories;
+  }, [visibleDecks]);
 
   return (
     <div className="w-full h-full flex items-center p-2 sm:p-3 relative bg-transparent" > 
@@ -69,63 +59,65 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
         className="flex h-full overflow-x-auto hide-scrollbar space-x-3 sm:space-x-4 justify-start items-center cursor-grab active:cursor-grabbing bg-transparent w-full"
         style={{ isolation: 'isolate' }} 
       >
-        {itemsToDisplay.map(item => {
-          let itemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM";
-          let itemName: string;
-          let baseColorClass: string;
-          let isRandom = false;
-          let isCustom = false;
-          let itemForInfo: DeckSet | CustomThemeData | null = null;
-          let itemIsDeckSet = false;
-          let isPreferred = false;
-
-          if (item === "RANDOM") {
-            itemId = "RANDOM";
-            itemName = "Surprise Me!";
-            baseColorClass = "from-indigo-400 to-violet-500"; 
-            isRandom = true;
-          } else if (typeof item === 'object' && item.id && typeof item.id === 'string' && item.id.startsWith("CUSTOM_")) {
-            const customDeck = item as CustomThemeData;
-            itemId = customDeck.id;
-            itemName = customDeck.name;
-            baseColorClass = customDeck.colorClass;
-            isCustom = true;
-            itemForInfo = customDeck;
-          } else if (typeof item === 'object' && 'colorClass' in item && 'description' in item) { 
-            const deckSet = item as DeckSet;
-            itemId = deckSet.id;
-            itemName = deckSet.name;
-            baseColorClass = deckSet.colorClass;
-            itemForInfo = deckSet;
-            itemIsDeckSet = true;
-            isPreferred = isDeckSetPreferredForGroupSetting(deckSet.id, groupSetting);
-          } else {
-            console.warn("Unknown item type in ThemeDeckSelection:", item);
-            return null; 
-          }
-          
-          const hoverColorClass = getHoverColorClass(baseColorClass);
-          const effectiveColorClass = `${baseColorClass} ${hoverColorClass}`;
-
-          return (
-            <div key={itemId} className={deckButtonContainerStyle}> 
-              <ThemedDeckButton
-                itemId={itemId} 
-                itemName={itemName}
-                colorClass={effectiveColorClass}
-                onDrawClick={() => onDraw(itemId)}
+        <div key="RANDOM" className={deckButtonContainerStyle}> 
+            <ThemedDeckButton
+                itemId="RANDOM" 
+                itemName="Surprise Me!"
+                colorClass="from-indigo-400 to-violet-500 hover:from-indigo-500 hover:to-violet-600"
+                onDrawClick={() => onDraw("RANDOM")}
                 drawActionDisabled={drawActionDisabled}
                 utilityActionsDisabled={utilityActionsDisabled}
-                isRandomButton={isRandom}
-                customDeckData={isCustom ? (item as CustomThemeData) : undefined}
-                onEditCustomDeck={isCustom ? onEditCustomDeck : undefined}
-                onShowInfo={itemForInfo ? () => onShowDeckInfo(itemId as DeckSet['id'] | CustomThemeData['id']) : undefined}
-                isDeckSet={itemIsDeckSet}
-                isPreferred={isPreferred}
-              />
-            </div>
-          );
-        })}
+                isRandomButton={true}
+            />
+        </div>
+
+        {categorizedDecks.map(({ category, decks }) => (
+            <React.Fragment key={category.id}>
+                <div className="flex-shrink-0 h-full flex items-center justify-center text-center font-bold text-slate-500 uppercase tracking-widest text-xs transform -rotate-90">
+                   {category.name}
+                </div>
+                {decks.map(deck => {
+                    const { colorClass } = getDisplayDataForCard(deck.id, customDecks);
+                    return (
+                        <div key={deck.id} className={deckButtonContainerStyle}> 
+                            <ThemedDeckButton
+                                itemId={deck.id}
+                                itemName={deck.name}
+                                colorClass={colorClass}
+                                onDrawClick={() => onDraw(deck.id)}
+                                drawActionDisabled={drawActionDisabled}
+                                utilityActionsDisabled={utilityActionsDisabled}
+                                onShowInfo={() => onShowDeckInfo(deck.id)}
+                                isDeckSet={true}
+                            />
+                        </div>
+                    );
+                })}
+            </React.Fragment>
+        ))}
+
+        {customDecks.length > 0 && (
+            <React.Fragment>
+                 <div className="flex-shrink-0 h-full flex items-center justify-center text-center font-bold text-slate-500 uppercase tracking-widest text-xs transform -rotate-90">
+                   Custom
+                </div>
+                {customDecks.map(deck => (
+                    <div key={deck.id} className={deckButtonContainerStyle}>
+                        <ThemedDeckButton
+                            itemId={deck.id}
+                            itemName={deck.name}
+                            colorClass={deck.colorClass}
+                            onDrawClick={() => onDraw(deck.id)}
+                            drawActionDisabled={drawActionDisabled}
+                            utilityActionsDisabled={utilityActionsDisabled}
+                            customDeckData={deck}
+                            onEditCustomDeck={onEditCustomDeck}
+                            onShowInfo={() => onShowDeckInfo(deck.id)}
+                        />
+                    </div>
+                ))}
+            </React.Fragment>
+        )}
         
         <div className={`${deckButtonContainerStyle} flex items-center justify-center`}>
             <button

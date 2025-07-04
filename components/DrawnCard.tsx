@@ -6,8 +6,7 @@ import { CountdownTimer } from './CountdownTimer';
 export interface DrawnCardDisplayData {
   id: string;
   promptText: string;
-  themeIdentifier: ThemeIdentifier; 
-  deckSetId?: string | null; 
+  themedDeckId: ThemeIdentifier; 
   feedback: 'liked' | 'disliked' | null;
   audioData: string | null; 
   audioMimeType: string | null;
@@ -21,7 +20,6 @@ export interface DrawnCardDisplayData {
   isFollowUp?: boolean;
   activeFollowUpCard?: DrawnCardData | null;
   followUpPromptText?: string | null;
-  angle?: number;
 }
 
 interface DrawnCardProps extends DrawnCardDisplayData {
@@ -50,8 +48,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
   const {
     id,
     promptText,
-    themeIdentifier,
-    deckSetId,
+    themedDeckId,
     feedback,
     audioData, 
     audioMimeType,
@@ -73,7 +70,6 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
     isCompletedActivity,
     isFollowUp,
     activeFollowUpCard,
-    angle = 0,
   } = props;
 
   const [isRevealed, setIsRevealed] = useState(!isNewest);
@@ -224,7 +220,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
 
   const actionButtonBaseClasses = `rounded-full transition-all duration-300 ease-in-out ${utilityAndActionButtonsVisibilityClasses}`;
   
-  const { name: themeDisplayName, colorClass: themeColor } = getDisplayDataForCard(themeIdentifier, deckSetId || null, allCustomDecksForLookup);
+  const { name: themeDisplayName, colorClass: themeColor } = getDisplayDataForCard(themedDeckId, allCustomDecksForLookup);
   
   const themeNameSizeClasses = isNewest ? "text-[clamp(0.6rem,1.8vw,0.9rem)]" : "text-[clamp(0.55rem,1.5vw,0.8rem)]";
   const participantNameSizeClasses = isNewest ? "text-[clamp(0.55rem,1.6vw,0.85rem)]" : "text-[clamp(0.5rem,1.4vw,0.75rem)]";
@@ -279,16 +275,15 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
   const renderFollowUpCard = () => {
     if (!activeFollowUpCard) return null;
 
-    // Inherit the isNewest prop for correct scaling in history
     const followUpProps: DrawnCardProps = {
         ...props,
         ...activeFollowUpCard,
         id: activeFollowUpCard.id,
-        promptText: activeFollowUpCard.text, // Use the follow-up's own text
-        isNewest: props.isNewest, // Inherit from parent for correct history scaling
+        promptText: activeFollowUpCard.text,
+        isNewest: props.isNewest,
         isFollowUp: true,
-        activeFollowUpCard: null, // Stop recursion
-        onRedoTimedActivity: () => {}, // Cannot redo a follow-up
+        activeFollowUpCard: null,
+        onRedoTimedActivity: () => {},
     };
 
     return (
@@ -328,7 +323,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
       className={`${baseWidthClass} perspective break-inside-avoid-column mx-auto relative group`} 
       style={{
           height: 'auto',
-          transform: `rotate(${angle}deg) scale(${isNewest && activeFollowUpCard ? 0.95 : 1})`,
+          transform: `scale(${isNewest && activeFollowUpCard ? 0.95 : 1})`,
           transition: 'transform 0.4s ease-out',
       }}
     >

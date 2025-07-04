@@ -1,5 +1,5 @@
 import React from 'react';
-import { DrawnCard, DrawnCardDisplayData } from './DrawnCard';
+import { DrawnCard } from './DrawnCard';
 import { DrawnCardData as CardHistoryItemType } from '../services/geminiService';
 import { CustomThemeData } from '../services/geminiService';
 import { CornerGlyphGrid } from './CornerGlyphGrid';
@@ -126,8 +126,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
             key={newestCard.id}
             id={newestCard.id}
             promptText={newestCard.text}
-            themeIdentifier={newestCard.themeIdentifier}
-            deckSetId={newestCard.deckSetId}
+            themedDeckId={newestCard.themedDeckId}
             feedback={newestCard.feedback}
             audioData={newestCard.audioData}
             audioMimeType={newestCard.audioMimeType}
@@ -162,8 +161,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
                 key={card.id}
                 id={card.id}
                 promptText={card.text}
-                themeIdentifier={card.themeIdentifier}
-                deckSetId={card.deckSetId}
+                themedDeckId={card.themedDeckId}
                 feedback={card.feedback}
                 isNewest={false}
                 drawnForParticipantName={card.drawnForParticipantName}

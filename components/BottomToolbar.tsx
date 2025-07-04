@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { GroupSetting, GROUP_SETTINGS } from '../services/geminiService';
+import { SocialContext, GROUP_SETTINGS } from '../services/geminiService';
 
 export interface Participant {
   id: string;
@@ -13,7 +12,7 @@ interface BottomToolbarProps {
   activeParticipantId: string | null;
   setActiveParticipantId: (id: string | null) => void;
   onRemoveParticipant: (participantId: string) => void;
-  groupSetting: GroupSetting;
+  groupSetting: SocialContext;
   onOpenGroupSettingModal: () => void; 
   onOpenVoiceSettingsModal: () => void;
   onOpenDevLog: () => void;

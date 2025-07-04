@@ -1,9 +1,9 @@
 import React from 'react';
-import { CustomThemeData, DeckSet } from '../services/geminiService'; 
+import { CustomThemeData, ThemedDeck } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
 
 interface ThemedDeckButtonProps {
-  itemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM"; 
+  itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM"; 
   itemName: string;
   colorClass: string;
   onDrawClick: () => void; 
@@ -13,8 +13,7 @@ interface ThemedDeckButtonProps {
   customDeckData?: CustomThemeData; 
   onEditCustomDeck?: (deck: CustomThemeData) => void; 
   onShowInfo?: () => void; 
-  isDeckSet?: boolean;
-  isPreferred?: boolean;
+  isDeckSet?: boolean; // To distinguish from custom decks for info button logic
 }
 
 export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({ 
@@ -29,7 +28,6 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   onEditCustomDeck,
   onShowInfo,
   isDeckSet = false,
-  isPreferred = false,
 }) => {
   const baseBg = colorClass.split(' ')[0] + " " + colorClass.split(' ')[1];
   

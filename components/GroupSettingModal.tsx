@@ -1,10 +1,10 @@
 
 import React from 'react';
-import { GroupSetting, GroupSettingOption, AgeFilters } from '../services/geminiService';
+import { SocialContext, GroupSettingOption, AgeFilters } from '../services/geminiService';
 
 interface GroupSettingModalProps {
-  currentSetting: GroupSetting;
-  onSettingChange: (setting: GroupSetting) => void;
+  currentSetting: SocialContext;
+  onSettingChange: (setting: SocialContext) => void;
   onClose: () => void;
   groupSettingsOptions: GroupSettingOption[];
   disabled?: boolean;
@@ -86,8 +86,8 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
               <h3 className="text-[clamp(0.8rem,2.2vh,1.1rem)] font-bold text-slate-300 mb-3">Group Setting</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
                 {groupSettingsOptions.map(settingOption => {
-                  const isRomanticAndKids = settingOption.id === 'ROMANTIC' && ageFilters.kids;
-                  const isDisabled = disabled || isRomanticAndKids;
+                  const isRomanticAndMinors = settingOption.id === 'ROMANTIC' && (ageFilters.kids || ageFilters.teens);
+                  const isDisabled = disabled || isRomanticAndMinors;
                   return (
                     <button
                       key={settingOption.id}
@@ -99,16 +99,16 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
                       disabled={isDisabled}
                       className={`w-full p-4 text-[clamp(0.7rem,2vh,0.95rem)] rounded-lg transition-all duration-150 ease-in-out focus:outline-none text-left
                                   flex flex-col items-start h-full
-                                  ${currentSetting === settingOption.id && !isRomanticAndKids
+                                  ${currentSetting === settingOption.id && !isDisabled
                                     ? 'bg-sky-500 text-white font-bold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg' 
                                     : `bg-slate-700 text-slate-200 font-normal 
                                         ${isDisabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-600 hover:shadow-md focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 focus:ring-offset-slate-800'}`
                                   }`}
                       aria-pressed={currentSetting === settingOption.id}
-                      title={isRomanticAndKids ? "Romantic setting is disabled when 'Kids' are selected" : settingOption.description}
+                      title={isRomanticAndMinors ? "Romantic setting is disabled when 'Kids' or 'Teens' are selected" : settingOption.description}
                     >
                       <span className="font-bold text-base">{settingOption.label}</span>
-                      <span className={`text-xs ${currentSetting === settingOption.id && !isRomanticAndKids ? 'text-sky-100' : 'text-slate-400'} font-normal mt-auto pt-2 leading-snug`}>{settingOption.description}</span>
+                      <span className={`text-xs ${currentSetting === settingOption.id && !isDisabled ? 'text-sky-100' : 'text-slate-400'} font-normal mt-auto pt-2 leading-snug`}>{settingOption.description}</span>
                     </button>
                   )
                 })}

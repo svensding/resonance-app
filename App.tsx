@@ -9,30 +9,24 @@ import {
   CustomThemeData, 
   CustomThemeId, 
   ThemeIdentifier, 
-  DeckSet, 
-  MicroDeck,
+  ThemedDeck,
   VoiceName, 
   LanguageCode, 
   DEFAULT_VOICE_NAME, 
   DEFAULT_LANGUAGE_CODE, 
   CURATED_VOICE_PERSONAS,
   GROUP_SETTINGS,
-  GroupSetting, 
+  SocialContext, 
   DEFAULT_GROUP_SETTING, 
-  DECK_SETS, 
-  ALL_MICRO_DECKS,
-  AngleOfInquiry,
-  ANGLES_OF_INQUIRY,
-  getMicroDeckById, 
+  ALL_THEMED_DECKS,
+  DECK_CATEGORIES,
+  getThemedDeckById, 
   getCustomDeckById, 
-  getDeckSetById, 
   getDisplayDataForCard,
-  getStyleDirectiveForMicroDeck,
-  getActiveSpecialModeDetails,
+  getStyleDirectiveForCard,
   getChatSessionHistory,
   DrawnCardData,
   AgeFilters,
-  getVisibleDeckSets,
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { ApiKeyMessage } from './components/ApiKeyMessage';
@@ -43,8 +37,7 @@ import { CustomDeckModal } from './components/CustomDeckModal';
 import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 import { DeckInfoModal } from './components/DeckInfoModal'; 
 import { GroupSettingModal } from './components/GroupSettingModal';
-import { SvenAndLisaOnboardingModal } from './components/SvenAndLisaOnboardingModal';
-import { PaulinaAndJoeOnboardingModal } from './components/PaulinaAndJoeOnboardingModal';
+import { ConfirmationModal } from './components/ConfirmationModal';
 import { DevLogSheet, DevLogEntry } from './components/DevLogSheet';
 import { CardShuffleAnimation } from './components/CardShuffleAnimation';
 
@@ -56,9 +49,7 @@ const LOCALSTORAGE_KEYS = {
   VOICE_NAME: 'resonanceClio_selectedVoiceName_v1',
   LANGUAGE_CODE: 'resonanceClio_selectedLanguageCode_v1',
   IS_MUTED: 'resonanceClio_isAudioMuted_v1',
-  GROUP_SETTING: 'resonanceClio_groupSetting_v1',
-  SVEN_LISA_ONBOARDING_SHOWN: 'resonanceClio_svenLisaOnboardingShown_v1',
-  PAULINA_JOE_ONBOARDING_SHOWN: 'resonanceClio_paulinaJoeOnboardingShown_v1',
+  GROUP_SETTING: 'resonanceClio_groupSetting_v2', // version bump for new type
   AGE_FILTERS: 'resonanceClio_ageFilters_v1',
 };
 
@@ -89,7 +80,7 @@ const App: React.FC = () => {
   
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [activeParticipantId, setActiveParticipantId] = useState<string | null>(null);
-  const [selectedGroupSetting, setSelectedGroupSetting] = useState<GroupSetting>(() => loadFromLocalStorage<GroupSetting>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING));
+  const [selectedGroupSetting, setSelectedGroupSetting] = useState<SocialContext>(() => loadFromLocalStorage<SocialContext>(LOCALSTORAGE_KEYS.GROUP_SETTING, DEFAULT_GROUP_SETTING));
   const [showGroupSettingModal, setShowGroupSettingModal] = useState<boolean>(false);
   
   const [activeCardAudio, setActiveCardAudio] = useState<{ cardId: string; type: 'prompt' | 'notes' } | null>(null);
@@ -101,7 +92,7 @@ const App: React.FC = () => {
   const [shuffleColorClasses, setShuffleColorClasses] = useState<string[]>([]);
 
   const [showDeckInfoModal, setShowDeckInfoModal] = useState<boolean>(false);
-  const [itemForInfoModal, setItemForInfoModal] = useState<DeckSet | CustomThemeData | null>(null);
+  const [itemForInfoModal, setItemForInfoModal] = useState<ThemedDeck | CustomThemeData | null>(null);
 
   const [selectedVoiceName, setSelectedVoiceName] = useState<VoiceName>(DEFAULT_VOICE_NAME);
   const [selectedLanguageCode, setSelectedLanguageCode] = useState<LanguageCode>("en-US");
@@ -109,15 +100,13 @@ const App: React.FC = () => {
   const [showVoiceSettingsModal, setShowVoiceSettingsModal] = useState<boolean>(false);
   const [ageFilters, setAgeFilters] = useState<AgeFilters>(() => loadFromLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, { adults: true, teens: false, kids: false }));
   
-  const [specialModeOnboardingDrawFn, setSpecialModeOnboardingDrawFn] = useState<(() => Promise<void>) | null>(null);
-  const [showSvenAndLisaOnboardingModal, setShowSvenAndLisaOnboardingModal] = useState<boolean>(false);
-  const [hasShownSvenAndLisaOnboarding, setHasShownSvenAndLisaOnboarding] = useState<boolean>(
-      () => loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.SVEN_LISA_ONBOARDING_SHOWN, false)
-  );
-  const [showPaulinaAndJoeOnboardingModal, setShowPaulinaAndJoeOnboardingModal] = useState<boolean>(false);
-  const [hasShownPaulinaAndJoeOnboarding, setHasShownPaulinaAndJoeOnboarding] = useState<boolean>(
-      () => loadFromLocalStorage<boolean>(LOCALSTORAGE_KEYS.PAULINA_JOE_ONBOARDING_SHOWN, false)
-  );
+  const [confirmationState, setConfirmationState] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+  const pendingDrawRef = useRef<(() => Promise<void>) | null>(null);
 
   const [showDevLogSheet, setShowDevLogSheet] = useState(false);
   const [devLog, setDevLog] = useState<DevLogEntry[]>([]);
@@ -136,14 +125,6 @@ const App: React.FC = () => {
     setAppHeight();
     return () => window.removeEventListener('resize', setAppHeight);
   }, []);
-
-  useEffect(() => {
-    saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.SVEN_LISA_ONBOARDING_SHOWN, hasShownSvenAndLisaOnboarding);
-  }, [hasShownSvenAndLisaOnboarding]);
-
-  useEffect(() => {
-    saveToLocalStorage<boolean>(LOCALSTORAGE_KEYS.PAULINA_JOE_ONBOARDING_SHOWN, hasShownPaulinaAndJoeOnboarding);
-  }, [hasShownPaulinaAndJoeOnboarding]);
   
   useEffect(() => {
     saveToLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, ageFilters);
@@ -161,14 +142,7 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    // Enables dev features if the group is special and a participant is named SvenDEV.
-    if (selectedGroupSetting === 'SPECIAL' && participants.some(p => p.name.trim().toLowerCase() === 'svendev')) {
-      setShowDevFeatures(true);
-    }
-  }, [participants, selectedGroupSetting]);
-
-  useEffect(() => {
-    console.log("App mounted. Resonance (Deck Sets Architecture).");
+    console.log("App mounted. Resonance (New Recipe Architecture).");
     if (!process.env.API_KEY) {
       setApiKeyMissing(true);
       setError("API_KEY for Gemini is not configured.");
@@ -225,10 +199,10 @@ const App: React.FC = () => {
         const cardToUse = cardInHistory?.id === cardId ? cardInHistory : cardInHistory?.activeFollowUpCard;
         if (!cardToUse) throw new Error("Card not found in history");
         
-        const microDeck = !cardToUse.themeIdentifier.startsWith("CUSTOM_")
-            ? getMicroDeckById(cardToUse.themeIdentifier as MicroDeck['id'])
+        const deck = !cardToUse.themedDeckId.startsWith("CUSTOM_")
+            ? getThemedDeckById(cardToUse.themedDeckId as ThemedDeck['id'])
             : null;
-        const styleDirective = getStyleDirectiveForMicroDeck(microDeck, true, selectedVoiceName);
+        const styleDirective = getStyleDirectiveForCard(selectedVoiceName, true, deck);
 
         const audioResult = await generateAudioForText(textToSpeak, selectedVoiceName, styleDirective);
         
@@ -240,7 +214,7 @@ const App: React.FC = () => {
         });
 
         if (audioResult.error || !audioResult.audioData || !audioResult.audioMimeType) {
-            throw new Error(audioResult.error || "Failed to generate audio.");
+            throw new Error(audioResult.error || "Failed to generate audio audio.");
         }
         
         const onPlaybackEnd = () => setActiveCardAudio(null);
@@ -253,213 +227,169 @@ const App: React.FC = () => {
     }
   }, [selectedVoiceName, isAudioMuted, drawnCardHistory, handleStopAudio, addLogEntry]);
   
-  const handleDrawNewCard = useCallback(async (itemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM", options?: { isRedraw?: boolean }) => {
-      if (isLoading || isShuffling) return;
-      handleStopAudio();
-  
-      const participantNames = participants.map(p => p.name).filter(Boolean);
-      const groupSettingToUse = (selectedGroupSetting === 'SPECIAL' && participantNames.length < 2) ? 'GENERAL' : selectedGroupSetting;
-  
-      const { isPaulinaJoe, isSvenLisa } = getActiveSpecialModeDetails(groupSettingToUse, participantNames);
-      if ((isPaulinaJoe && !hasShownPaulinaAndJoeOnboarding) || (isSvenLisa && !hasShownSvenAndLisaOnboarding)) {
-          setSpecialModeOnboardingDrawFn(() => () => handleDrawNewCard(itemId, options));
-          if (isPaulinaJoe) setShowPaulinaAndJoeOnboardingModal(true);
-          if (isSvenLisa) setShowSvenAndLisaOnboardingModal(true);
-          return;
-      }
-      
-      setIsLoading(true);
-      setIsShuffling(true);
-      setError(null);
-      
-      try {
-          let chosenItem: MicroDeck | CustomThemeData;
-          let userSelectedSetName: string = "A Random Mix";
-          let colorsForShuffle: string[] = [];
-          let deckSetIdForHistory: string | null = null;
-          let drawSource: 'RANDOM' | 'DECK_SET' | 'CUSTOM';
-  
-          if (itemId === "RANDOM") {
-              drawSource = 'RANDOM';
-              let availableDecks: MicroDeck[] = [];
-              if (groupSettingToUse === 'SPECIAL') {
-                  availableDecks = ALL_MICRO_DECKS;
-              } else {
-                  availableDecks = ALL_MICRO_DECKS.filter(md => {
-                    const groupSuitability = md.group_setting_suitability[groupSettingToUse];
-                    const isGroupSuitable = groupSuitability === 'PREFERRED' || groupSuitability === 'OPTIONAL';
-                    
-                    const isMinorSelected = ageFilters.teens || ageFilters.kids;
-                    if (isMinorSelected) {
-                        const isAdultOnly = md.age_suitability.length === 1 && md.age_suitability[0] === 'adult';
-                        if (isAdultOnly) return false;
+  const handleDrawNewCard = useCallback(async (itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM", options?: { isRedraw?: boolean }) => {
+    if (isLoading || isShuffling) return;
+
+    const performDraw = async () => {
+        handleStopAudio();
+        setIsLoading(true);
+        setIsShuffling(true);
+        setError(null);
+
+        try {
+            let chosenDeck: ThemedDeck | CustomThemeData;
+            let colorsForShuffle: string[] = [];
+
+            if (itemId === "RANDOM") {
+                const availableDecks = ALL_THEMED_DECKS.filter(d => {
+                    if (!d.socialContexts?.includes(selectedGroupSetting)) return false;
+                    const isAgeMatch = d.ageGroups.some(ag => 
+                        (ageFilters.adults && ag === 'Adults') ||
+                        (ageFilters.teens && ag === 'Teens') ||
+                        (ageFilters.kids && ag === 'Kids')
+                    );
+                    if (!isAgeMatch) return false;
+                    if ((ageFilters.teens || ageFilters.kids) && d.intensity.some(level => level >= 4)) return false;
+                    return true;
+                });
+                if (availableDecks.length === 0) throw new Error(`No suitable random decks available for the current settings.`);
+                chosenDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
+                colorsForShuffle = DECK_CATEGORIES.map(dc => getDisplayDataForCard(ALL_THEMED_DECKS.find(d => d.category === dc.id)!.id, customDecks).colorClass);
+            } else if (itemId.startsWith("CUSTOM_")) {
+                const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
+                if (!customDeck) throw new Error("Custom deck not found");
+                chosenDeck = customDeck;
+                colorsForShuffle = [customDeck.colorClass];
+            } else {
+                const deck = getThemedDeckById(itemId as ThemedDeck['id']);
+                if (!deck) throw new Error("Deck not found");
+                chosenDeck = deck;
+                colorsForShuffle = [getDisplayDataForCard(deck.id, customDecks).colorClass];
+            }
+            setShuffleColorClasses(colorsForShuffle);
+        
+            const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;
+            
+            const frontResult = await generateCardFront(
+                chosenDeck, selectedGroupSetting, participants.length, participants.map(p => p.name).filter(Boolean), activePName,
+                ageFilters, selectedLanguageCode, drawnCardHistory.length, () => {}, addLogEntry, { disliked: options?.isRedraw ?? false }
+            );
+
+            addLogEntry({
+                type: 'chat-front',
+                requestTimestamp: frontResult.requestTimestamp,
+                responseTimestamp: frontResult.responseTimestamp,
+                data: { input: frontResult.inputPrompt, output: frontResult.rawLlmOutput, error: frontResult.error }
+            });
+            
+            if (frontResult.error || !frontResult.text) {
+                throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
+            }
+            
+            const effectiveDeck = 'themes' in chosenDeck ? chosenDeck : null;
+            const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, effectiveDeck);
+
+            const audioPromise = isAudioMuted 
+                ? Promise.resolve(null)
+                : generateAudioForText(frontResult.text, selectedVoiceName, styleDirective);
+
+            const cardBackPromise = generateCardBack(frontResult.text, chosenDeck);
+
+            const [audioGenResult, backResult] = await Promise.all([audioPromise, cardBackPromise]);
+
+            if (audioGenResult) {
+                addLogEntry({ type: 'tts', requestTimestamp: audioGenResult.requestTimestamp, responseTimestamp: audioGenResult.responseTimestamp, data: { ...audioGenResult.logData, error: audioGenResult.error }});
+                if (audioGenResult.error) setError(`Audio narration failed: ${audioGenResult.error}`);
+            }
+
+            addLogEntry({ type: 'chat-back', requestTimestamp: backResult.requestTimestamp, responseTimestamp: backResult.responseTimestamp, data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error }});
+
+            const newCardId = `card-${Date.now()}`;
+            const activeParticipant = participants.find(p => p.id === activeParticipantId);
+            const isTimed = !!frontResult.reflectionText;
+
+            const newCard: DrawnCardData = {
+                id: newCardId,
+                themedDeckId: chosenDeck.id,
+                feedback: null,
+                timestamp: Date.now(),
+                drawnForParticipantId: activeParticipantId,
+                drawnForParticipantName: activeParticipant?.name || null,
+                isFaded: false,
+                text: frontResult.text,
+                audioData: audioGenResult?.audioData || null,
+                audioMimeType: audioGenResult?.audioMimeType || null,
+                cardBackNotesText: backResult?.cardBackNotesText || null,
+                isTimed: isTimed,
+                hasFollowUp: isTimed,
+                timerDuration: 60, // Default, can be refined
+                followUpPromptText: frontResult.reflectionText || null,
+                isCompletedActivity: false,
+                isFollowUp: false,
+                activeFollowUpCard: null,
+            };
+            
+            setDrawnCardHistory(prev => [newCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
+            
+            if (participants.length > 1 && !options?.isRedraw && !newCard.isTimed) {
+                const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
+                const nextIndex = (currentIndex + 1) % participants.length;
+                setActiveParticipantId(participants[nextIndex].id);
+            }
+
+        } catch (err: any) {
+            console.error("Error drawing card:", err.message ? JSON.stringify(err.message) : JSON.stringify(err));
+            setError(err.message || "An unknown error occurred while drawing the card.");
+        } finally {
+            setIsShuffling(false);
+            setIsLoading(false);
+            setShuffleColorClasses([]);
+            pendingDrawRef.current = null;
+        }
+    };
+    
+    pendingDrawRef.current = performDraw;
+    
+    // Consent/Warning Logic
+    if (itemId !== 'RANDOM' && !itemId.startsWith('CUSTOM_')) {
+        const deck = getThemedDeckById(itemId);
+        if (deck) {
+            const hasHighIntensity = deck.intensity.some(level => level >= 4);
+            const hasSensitiveTheme = deck.themes.includes('Desire & Intimacy');
+            const isSensitiveContext = ['FAMILY', 'TEAM'].includes(selectedGroupSetting);
+
+            if (hasHighIntensity) {
+                setConfirmationState({
+                    show: true,
+                    title: `Entering Level ${Math.max(...deck.intensity)}: ${deck.name}`,
+                    message: "These prompts can be challenging and bring up difficult material. Please ensure everyone in your group consents to this level of depth.",
+                    onConfirm: () => {
+                        setConfirmationState(null);
+                        pendingDrawRef.current?.();
                     }
+                });
+                return;
+            }
 
-                    const isAgeSuitable = (ageFilters.adults && md.age_suitability.includes('adult')) || 
-                                          (ageFilters.teens && md.age_suitability.includes('teen')) ||
-                                          (ageFilters.kids && md.age_suitability.includes('kid'));
+            if (hasSensitiveTheme && isSensitiveContext) {
+                 setConfirmationState({
+                    show: true,
+                    title: 'Sensitive Theme Warning',
+                    message: `The deck "${deck.name}" explores themes of intimacy and desire that may not be suitable for a ${selectedGroupSetting.toLowerCase()} setting. Do you wish to proceed?`,
+                    onConfirm: () => {
+                        setConfirmationState(null);
+                        pendingDrawRef.current?.();
+                    }
+                });
+                return;
+            }
+        }
+    }
+    
+    // No confirmation needed, draw immediately
+    await performDraw();
 
-                    return isGroupSuitable && isAgeSuitable;
-                  });
-              }
-              if (availableDecks.length === 0) throw new Error(`No suitable cards available for the "${groupSettingToUse}" setting and selected age groups.`);
-              
-              const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
-              chosenItem = chosenMicroDeck;
-              const parentSet = chosenMicroDeck.belongs_to_set ? getDeckSetById(chosenMicroDeck.belongs_to_set) : null;
-              userSelectedSetName = parentSet?.name || "A Random Mix";
-              deckSetIdForHistory = parentSet?.id || null;
-              colorsForShuffle = DECK_SETS.map(ds => ds.colorClass);
-          } else if (itemId.startsWith("CUSTOM_")) {
-              drawSource = 'CUSTOM';
-              const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
-              if (!customDeck) throw new Error("Custom deck not found");
-              chosenItem = customDeck;
-              userSelectedSetName = customDeck.name;
-              deckSetIdForHistory = null;
-              colorsForShuffle = [customDeck.colorClass];
-          } else {
-              drawSource = 'DECK_SET';
-              const deckSet = getDeckSetById(itemId as DeckSet['id']);
-              if (!deckSet) throw new Error("Deck set not found");
-  
-              const microDecksInSet = ALL_MICRO_DECKS.filter(md => md.belongs_to_set === itemId);
-              let availableDecks: MicroDeck[] = [];
-              if (groupSettingToUse === 'SPECIAL') {
-                  availableDecks = microDecksInSet;
-              } else {
-                  const decksForGroup = microDecksInSet.filter(md => {
-                      const groupSuitability = md.group_setting_suitability[groupSettingToUse];
-                      return groupSuitability === 'PREFERRED' || groupSuitability === 'OPTIONAL';
-                  });
-                  
-                  const preferredDecks = decksForGroup.filter(md => md.group_setting_suitability[groupSettingToUse] === 'PREFERRED');
-                  
-                  if (preferredDecks.length > 0) availableDecks = preferredDecks;
-                  else availableDecks = decksForGroup;
-              }
-          
-              if (availableDecks.length === 0) throw new Error(`No suitable cards in "${deckSet.name}" for the "${groupSettingToUse}" setting.`);
-  
-              const chosenMicroDeck = availableDecks[Math.floor(Math.random() * availableDecks.length)];
-              chosenItem = chosenMicroDeck;
-              userSelectedSetName = deckSet.name;
-              deckSetIdForHistory = deckSet.id;
-              colorsForShuffle = [deckSet.colorClass];
-          }
-          setShuffleColorClasses(colorsForShuffle);
-  
-          let chosenAngle: AngleOfInquiry | null = null;
-          // There is a 60% chance that no angle will be chosen.
-          if (Math.random() > 0.60) {
-              if ('possible_angles' in chosenItem) { // It's a MicroDeck
-                  const microDeck = chosenItem as MicroDeck;
-                  if (microDeck.possible_angles.length > 0) {
-                      const chosenAngleId = microDeck.possible_angles[Math.floor(Math.random() * microDeck.possible_angles.length)];
-                      const foundAngle = ANGLES_OF_INQUIRY.find(a => a.id === chosenAngleId);
-                      if(foundAngle) chosenAngle = foundAngle;
-                  }
-              } else { // It's a CustomThemeData, choose from all angles
-                  const foundAngle = ANGLES_OF_INQUIRY[Math.floor(Math.random() * ANGLES_OF_INQUIRY.length)];
-                  if(foundAngle) chosenAngle = foundAngle;
-              }
-          }
-          
-          const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;
-          const historyLength = drawnCardHistory.length;
-          
-          const frontResult = await generateCardFront(
-              userSelectedSetName, chosenItem, participants.length, participantNames, activePName,
-              groupSettingToUse, customDecks, selectedLanguageCode, chosenAngle,
-              historyLength, () => {}, addLogEntry, drawSource, ageFilters, { disliked: options?.isRedraw ?? false }
-          );
-  
-          addLogEntry({
-              type: 'chat-front',
-              requestTimestamp: frontResult.requestTimestamp,
-              responseTimestamp: frontResult.responseTimestamp,
-              data: { input: frontResult.inputPrompt, output: frontResult.rawLlmOutput, error: frontResult.error }
-          });
-          
-          if (frontResult.error || !frontResult.text) {
-              throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
-          }
-          
-          const effectiveMicroDeck = !chosenItem.id.startsWith("CUSTOM_")
-              ? getMicroDeckById(chosenItem.id as MicroDeck['id'])
-              : null;
-          const styleDirective = getStyleDirectiveForMicroDeck(effectiveMicroDeck, false, selectedVoiceName);
-  
-          const audioPromise = isAudioMuted 
-              ? Promise.resolve(null)
-              : generateAudioForText(frontResult.text, selectedVoiceName, styleDirective);
-  
-          const cardBackPromise = generateCardBack(frontResult.text, chosenItem);
-  
-          const [audioGenResult, backResult] = await Promise.all([audioPromise, cardBackPromise]);
-  
-          if (audioGenResult) {
-              addLogEntry({
-                  type: 'tts',
-                  requestTimestamp: audioGenResult.requestTimestamp,
-                  responseTimestamp: audioGenResult.responseTimestamp,
-                  data: { ...audioGenResult.logData, error: audioGenResult.error }
-              });
-              if (audioGenResult.error) setError(`Audio narration failed: ${audioGenResult.error}`);
-          }
-  
-          addLogEntry({
-              type: 'chat-back',
-              requestTimestamp: backResult.requestTimestamp,
-              responseTimestamp: backResult.responseTimestamp,
-              data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error }
-          });
-  
-          const newCardId = `card-${Date.now()}`;
-          const activeParticipant = participants.find(p => p.id === activeParticipantId);
-          const hasFollowUp = 'hasFollowUp' in chosenItem && (chosenItem.hasFollowUp ?? 0) > 0;
-          const angle = (Math.random() - 0.5) * 6; // -3 to +3 degrees
-          
-          const newCard: DrawnCardData = {
-            id: newCardId,
-            themeIdentifier: chosenItem.id,
-            deckSetId: deckSetIdForHistory,
-            feedback: null,
-            timestamp: Date.now(),
-            drawnForParticipantId: activeParticipantId,
-            drawnForParticipantName: activeParticipant?.name || null,
-            isFaded: false,
-            text: frontResult.text,
-            audioData: audioGenResult?.audioData || null,
-            audioMimeType: audioGenResult?.audioMimeType || null,
-            cardBackNotesText: backResult?.cardBackNotesText || null,
-            isTimed: 'isTimed' in chosenItem && !!chosenItem.isTimed,
-            hasFollowUp: hasFollowUp,
-            timerDuration: 'timedDuration' in chosenItem ? chosenItem.timedDuration : null,
-            followUpPromptText: frontResult.reflectionText || null,
-            isCompletedActivity: false,
-            isFollowUp: false,
-            activeFollowUpCard: null,
-            angle: angle,
-          };
-          
-          setDrawnCardHistory(prev => [newCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
-          
-          if (participants.length > 1 && !options?.isRedraw && !newCard.isTimed) {
-              const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
-              const nextIndex = (currentIndex + 1) % participants.length;
-              setActiveParticipantId(participants[nextIndex].id);
-          }
-  
-      } catch (err: any) {
-        console.error("Error drawing card:", err.message ? JSON.stringify(err.message) : JSON.stringify(err));
-        setError(err.message || "An unknown error occurred while drawing the card.");
-      } finally {
-        setIsShuffling(false);
-        setIsLoading(false);
-        setShuffleColorClasses([]);
-      }
-  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, ageFilters, hasShownPaulinaAndJoeOnboarding, hasShownSvenAndLisaOnboarding, drawnCardHistory.length, addLogEntry]);
+  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, ageFilters, drawnCardHistory.length, addLogEntry]);
 
   // This effect handles generating the follow-up card after a timed activity is completed.
   useEffect(() => {
@@ -473,11 +403,11 @@ const App: React.FC = () => {
     }
 
     const generateFollowUp = async (cardToUpdate: DrawnCardData) => {
-      handleStopAudio(); // Stop any currently playing audio before starting the new process
+      handleStopAudio(); 
       setIsLoading(true);
       try {
         const followUpText = cardToUpdate.followUpPromptText!;
-        const themeItem = getMicroDeckById(cardToUpdate.themeIdentifier as MicroDeck['id']) || getCustomDeckById(cardToUpdate.themeIdentifier as CustomThemeId, customDecks);
+        const themeItem = getThemedDeckById(cardToUpdate.themedDeckId as ThemedDeck['id']) || getCustomDeckById(cardToUpdate.themedDeckId as CustomThemeId, customDecks);
         
         if (!themeItem) {
           setError("Could not find the theme for the follow-up prompt.");
@@ -490,8 +420,7 @@ const App: React.FC = () => {
 
         const placeholderFollowUpCard: DrawnCardData = {
           id: newId,
-          themeIdentifier: cardToUpdate.themeIdentifier,
-          deckSetId: cardToUpdate.deckSetId,
+          themedDeckId: cardToUpdate.themedDeckId,
           feedback: null,
           timestamp: Date.now(),
           drawnForParticipantId: activeP?.id || null,
@@ -500,14 +429,12 @@ const App: React.FC = () => {
           text: followUpText,
           audioData: null, audioMimeType: null, cardBackNotesText: null,
           isTimed: false, hasFollowUp: false, timerDuration: null, followUpPromptText: null,
-          isCompletedActivity: false, isFollowUp: true,
-          angle: cardToUpdate.angle, // Inherit angle
+          isCompletedActivity: false, isFollowUp: true, activeFollowUpCard: null,
         };
         
-        // Optimistically set the placeholder to avoid re-triggering the effect
         setDrawnCardHistory(prev => prev.map(c => c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: placeholderFollowUpCard } : c));
 
-        const styleDirective = getStyleDirectiveForMicroDeck(themeItem as MicroDeck, false, selectedVoiceName);
+        const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, 'themes' in themeItem ? themeItem : null);
         const audioPromise = isAudioMuted ? Promise.resolve(null) : generateAudioForText(followUpText, selectedVoiceName, styleDirective);
         const cardBackPromise = generateCardBack(followUpText, themeItem, cardToUpdate.text);
 
@@ -523,12 +450,10 @@ const App: React.FC = () => {
           cardBackNotesText: backResult?.cardBackNotesText || null,
         };
         
-        // Replace placeholder with the final card
         setDrawnCardHistory(prev => prev.map(c =>
           c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: finalFollowUpCard } : c
         ));
         
-        // Explicitly play the audio for the newly created follow-up card
         if (!isAudioMuted && finalFollowUpCard.audioData && finalFollowUpCard.audioMimeType) {
             handlePlayAudioForMainPrompt({
                 cardId: finalFollowUpCard.id,
@@ -546,7 +471,6 @@ const App: React.FC = () => {
       } catch (err: any) {
         console.error("Error generating follow-up card:", err);
         setError("Failed to generate the follow-up card.");
-        // Revert the optimistic update on error
         setDrawnCardHistory(prev => prev.map(c => c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: null } : c));
       } finally {
         setIsLoading(false);
@@ -604,7 +528,6 @@ const App: React.FC = () => {
     const isFollowUp = cardToUpdate.activeFollowUpCard?.id === cardId;
     const isNewestCard = cardToUpdate.id === drawnCardHistory[0]?.id && !isFollowUp && !drawnCardHistory[0].isFaded;
 
-    // Optimistic UI update for feedback
     setDrawnCardHistory(prev => prev.map(card => {
         if (card.id === cardId) return { ...card, feedback: 'disliked' };
         if (card.activeFollowUpCard?.id === cardId) return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, feedback: 'disliked' }};
@@ -621,18 +544,10 @@ const App: React.FC = () => {
             card.id === cardId ? { ...card, isFaded: true } : card
         ));
 
-        let originalItemId: DeckSet['id'] | CustomThemeData['id'] | "RANDOM";
-        const { deckSetId, themeIdentifier } = cardToUpdate;
-
-        if (deckSetId) originalItemId = deckSetId as DeckSet['id'];
-        else if (themeIdentifier.startsWith("CUSTOM_")) originalItemId = themeIdentifier as CustomThemeData['id'];
-        else originalItemId = "RANDOM";
-        
         await new Promise(resolve => setTimeout(resolve, 300));
-        await handleDrawNewCard(originalItemId, { isRedraw: true });
+        await handleDrawNewCard("RANDOM", { isRedraw: true });
 
     } else if (isFollowUp) {
-        // Fade the follow-up card
         setDrawnCardHistory(prev => prev.map(card => {
             if (card.activeFollowUpCard?.id === cardId) {
                 return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, isFaded: true }};
@@ -681,7 +596,7 @@ const App: React.FC = () => {
         const item = getCustomDeckById(itemId as CustomThemeId, customDecks);
         if (item) setItemForInfoModal(item);
     } else {
-        const item = getDeckSetById(itemId as DeckSet['id']);
+        const item = getThemedDeckById(itemId as ThemedDeck['id']);
         if (item) setItemForInfoModal(item);
     }
     setShowDeckInfoModal(true);
@@ -717,7 +632,7 @@ const App: React.FC = () => {
       handleStopAudio();
     }
   };
-  const handleGroupSettingChange = (setting: GroupSetting) => {
+  const handleGroupSettingChange = (setting: SocialContext) => {
     setSelectedGroupSetting(setting);
     saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, setting);
   };
@@ -726,30 +641,11 @@ const App: React.FC = () => {
         setAgeFilters({ adults: true, teens: false, kids: false });
     } else {
         setAgeFilters(newFilters);
-        // If 'Kids' is selected and the current setting is 'Romantic', switch to 'Friends'.
-        if (newFilters.kids && selectedGroupSetting === 'ROMANTIC') {
+        if ((newFilters.kids || newFilters.teens) && selectedGroupSetting === 'ROMANTIC') {
             setSelectedGroupSetting('FRIENDS');
             saveToLocalStorage(LOCALSTORAGE_KEYS.GROUP_SETTING, 'FRIENDS');
         }
     }
-  };
-
-
-  const handleConfirmSvenLisaOnboarding = async () => {
-    setShowSvenAndLisaOnboardingModal(false);
-    setHasShownSvenAndLisaOnboarding(true);
-    if (specialModeOnboardingDrawFn) {
-        await specialModeOnboardingDrawFn();
-        setSpecialModeOnboardingDrawFn(null);
-    }
-  };
-  const handleConfirmPaulinaJoeOnboarding = async () => {
-      setShowPaulinaAndJoeOnboardingModal(false);
-      setHasShownPaulinaAndJoeOnboarding(true);
-      if (specialModeOnboardingDrawFn) {
-          await specialModeOnboardingDrawFn();
-          setSpecialModeOnboardingDrawFn(null);
-      }
   };
 
   const handleOpenDevLog = () => {
@@ -762,7 +658,6 @@ const App: React.FC = () => {
       className="h-full w-full flex bg-slate-900 text-slate-200 overflow-hidden" 
       style={{ fontFamily: "'Atkinson Hyperlegible', sans-serif" }}
     >
-      {/* Main App Content Area */}
       <div className="flex-1 flex flex-col relative min-w-0">
           <header 
             className="flex-shrink-0 z-20 w-full bg-slate-900/80 backdrop-blur-sm shadow-lg h-28 md:h-32"
@@ -820,7 +715,6 @@ const App: React.FC = () => {
           </footer>
       </div>
       
-      {/* Dev Log Panel */}
       {showDevLogSheet && (
           <aside className="w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl h-full flex-shrink-0 border-l border-slate-700/80">
               <DevLogSheet 
@@ -830,7 +724,6 @@ const App: React.FC = () => {
           </aside>
       )}
 
-      {/* Global Modals and Overlays */}
       {isShuffling && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm">
              <CardShuffleAnimation colorClasses={shuffleColorClasses} />
@@ -861,14 +754,12 @@ const App: React.FC = () => {
           ageFilters={ageFilters} onAgeFilterChange={handleAgeFilterChange}
         />
       )}
-      {showSvenAndLisaOnboardingModal && (
-          <SvenAndLisaOnboardingModal 
-              onClose={() => setShowSvenAndLisaOnboardingModal(false)} onConfirm={handleConfirmSvenLisaOnboarding}
-          />
-      )}
-      {showPaulinaAndJoeOnboardingModal && (
-          <PaulinaAndJoeOnboardingModal 
-              onClose={() => setShowPaulinaAndJoeOnboardingModal(false)} onConfirm={handleConfirmPaulinaJoeOnboarding}
+      {confirmationState && confirmationState.show && (
+          <ConfirmationModal
+              title={confirmationState.title}
+              message={confirmationState.message}
+              onConfirm={confirmationState.onConfirm}
+              onClose={() => setConfirmationState(null)}
           />
       )}
     </div>

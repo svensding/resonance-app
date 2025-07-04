@@ -1,9 +1,8 @@
-
 import React from 'react';
-import { DeckSet, CustomThemeData } from '../services/geminiService';
+import { ThemedDeck, CustomThemeData } from '../services/geminiService';
 
 interface DeckInfoModalProps {
-  item: DeckSet | CustomThemeData; 
+  item: ThemedDeck | CustomThemeData; 
   onClose: () => void;
 }
 
