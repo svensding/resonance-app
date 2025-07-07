@@ -6,10 +6,13 @@ import {
     SocialContext,
     AgeFilters,
     DECK_CATEGORIES,
-    getDisplayDataForCard
+    getDisplayDataForCard,
+    WOAH_DUDE_DECK,
+    IntensityLevel
 } from '../services/geminiService';
 import { ThemedDeckButton } from './ThemedDeckButton';
 import { useDragToScroll } from '../hooks/useDragToScroll'; 
+import { Participant } from './BottomToolbar';
 
 interface ThemeDeckSelectionProps {
   onDraw: (itemId: ThemedDeck['id'] | CustomThemeData['id'] | "RANDOM" | `CATEGORY_${string}`) => void;
@@ -21,7 +24,9 @@ interface ThemeDeckSelectionProps {
   onShowDeckInfo: (itemId: ThemedDeck['id'] | CustomThemeData['id']) => void;
   groupSetting: SocialContext;
   ageFilters: AgeFilters;
+  participants: Participant[];
   showAllDecks?: boolean;
+  selectedIntensityFilters: IntensityLevel[];
 }
 
 export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({ 
@@ -34,7 +39,9 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
     onShowDeckInfo,
     groupSetting,
     ageFilters,
+    participants,
     showAllDecks = false,
+    selectedIntensityFilters,
 }) => {
   const scrollContainerRef = useDragToScroll<HTMLDivElement>(); 
 
@@ -42,11 +49,17 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
   const drawActionDisabled = isDrawingInProgress || interactionsDisabled;
   const utilityActionsDisabled = interactionsDisabled;
 
-  const visibleDecks = useMemo(() => getVisibleDecks(groupSetting, ageFilters, showAllDecks), [groupSetting, ageFilters, showAllDecks]);
+  const isStonerMode = useMemo(() => 
+    participants.some(p => p.name.toLowerCase().trim() === 'stoner'),
+    [participants]
+  );
+
+  const visibleDecks = useMemo(() => getVisibleDecks(groupSetting, ageFilters, selectedIntensityFilters, showAllDecks), [groupSetting, ageFilters, selectedIntensityFilters, showAllDecks]);
 
   const categorizedDecks = useMemo(() => {
     const categories: { category: typeof DECK_CATEGORIES[0]; decks: ThemedDeck[] }[] = [];
     DECK_CATEGORIES.forEach(cat => {
+      if (cat.id === 'SPECIALS') return; // Skip special decks in normal categorization
       const decksInCategory = visibleDecks.filter(deck => deck.category === cat.id);
       if (decksInCategory.length > 0) {
         categories.push({ category: cat, decks: decksInCategory });
@@ -62,6 +75,21 @@ export const ThemeDeckSelection: React.FC<ThemeDeckSelectionProps> = ({
         className="flex h-full overflow-x-auto hide-scrollbar space-x-3 sm:space-x-4 justify-start items-center cursor-grab active:cursor-grabbing bg-transparent w-full"
         style={{ isolation: 'isolate' }} 
       >
+        {isStonerMode && (
+           <div key="WOAH_DUDE" className={deckButtonContainerStyle}>
+                <ThemedDeckButton
+                    itemId={WOAH_DUDE_DECK.id}
+                    itemName={WOAH_DUDE_DECK.name}
+                    colorClass={getDisplayDataForCard(WOAH_DUDE_DECK.id, customDecks).colorClass}
+                    onDrawClick={() => onDraw(WOAH_DUDE_DECK.id)}
+                    drawActionDisabled={drawActionDisabled}
+                    utilityActionsDisabled={utilityActionsDisabled}
+                    onShowInfo={() => onShowDeckInfo(WOAH_DUDE_DECK.id)}
+                    isDeckSet={true}
+                    visualStyle={WOAH_DUDE_DECK.visualStyle}
+                />
+            </div>
+        )}
         <div key="RANDOM" className={deckButtonContainerStyle}> 
             <ThemedDeckButton
                 itemId="RANDOM" 

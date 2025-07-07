@@ -16,6 +16,7 @@ interface ThemedDeckButtonProps {
   onShowInfo?: () => void; 
   isDeckSet?: boolean; // To distinguish from custom decks for info button logic
   isCategoryButton?: boolean;
+  visualStyle?: string;
 }
 
 export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({ 
@@ -31,6 +32,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
   onShowInfo,
   isDeckSet = false,
   isCategoryButton = false,
+  visualStyle,
 }) => {
   const baseBg = colorClass.split(' ')[0] + " " + colorClass.split(' ')[1];
   
@@ -97,6 +99,8 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
 
   const showStackEffect = !isRandomButton;
 
+  const dynamicColorClass = visualStyle ? visualStyle : `bg-gradient-to-br ${colorClass}`;
+
   return (
     <div
       role="button"
@@ -109,7 +113,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
       className={`relative w-full h-full group font-normal transition-all duration-300 ease-out rounded-lg focus:outline-none ${drawActionDisabled ? 'cursor-not-allowed opacity-70' : `hover:scale-105 active:scale-95 cursor-pointer ${ringClasses}`}`}
     >
       <div className="absolute inset-0" style={{ transformStyle: 'preserve-3d' }}>
-        {showStackEffect && (
+        {showStackEffect && visualStyle !== 'psychedelic' && (
           <>
             <div
               className={`absolute w-full h-full rounded-lg bg-gradient-to-br ${baseBg} opacity-50 transform rotate-[-6deg] translate-x-[-2px] translate-y-[2px] shadow-sm group-hover:shadow-md transition-all duration-300 ease-out border border-black/10`}
@@ -121,7 +125,7 @@ export const ThemedDeckButton: React.FC<ThemedDeckButtonProps> = ({
         )}
        
         <div 
-          className={`relative w-full h-full rounded-lg bg-gradient-to-br ${colorClass} shadow-lg group-hover:shadow-xl flex flex-col justify-center items-center text-center p-[1vh] border ${isRandomButton ? 'border-dashed border-indigo-300' : 'border-white/80'} transition-all duration-300 ease-out overflow-hidden`}
+          className={`relative w-full h-full rounded-lg ${dynamicColorClass} shadow-lg group-hover:shadow-xl flex flex-col justify-center items-center text-center p-[1vh] border ${isRandomButton ? 'border-dashed border-indigo-300' : 'border-white/80'} transition-all duration-300 ease-out overflow-hidden`}
         >
           <div className="absolute inset-0 bg-black/15 rounded-lg z-10"></div> 
           <div className={`relative z-20 flex flex-col items-center justify-center flex-grow w-full h-full ${drawActionDisabled ? 'opacity-70' : ''}`}>

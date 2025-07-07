@@ -2,13 +2,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 export interface DevLogEntry {
-    type: 'chat-front' | 'chat-back' | 'tts' | 'session-init' | 'user-feedback';
+    type: 'chat-front' | 'chat-back' | 'tts' | 'session-init' | 'user-feedback' | 'health-check';
     requestTimestamp: number;
     responseTimestamp: number;
     data: {
         input: any;
         output: any;
         error?: string | null;
+        context?: string;
     }
 }
 
@@ -50,13 +51,18 @@ const DevLogSheetComponent: React.FC<DevLogSheetProps> = ({ history, onClose }) 
         });
     };
     
-    const getEntryStyles = (type: DevLogEntry['type']) => {
+    const getEntryStyles = (entry: DevLogEntry) => {
+        const { type, data } = entry;
         switch(type) {
             case 'chat-front': return { bg: 'bg-slate-800', border: 'border-slate-600', text: 'text-slate-400', title: 'Card Front Generation' };
             case 'chat-back': return { bg: 'bg-slate-800/60', border: 'border-slate-700', text: 'text-slate-500', title: 'Card Back Generation' };
             case 'tts': return { bg: 'bg-sky-900/40', border: 'border-sky-700', text: 'text-sky-400', title: 'TTS Audio Generation' };
             case 'session-init': return { bg: 'bg-purple-900/40', border: 'border-purple-700', text: 'text-purple-400', title: 'Session Initialization' };
             case 'user-feedback': return { bg: 'bg-amber-900/40', border: 'border-amber-700', text: 'text-amber-400', title: 'User Feedback Sent' };
+            case 'health-check':
+                return data.error
+                    ? { bg: 'bg-red-900/40', border: 'border-red-700', text: 'text-red-400', title: 'API Health Check' }
+                    : { bg: 'bg-emerald-900/40', border: 'border-emerald-700', text: 'text-emerald-400', title: 'API Health Check' };
             default: return { bg: 'bg-gray-800', border: 'border-gray-600', text: 'text-gray-400', title: 'Log Entry' };
         }
     };
@@ -107,7 +113,7 @@ const DevLogSheetComponent: React.FC<DevLogSheetProps> = ({ history, onClose }) 
             <main ref={mainContentRef} className="flex-grow overflow-y-auto scrollbar-thin p-4">
                 <div className="space-y-6">
                     {history.map((entry, index) => {
-                        const styles = getEntryStyles(entry.type);
+                        const styles = getEntryStyles(entry);
                         const requestTime = new Date(entry.requestTimestamp).toLocaleTimeString([], {
                             hour: '2-digit',
                             minute: '2-digit',

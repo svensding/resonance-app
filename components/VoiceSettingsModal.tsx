@@ -11,6 +11,7 @@ interface VoiceSettingsModalProps {
   onMuteChange: (muted: boolean) => void;
   onClose: () => void;
   voicePersonas: VoicePersona[];
+  isTtsServiceAvailable: boolean;
 }
 
 const LanguageButton: React.FC<{
@@ -18,14 +19,17 @@ const LanguageButton: React.FC<{
   label: string;
   isActive: boolean;
   onClick: (code: string) => void;
-}> = ({ code, label, isActive, onClick }) => (
+  disabled?: boolean;
+}> = ({ code, label, isActive, onClick, disabled = false }) => (
   <button
     onClick={() => onClick(code)}
+    disabled={disabled}
     className={`px-3 py-2 text-sm rounded-md transition-colors w-full
       ${isActive
         ? 'bg-sky-500 text-white font-bold shadow-md'
         : 'bg-slate-600 hover:bg-slate-500 text-slate-200'
-      }`}
+      }
+      ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
   >
     {label}
   </button>
@@ -40,6 +44,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
   onMuteChange,
   onClose,
   voicePersonas,
+  isTtsServiceAvailable,
 }) => {
   const PRESET_LANGUAGES = [
     { code: 'en-US', label: 'English (US)' },
@@ -59,8 +64,7 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
   };
 
   const getVoiceButtonLabel = (personaName: string): string => {
-    const match = personaName.match(/\(([^)]+)\)/);
-    return match ? match[1] : personaName;
+    return personaName;
   }
 
   return (
@@ -97,8 +101,10 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
             </label>
             <button
               onClick={() => onMuteChange(!isMuted)}
+              disabled={!isTtsServiceAvailable}
               className={`flex items-center space-x-2 px-3 py-1.5 rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500
-                ${isMuted ? 'bg-slate-600 text-slate-300' : 'bg-sky-500 text-white'}`}
+                ${isMuted ? 'bg-slate-600 text-slate-300' : 'bg-sky-500 text-white'}
+                ${!isTtsServiceAvailable ? 'cursor-not-allowed opacity-50' : ''}`}
               role="switch"
               aria-checked={!isMuted}
               aria-labelledby="narrationLabel"
@@ -117,16 +123,23 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
             <label className="block text-[clamp(0.8rem,2vh,1rem)] font-bold text-slate-300 mb-3">
               Narration Voice
             </label>
+             {!isTtsServiceAvailable && (
+              <div className="mb-3 p-2 rounded-md bg-amber-900/40 border border-amber-700/60">
+                <p className="text-sm text-amber-300">Voice selection is disabled because the Text-to-Speech service is currently unavailable.</p>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {voicePersonas.map(persona => (
                   <button
                     key={persona.id}
                     onClick={() => onVoiceChange(persona.voiceName)}
+                    disabled={!isTtsServiceAvailable}
                     className={`w-full p-3 text-left rounded-lg transition-all duration-150 ease-in-out border flex flex-col h-full
-                      ${currentVoice === persona.voiceName
+                      ${currentVoice === persona.voiceName && isTtsServiceAvailable
                         ? 'bg-sky-600/20 border-sky-500 ring-2 ring-sky-500'
                         : 'bg-slate-700/50 border-slate-600 hover:bg-slate-700 hover:border-slate-500'
-                      }`}
+                      }
+                      ${!isTtsServiceAvailable ? 'cursor-not-allowed opacity-50' : ''}`}
                   >
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-slate-100">{getVoiceButtonLabel(persona.name)}</span>
@@ -147,9 +160,9 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {PRESET_LANGUAGES.map(lang => (
-                <LanguageButton key={lang.code} {...lang} isActive={!showCustomInput && currentLanguage === lang.code} onClick={handleLanguageClick} />
+                <LanguageButton key={lang.code} {...lang} isActive={!showCustomInput && currentLanguage === lang.code} onClick={handleLanguageClick} disabled={!isTtsServiceAvailable} />
               ))}
-              <LanguageButton code="other" label="Other..." isActive={showCustomInput} onClick={handleLanguageClick} />
+              <LanguageButton code="other" label="Other..." isActive={showCustomInput} onClick={handleLanguageClick} disabled={!isTtsServiceAvailable} />
             </div>
             {showCustomInput && (
               <div className="mt-3">
@@ -158,7 +171,8 @@ export const VoiceSettingsModal: React.FC<VoiceSettingsModalProps> = ({
                   value={currentLanguage}
                   onChange={(e) => onLanguageChange(e.target.value)}
                   placeholder="e.g., fr-FR"
-                  className="w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400"
+                  disabled={!isTtsServiceAvailable}
+                  className={`w-full px-3 py-2 text-sm bg-slate-700 border border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-white placeholder-slate-400 disabled:opacity-50 disabled:cursor-not-allowed`}
                 />
                  <p className="text-[clamp(0.6rem,1.8vh,0.85rem)] text-slate-400 mt-1">Enter a BCP-47 language code.</p>
               </div>

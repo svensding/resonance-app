@@ -5,9 +5,12 @@ import {
     CoreTheme, 
     CardType, 
     IntensityLevel,
-    ALL_CORE_THEMES,
-    ALL_CARD_TYPES,
-    ALL_INTENSITY_LEVELS
+    ALL_CORE_THEMES_INFO,
+    ALL_CARD_TYPES_INFO,
+    ALL_INTENSITY_LEVELS_INFO,
+    CoreThemeInfo,
+    CardTypeInfo,
+    IntensityLevelInfo
 } from '../services/geminiService';
 
 interface CustomDeckModalProps {
@@ -27,7 +30,7 @@ interface CustomDeckModalProps {
 
 const BuildingBlockSelector = <T extends string | number>({ title, items, selectedItems, onToggle, disabled }: {
     title: string;
-    items: T[];
+    items: { id: T, name: string }[];
     selectedItems: T[];
     onToggle: (item: T) => void;
     disabled: boolean;
@@ -39,15 +42,15 @@ const BuildingBlockSelector = <T extends string | number>({ title, items, select
         <div className="max-h-32 overflow-y-auto scrollbar-thin bg-slate-700/50 p-2 rounded-md border border-slate-600">
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {items.map(item => (
-                <label key={item} className={`flex items-center space-x-2 p-1.5 rounded-md text-xs transition-colors ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-600'}`}>
+                <label key={item.id} className={`flex items-center space-x-2 p-1.5 rounded-md text-xs transition-colors ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-600'}`}>
                     <input
                         type="checkbox"
-                        checked={selectedItems.includes(item)}
-                        onChange={() => onToggle(item)}
+                        checked={selectedItems.includes(item.id)}
+                        onChange={() => onToggle(item.id)}
                         disabled={disabled}
                         className="form-checkbox h-4 w-4 rounded bg-slate-800 border-slate-500 text-sky-500 focus:ring-sky-500 disabled:opacity-50"
                     />
-                    <span className="text-slate-200">{item.toString()}</span>
+                    <span className="text-slate-200">{item.name}</span>
                 </label>
             ))}
             </div>
@@ -167,23 +170,23 @@ export const CustomDeckModal: React.FC<CustomDeckModalProps> = ({ onClose, onSav
             <p className="text-[clamp(0.6rem,1.8vh,0.85rem)] text-slate-400 mt-[0.5vh] font-normal">This guides the AI. Be descriptive (min 20 chars).</p>
           </div>
           
-          <BuildingBlockSelector 
+          <BuildingBlockSelector<CoreTheme>
             title="Core Themes" 
-            items={ALL_CORE_THEMES}
+            items={ALL_CORE_THEMES_INFO}
             selectedItems={selectedThemes}
             onToggle={(item) => handleToggle(item, selectedThemes, setSelectedThemes)}
             disabled={interactionsDisabled}
           />
-          <BuildingBlockSelector 
+          <BuildingBlockSelector<CardType>
             title="Card Types" 
-            items={ALL_CARD_TYPES}
+            items={ALL_CARD_TYPES_INFO}
             selectedItems={selectedCardTypes}
             onToggle={(item) => handleToggle(item, selectedCardTypes, setSelectedCardTypes)}
             disabled={interactionsDisabled}
           />
-          <BuildingBlockSelector 
+          <BuildingBlockSelector<IntensityLevel>
             title="Intensity Levels" 
-            items={ALL_INTENSITY_LEVELS}
+            items={ALL_INTENSITY_LEVELS_INFO}
             selectedItems={selectedIntensity}
             onToggle={(item) => handleToggle(item, selectedIntensity, setSelectedIntensity)}
             disabled={interactionsDisabled}

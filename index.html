@@ -203,6 +203,98 @@
     .font-atkinson-mono {
       font-family: 'Atkinson Hyperlegible Mono', monospace;
     }
+
+    /* --- Custom Deck Visual Styles --- */
+    /* To create a new visual style:
+       1. Define a CSS class below (e.g., .my-cool-style).
+       2. Add any animations or pseudo-elements you need.
+       3. In `geminiService.ts`, add `visualStyle: 'my-cool-style'` to a deck's definition.
+    */
+
+    /* Style 1: Psychedelic (Woah Dude!) */
+    .psychedelic-bg {
+        background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+        background-size: 400% 400%;
+        animation: psychedelic-gradient 10s ease infinite;
+    }
+    @keyframes psychedelic-gradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* Style 2: Noir (The Shadow Cabinet) */
+    .noir-bg {
+        background-color: #1a1a1a;
+        background-image:
+            linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 20px 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    .noir-bg::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: radial-gradient(circle, rgba(255,255,255,0.1) 10%, transparent 70%);
+        opacity: 0.5;
+        animation: film-grain 8s steps(10) infinite;
+    }
+    @keyframes film-grain {
+      0%, 100% { transform: translate(0, 0); }
+      10% { transform: translate(-5%, -10%); }
+      20% { transform: translate(-15%, 5%); }
+      30% { transform: translate(7%, -25%); }
+      40% { transform: translate(-5%, 25%); }
+      50% { transform: translate(-15%, 10%); }
+      60% { transform: translate(15%, 0%); }
+      70% { transform: translate(0%, 15%); }
+      80% { transform: translate(3%, 35%); }
+      90% { transform: translate(-10%, 10%); }
+    }
+
+    /* Style 3: Celestial (Awe & Wonder) */
+    .celestial-bg {
+        background-color: #0c0a1a;
+        background-image: 
+            radial-gradient(ellipse at top, #2a204a, transparent),
+            radial-gradient(ellipse at bottom, #1a143a, transparent);
+        overflow: hidden;
+        position: relative;
+    }
+    .celestial-bg::before, .celestial-bg::after {
+        content: '';
+        position: absolute;
+        width: 2px;
+        height: 2px;
+        background: white;
+        border-radius: 50%;
+        box-shadow: 
+            /* Star field 1 */
+            60vw 80vh 2px 0px #fff, 10vw 20vh 1px 0px #fff, 85vw 30vh 1px 0px #fff,
+            40vw 90vh 2px 0px #fff, 70vw 10vh 1px 0px #fff, 20vw 70vh 1px 0px #fff,
+            90vw 60vh 2px 0px #fff, 5vw 50vh 1px 0px #fff, 50vw 5vh 1px 0px #fff,
+            /* Star field 2 */
+            30vw 40vh 1px 0px #fff, 80vw 75vh 2px 0px #fff, 15vw 85vh 1px 0px #fff,
+            95vw 15vh 1px 0px #fff, 45vw 65vh 2px 0px #fff;
+        animation: twinkle 15s linear infinite;
+    }
+    .celestial-bg::after {
+        box-shadow: 
+            /* Star field 3 (different positions) */
+            5vw 95vh 1px 0px #fff, 95vw 5vh 2px 0px #fff, 25vw 50vh 1px 0px #fff,
+            75vw 25vh 2px 0px #fff, 50vw 80vh 1px 0px #fff, 5vw 5vh 1px 0px #fff;
+        animation: twinkle 20s linear infinite;
+        animation-delay: -5s;
+    }
+    @keyframes twinkle {
+        from { transform: translateY(0px); }
+        to { transform: translateY(-200px); }
+    }
   </style>
 <link rel="stylesheet" href="/index.css">
 </head>

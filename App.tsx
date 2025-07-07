@@ -32,6 +32,9 @@ import {
   CardType,
   IntensityLevel,
   CUSTOM_DECK_COLOR_PALETTE,
+  performHealthCheck,
+  resetChatSession,
+  ALL_INTENSITY_LEVELS,
 } from './services/geminiService';
 import { playAudioData, speakText, stopSpeechServicePlayback } from './services/speechService'; 
 import { ApiKeyMessage } from './components/ApiKeyMessage';
@@ -42,7 +45,6 @@ import { CustomDeckModal } from './components/CustomDeckModal';
 import { VoiceSettingsModal } from './components/VoiceSettingsModal';
 import { DeckInfoModal } from './components/DeckInfoModal'; 
 import { GroupSettingModal } from './components/GroupSettingModal';
-import { ConfirmationModal } from './components/ConfirmationModal';
 import { DevLogSheet, DevLogEntry } from './components/DevLogSheet';
 import { CardShuffleAnimation } from './components/CardShuffleAnimation';
 
@@ -56,6 +58,7 @@ const LOCALSTORAGE_KEYS = {
   IS_MUTED: 'resonanceClio_isAudioMuted_v1',
   GROUP_SETTING: 'resonanceClio_groupSetting_v2',
   AGE_FILTERS: 'resonanceClio_ageFilters_v1',
+  SELECTED_INTENSITIES: 'resonanceClio_selectedIntensities_v1',
 };
 
 const loadFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
@@ -105,18 +108,13 @@ const App: React.FC = () => {
   const [showVoiceSettingsModal, setShowVoiceSettingsModal] = useState<boolean>(false);
   const [ageFilters, setAgeFilters] = useState<AgeFilters>(() => loadFromLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, { adults: true, teens: false, kids: false }));
   
-  const [confirmationState, setConfirmationState] = useState<{
-    show: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  } | null>(null);
-  const [consentedIntensityLevels, setConsentedIntensityLevels] = useState<Set<IntensityLevel>>(new Set());
-  const pendingDrawRef = useRef<(() => Promise<void>) | null>(null);
+  const [isTtsServiceAvailable, setIsTtsServiceAvailable] = useState<boolean>(true);
+  const [selectedIntensityFilters, setSelectedIntensityFilters] = useState<IntensityLevel[]>(() => loadFromLocalStorage<IntensityLevel[]>(LOCALSTORAGE_KEYS.SELECTED_INTENSITIES, [1, 2, 3]));
 
   const [showDevLogSheet, setShowDevLogSheet] = useState(false);
   const [devLog, setDevLog] = useState<DevLogEntry[]>([]);
   const [showDevFeatures, setShowDevFeatures] = useState(false);
+  const devModeActivated = useRef(false);
 
   const addLogEntry = useCallback((entry: DevLogEntry) => {
       setDevLog(prev => [...prev, entry]);
@@ -136,36 +134,45 @@ const App: React.FC = () => {
     saveToLocalStorage<AgeFilters>(LOCALSTORAGE_KEYS.AGE_FILTERS, ageFilters);
   }, [ageFilters]);
 
-  // Special participant check
   useEffect(() => {
-    const hasSpecialParticipant = participants.some(p => p.name.toLowerCase().trim() === 'svendev');
-    if (hasSpecialParticipant) {
-        setShowDevFeatures(true);
-    } else {
-        // Allow #devlog hash to also enable it
-        if (window.location.hash !== '#devlog') {
-            setShowDevFeatures(false);
-        }
-    }
+    saveToLocalStorage<IntensityLevel[]>(LOCALSTORAGE_KEYS.SELECTED_INTENSITIES, selectedIntensityFilters);
+  }, [selectedIntensityFilters]);
+
+  useEffect(() => {
+      const checkDevMode = () => {
+          if (devModeActivated.current) return;
+
+          const hasSvenDev = participants.some(p => p.name.toLowerCase().trim() === 'svendev');
+          const hasDevHash = window.location.hash === '#devlog';
+
+          if (hasSvenDev || hasDevHash) {
+              setShowDevFeatures(true);
+              devModeActivated.current = true;
+          }
+      };
+
+      checkDevMode(); // Initial check
+
+      window.addEventListener('hashchange', checkDevMode);
+      return () => window.removeEventListener('hashchange', checkDevMode);
   }, [participants]);
 
-
-  useEffect(() => {
-    const checkHash = () => {
-        if (window.location.hash === '#devlog') {
-            setShowDevFeatures(true);
-        }
-    };
-    checkHash();
-    window.addEventListener('hashchange', checkHash, false);
-    return () => window.removeEventListener('hashchange', checkHash, false);
-  }, []);
 
   useEffect(() => {
     console.log("App mounted. Resonance (New Recipe Architecture).");
     if (!process.env.API_KEY) {
       setApiKeyMissing(true);
       setError("API_KEY for Gemini is not configured.");
+    } else {
+        performHealthCheck(addLogEntry).then(status => {
+            setIsTtsServiceAvailable(status.ttsAvailable);
+            if (!status.available) {
+                setError(status.error || 'The AI service is currently unavailable. Please try again later.');
+            } else if (!status.ttsAvailable) {
+                setError(status.error || 'Text-to-Speech service is unavailable. Audio features will be muted.');
+                setIsAudioMuted(true);
+            }
+        });
     }
 
     const loadedDecks = loadFromLocalStorage<CustomThemeData[]>(LOCALSTORAGE_KEYS.CUSTOM_DECKS, []);
@@ -186,8 +193,9 @@ const App: React.FC = () => {
 
     return () => {
         stopSpeechServicePlayback();
+        resetChatSession();
     };
-  }, []);
+  }, [addLogEntry]);
 
   const handleStopAudio = useCallback(() => {
     stopSpeechServicePlayback();
@@ -211,6 +219,7 @@ const App: React.FC = () => {
   }, [isAudioMuted, selectedLanguageCode, handleStopAudio]);
 
   const handleFetchAndPlayCardBackAudio = useCallback(async (cardId: string, textToSpeak: string) => {
+    if (!isTtsServiceAvailable) return;
     handleStopAudio();
     setActiveCardAudio({ cardId, type: 'notes' });
 
@@ -245,170 +254,131 @@ const App: React.FC = () => {
         setError("Could not generate guidance audio.");
         setActiveCardAudio(null);
     }
-  }, [selectedVoiceName, isAudioMuted, drawnCardHistory, handleStopAudio, addLogEntry, customDecks]);
+  }, [selectedVoiceName, isAudioMuted, drawnCardHistory, handleStopAudio, addLogEntry, customDecks, isTtsServiceAvailable]);
   
   const handleDrawNewCard = useCallback(async (itemId: ThemeIdentifier | "RANDOM" | `CATEGORY_${string}`, options?: { isRedraw?: boolean }) => {
     if (isLoading || isShuffling) return;
 
-    const performDraw = async () => {
-        handleStopAudio();
-        setIsLoading(true);
-        setIsShuffling(true);
-        setError(null);
+    handleStopAudio();
+    setIsLoading(true);
+    setIsShuffling(true);
+    setError(null);
 
-        try {
-            let chosenDeck: ThemedDeck | CustomThemeData;
-            let colorsForShuffle: string[] = [];
-            const visibleDecks = getVisibleDecks(selectedGroupSetting, ageFilters, showDevFeatures);
+    try {
+        let chosenDeck: ThemedDeck | CustomThemeData;
+        let colorsForShuffle: string[] = [];
+        const visibleDecks = getVisibleDecks(selectedGroupSetting, ageFilters, selectedIntensityFilters, showDevFeatures);
 
-            if (itemId === "RANDOM") {
-                if (visibleDecks.length === 0) throw new Error(`No suitable random decks available for the current settings.`);
-                chosenDeck = visibleDecks[Math.floor(Math.random() * visibleDecks.length)];
-                colorsForShuffle = DECK_CATEGORIES.map(dc => getDisplayDataForCard(ALL_THEMED_DECKS.find(d => d.category === dc.id)!.id, customDecks).colorClass);
-            } else if (itemId.startsWith("CATEGORY_")) {
-                const categoryId = itemId.replace("CATEGORY_", "");
-                const decksInCategory = visibleDecks.filter(d => d.category === categoryId);
-                if (decksInCategory.length === 0) throw new Error(`No suitable decks available for the category "${categoryId}".`);
-                chosenDeck = decksInCategory[Math.floor(Math.random() * decksInCategory.length)];
-                colorsForShuffle = [getDisplayDataForCard(chosenDeck.id, customDecks).colorClass];
-            } else if (itemId.startsWith("CUSTOM_")) {
-                const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
-                if (!customDeck) throw new Error("Custom deck not found");
-                chosenDeck = customDeck;
-                colorsForShuffle = [customDeck.colorClass];
-            } else {
-                const deck = getThemedDeckById(itemId as ThemedDeck['id']);
-                if (!deck) throw new Error("Deck not found");
-                chosenDeck = deck;
-                colorsForShuffle = [getDisplayDataForCard(deck.id, customDecks).colorClass];
-            }
-            setShuffleColorClasses(colorsForShuffle);
+        if (itemId === "RANDOM") {
+            if (visibleDecks.length === 0) throw new Error(`No suitable random decks available for the current settings.`);
+            chosenDeck = visibleDecks[Math.floor(Math.random() * visibleDecks.length)];
+            colorsForShuffle = DECK_CATEGORIES.map(dc => getDisplayDataForCard(ALL_THEMED_DECKS.find(d => d.category === dc.id)!.id, customDecks).colorClass);
+        } else if (itemId.startsWith("CATEGORY_")) {
+            const categoryId = itemId.replace("CATEGORY_", "");
+            const decksInCategory = visibleDecks.filter(d => d.category === categoryId);
+            if (decksInCategory.length === 0) throw new Error(`No suitable decks available for the category "${categoryId}".`);
+            chosenDeck = decksInCategory[Math.floor(Math.random() * decksInCategory.length)];
+            colorsForShuffle = [getDisplayDataForCard(chosenDeck.id, customDecks).colorClass];
+        } else if (itemId.startsWith("CUSTOM_")) {
+            const customDeck = getCustomDeckById(itemId as CustomThemeId, customDecks);
+            if (!customDeck) throw new Error("Custom deck not found");
+            chosenDeck = customDeck;
+            colorsForShuffle = [customDeck.colorClass];
+        } else {
+            const deck = getThemedDeckById(itemId as ThemedDeck['id']);
+            if (!deck) throw new Error("Deck not found");
+            chosenDeck = deck;
+            colorsForShuffle = [getDisplayDataForCard(deck.id, customDecks).colorClass];
+        }
+        setShuffleColorClasses(colorsForShuffle);
+    
+        const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;
         
-            const activePName = participants.find(p => p.id === activeParticipantId)?.name || null;
-            
-            const frontResult = await generateCardFront(
-                chosenDeck, selectedGroupSetting, participants.length, participants.map(p => p.name).filter(Boolean), activePName,
-                ageFilters, selectedLanguageCode, drawnCardHistory.length, () => {}, addLogEntry, { disliked: options?.isRedraw ?? false }
-            );
+        const frontResult = await generateCardFront(
+            chosenDeck, selectedGroupSetting, participants.length, participants.map(p => p.name).filter(Boolean), activePName,
+            ageFilters, selectedLanguageCode, drawnCardHistory.length, selectedIntensityFilters, addLogEntry, { disliked: options?.isRedraw ?? false }
+        );
 
-            addLogEntry({
-                type: 'chat-front',
-                requestTimestamp: frontResult.requestTimestamp,
-                responseTimestamp: frontResult.responseTimestamp,
-                data: { input: frontResult.inputPrompt, output: frontResult.rawLlmOutput, error: frontResult.error }
-            });
-            
-            if (frontResult.error || !frontResult.text) {
-                throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
-            }
-            
-            const effectiveDeck = 'themes' in chosenDeck ? chosenDeck : getCustomDeckById(chosenDeck.id, customDecks);
-            const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, effectiveDeck, frontResult.voiceStyle);
-
-            const audioPromise = isAudioMuted 
-                ? Promise.resolve(null)
-                : generateAudioForText(frontResult.text, selectedVoiceName, styleDirective);
-
-            const cardBackPromise = generateCardBack(frontResult.text, chosenDeck);
-
-            const [audioGenResult, backResult] = await Promise.all([audioPromise, cardBackPromise]);
-
-            if (audioGenResult) {
-                addLogEntry({ type: 'tts', requestTimestamp: audioGenResult.requestTimestamp, responseTimestamp: audioGenResult.responseTimestamp, data: { ...audioGenResult.logData, error: audioGenResult.error }});
-                if (audioGenResult.error) setError(`Audio narration failed: ${audioGenResult.error}`);
-            }
-
-            addLogEntry({ type: 'chat-back', requestTimestamp: backResult.requestTimestamp, responseTimestamp: backResult.responseTimestamp, data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error }});
-
-            const newCardId = `card-${Date.now()}`;
-            const activeParticipant = participants.find(p => p.id === activeParticipantId);
-            const isTimed = !!frontResult.reflectionText;
-
-            const newCard: DrawnCardData = {
-                id: newCardId,
-                themedDeckId: chosenDeck.id,
-                feedback: null,
-                timestamp: Date.now(),
-                drawnForParticipantId: activeParticipantId,
-                drawnForParticipantName: activeParticipant?.name || null,
-                isFaded: false,
-                text: frontResult.text,
-                audioData: audioGenResult?.audioData || null,
-                audioMimeType: audioGenResult?.audioMimeType || null,
-                cardBackNotesText: backResult?.cardBackNotesText || null,
-                isTimed: isTimed,
-                hasFollowUp: isTimed,
-                timerDuration: frontResult.timerDuration,
-                voiceStyle: frontResult.voiceStyle,
-                followUpPromptText: frontResult.reflectionText || null,
-                isCompletedActivity: false,
-                isFollowUp: false,
-                activeFollowUpCard: null,
-            };
-            
-            setDrawnCardHistory(prev => [newCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
-            
-            if (participants.length > 1 && !options?.isRedraw && !newCard.isTimed) {
-                const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
-                const nextIndex = (currentIndex + 1) % participants.length;
-                setActiveParticipantId(participants[nextIndex].id);
-            }
-
-        } catch (err: any) {
-            console.error("Error drawing card:", err.message ? JSON.stringify(err.message) : JSON.stringify(err));
-            setError(err.message || "An unknown error occurred while drawing the card.");
-        } finally {
-            setIsShuffling(false);
-            setIsLoading(false);
-            setShuffleColorClasses([]);
-            pendingDrawRef.current = null;
+        addLogEntry({
+            type: 'chat-front',
+            requestTimestamp: frontResult.requestTimestamp,
+            responseTimestamp: frontResult.responseTimestamp,
+            data: { input: frontResult.inputPrompt, output: frontResult.rawLlmOutput, error: frontResult.error }
+        });
+        
+        if (frontResult.error || !frontResult.text) {
+            throw new Error(frontResult.error || "The AI failed to generate a response. Please try again.");
         }
-    };
-    
-    pendingDrawRef.current = performDraw;
-    
-    // Consent/Warning Logic
-    if (itemId !== 'RANDOM' && !itemId.startsWith('CUSTOM_') && !itemId.startsWith('CATEGORY_')) {
-        const deck = getThemedDeckById(itemId as ThemedDeck['id']);
-        if (deck) {
-            const highestIntensity = Math.max(...deck.intensity) as IntensityLevel;
-            const hasHighIntensity = highestIntensity >= 4;
+        
+        const effectiveDeck = 'themes' in chosenDeck ? chosenDeck : getCustomDeckById(chosenDeck.id, customDecks);
+        const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, effectiveDeck);
 
-            if (hasHighIntensity && !consentedIntensityLevels.has(highestIntensity)) {
-                setConfirmationState({
-                    show: true,
-                    title: `Entering Level ${highestIntensity}: ${deck.name}`,
-                    message: "These prompts can be challenging and bring up difficult material. Please ensure everyone in your group consents to this level of depth.",
-                    onConfirm: () => {
-                        setConfirmationState(null);
-                        setConsentedIntensityLevels(prev => new Set(prev).add(highestIntensity));
-                        pendingDrawRef.current?.();
-                    }
-                });
-                return;
-            }
+        const audioPromise = (isAudioMuted || !isTtsServiceAvailable) 
+            ? Promise.resolve(null)
+            : generateAudioForText(frontResult.text, selectedVoiceName, styleDirective);
+        
+        const followUpAudioPromise = (isAudioMuted || !frontResult.reflectionText || !isTtsServiceAvailable)
+            ? Promise.resolve(null)
+            : generateAudioForText(frontResult.reflectionText, selectedVoiceName, getStyleDirectiveForCard(selectedVoiceName, false, effectiveDeck));
 
-            const hasSensitiveTheme = deck.themes.includes('Desire & Intimacy');
-            const isSensitiveContext = ['FAMILY', 'TEAM'].includes(selectedGroupSetting);
-            if (hasSensitiveTheme && isSensitiveContext) {
-                 setConfirmationState({
-                    show: true,
-                    title: 'Sensitive Theme Warning',
-                    message: `The deck "${deck.name}" explores themes of intimacy and desire that may not be suitable for a ${selectedGroupSetting.toLowerCase()} setting. Do you wish to proceed?`,
-                    onConfirm: () => {
-                        setConfirmationState(null);
-                        pendingDrawRef.current?.();
-                    }
-                });
-                return;
-            }
+        const cardBackPromise = generateCardBack(frontResult.text, chosenDeck);
+
+        const [audioGenResult, followUpAudioGenResult, backResult] = await Promise.all([audioPromise, followUpAudioPromise, cardBackPromise]);
+
+        if (audioGenResult) {
+            addLogEntry({ type: 'tts', requestTimestamp: audioGenResult.requestTimestamp, responseTimestamp: audioGenResult.responseTimestamp, data: { ...audioGenResult.logData, error: audioGenResult.error }});
+            if (audioGenResult.error) setError(`Audio narration failed: ${audioGenResult.error}`);
         }
+        if (followUpAudioGenResult) {
+            addLogEntry({ type: 'tts', requestTimestamp: followUpAudioGenResult.requestTimestamp, responseTimestamp: followUpAudioGenResult.responseTimestamp, data: { ...followUpAudioGenResult.logData, error: followUpAudioGenResult.error, context: 'Pre-fetching for follow-up card' }});
+        }
+
+        addLogEntry({ type: 'chat-back', requestTimestamp: backResult.requestTimestamp, responseTimestamp: backResult.responseTimestamp, data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error }});
+
+        const newCardId = `card-${Date.now()}`;
+        const activeParticipant = participants.find(p => p.id === activeParticipantId);
+        const isTimed = !!frontResult.reflectionText;
+
+        const newCard: DrawnCardData = {
+            id: newCardId,
+            themedDeckId: chosenDeck.id,
+            feedback: null,
+            timestamp: Date.now(),
+            drawnForParticipantId: activeParticipantId,
+            drawnForParticipantName: activeParticipant?.name || null,
+            isFaded: false,
+            text: frontResult.text,
+            audioData: audioGenResult?.audioData || null,
+            audioMimeType: audioGenResult?.audioMimeType || null,
+            cardBackNotesText: backResult?.cardBackNotesText || null,
+            isTimed: isTimed,
+            hasFollowUp: isTimed,
+            timerDuration: frontResult.timerDuration,
+            followUpPromptText: frontResult.reflectionText || null,
+            followUpAudioData: followUpAudioGenResult?.audioData || null,
+            followUpAudioMimeType: followUpAudioGenResult?.audioMimeType || null,
+            isCompletedActivity: false,
+            isFollowUp: false,
+            activeFollowUpCard: null,
+        };
+        
+        setDrawnCardHistory(prev => [newCard, ...prev.slice(0, MAX_HISTORY_WITH_AUDIO - 1)]);
+        
+        if (participants.length > 1 && !options?.isRedraw && !newCard.isTimed) {
+            const currentIndex = participants.findIndex(p => p.id === activeParticipantId);
+            const nextIndex = (currentIndex + 1) % participants.length;
+            setActiveParticipantId(participants[nextIndex].id);
+        }
+
+    } catch (err: any) {
+        console.error("Error drawing card:", err.message ? JSON.stringify(err.message) : JSON.stringify(err));
+        setError(err.message || "An unknown error occurred while drawing the card.");
+    } finally {
+        setIsShuffling(false);
+        setIsLoading(false);
+        setShuffleColorClasses([]);
     }
-    
-    // No confirmation needed, draw immediately
-    await performDraw();
-
-  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, selectedGroupSetting, ageFilters, drawnCardHistory.length, addLogEntry, showDevFeatures, consentedIntensityLevels]);
+  }, [isLoading, isShuffling, participants, activeParticipantId, customDecks, selectedVoiceName, selectedLanguageCode, handleStopAudio, isAudioMuted, isTtsServiceAvailable, selectedGroupSetting, ageFilters, selectedIntensityFilters, drawnCardHistory.length, addLogEntry, showDevFeatures]);
 
   // This effect handles generating the follow-up card after a timed activity is completed.
   useEffect(() => {
@@ -446,27 +416,23 @@ const App: React.FC = () => {
           drawnForParticipantName: activeP?.name || null,
           isFaded: false,
           text: followUpText,
-          audioData: null, audioMimeType: null, cardBackNotesText: null,
+          audioData: cardToUpdate.followUpAudioData, // Use pre-fetched audio
+          audioMimeType: cardToUpdate.followUpAudioMimeType,
+          cardBackNotesText: null,
           isTimed: false, hasFollowUp: false, timerDuration: null, followUpPromptText: null,
-          isCompletedActivity: false, isFollowUp: true, activeFollowUpCard: null, voiceStyle: null,
+          isCompletedActivity: false, isFollowUp: true, activeFollowUpCard: null,
+          followUpAudioData: null, followUpAudioMimeType: null,
         };
         
         setDrawnCardHistory(prev => prev.map(c => c.id === cardToUpdate.id ? { ...c, activeFollowUpCard: placeholderFollowUpCard } : c));
 
-        // Use a neutral style for follow-up audio
-        const styleDirective = getStyleDirectiveForCard(selectedVoiceName, false, 'themes' in themeItem ? themeItem : getCustomDeckById(themeItem.id as CustomThemeId, customDecks), 'neutral');
-        const audioPromise = isAudioMuted ? Promise.resolve(null) : generateAudioForText(followUpText, selectedVoiceName, styleDirective);
-        const cardBackPromise = generateCardBack(followUpText, themeItem, cardToUpdate.text);
+        // Generate card back while card is showing placeholder
+        const backResult = await generateCardBack(followUpText, themeItem, cardToUpdate.text);
 
-        const [audioGenResult, backResult] = await Promise.all([audioPromise, cardBackPromise]);
-
-        if (audioGenResult) addLogEntry({ type: 'tts', requestTimestamp: audioGenResult.requestTimestamp, responseTimestamp: audioGenResult.responseTimestamp, data: { ...audioGenResult.logData, error: audioGenResult.error } });
         if (backResult) addLogEntry({ type: 'chat-back', requestTimestamp: backResult.requestTimestamp, responseTimestamp: backResult.responseTimestamp, data: { input: backResult.inputPrompt, output: backResult.rawLlmOutput, error: backResult.error } });
 
         const finalFollowUpCard: DrawnCardData = {
           ...placeholderFollowUpCard,
-          audioData: audioGenResult?.audioData || null,
-          audioMimeType: audioGenResult?.audioMimeType || null,
           cardBackNotesText: backResult?.cardBackNotesText || null,
         };
         
@@ -499,7 +465,7 @@ const App: React.FC = () => {
 
     generateFollowUp(sourceCard);
 
-  }, [drawnCardHistory, isLoading, isShuffling, customDecks, selectedVoiceName, isAudioMuted, participants, activeParticipantId, addLogEntry, handlePlayAudioForMainPrompt, handleStopAudio]);
+  }, [drawnCardHistory, isLoading, isShuffling, customDecks, isAudioMuted, participants, activeParticipantId, addLogEntry, handlePlayAudioForMainPrompt, handleStopAudio]);
 
 
   const handleTimerEnd = useCallback((completedCardId: string) => {
@@ -521,21 +487,26 @@ const App: React.FC = () => {
     const cardToUpdate = drawnCardHistory.find(c => c.id === cardId || c.activeFollowUpCard?.id === cardId);
     if (!cardToUpdate) return;
   
-    const isFollowUp = cardToUpdate.activeFollowUpCard?.id === cardId;
-  
     setDrawnCardHistory(prev => prev.map(card => {
-      if (card.id === cardId) {
-        return { ...card, feedback: 'liked' };
-      }
-      if (card.activeFollowUpCard && card.activeFollowUpCard.id === cardId) {
-        return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, feedback: 'liked' } };
+      if (card.id === cardToUpdate.id) {
+        const feedback = 'liked';
+        if (card.activeFollowUpCard) {
+            return { ...card, feedback, activeFollowUpCard: { ...card.activeFollowUpCard, feedback }};
+        }
+        return { ...card, feedback };
       }
       return card;
     }));
   
-    const cardText = isFollowUp ? cardToUpdate.activeFollowUpCard?.text : cardToUpdate.text;
-    if (cardText) {
-      await sendFeedbackToChat(cardText, 'liked', addLogEntry);
+    let feedbackText = "";
+    if (cardToUpdate.activeFollowUpCard) {
+      feedbackText = `Parent Card: "${cardToUpdate.text}"\nFollow-up Card: "${cardToUpdate.activeFollowUpCard.text}"`;
+    } else {
+      feedbackText = cardToUpdate.text;
+    }
+
+    if (feedbackText) {
+      await sendFeedbackToChat(feedbackText, 'liked', addLogEntry);
     }
   }, [drawnCardHistory, addLogEntry]);
   
@@ -544,24 +515,35 @@ const App: React.FC = () => {
 
     const cardToUpdate = drawnCardHistory.find(c => c.id === cardId || c.activeFollowUpCard?.id === cardId);
     if (!cardToUpdate) return;
-
+    
     const isFollowUp = cardToUpdate.activeFollowUpCard?.id === cardId;
-    const isNewestCard = cardToUpdate.id === drawnCardHistory[0]?.id && !isFollowUp && !drawnCardHistory[0].isFaded;
+    const isNewestCard = cardToUpdate.id === drawnCardHistory[0]?.id && !drawnCardHistory[0].isFaded;
 
     setDrawnCardHistory(prev => prev.map(card => {
-        if (card.id === cardId) return { ...card, feedback: 'disliked' };
-        if (card.activeFollowUpCard?.id === cardId) return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, feedback: 'disliked' }};
-        return card;
+      if (card.id === cardToUpdate.id) {
+          const feedback = 'disliked';
+          if (card.activeFollowUpCard) {
+              return { ...card, feedback, activeFollowUpCard: { ...card.activeFollowUpCard, feedback }};
+          }
+          return { ...card, feedback };
+      }
+      return card;
     }));
     
-    const cardText = isFollowUp ? cardToUpdate.activeFollowUpCard!.text : cardToUpdate.text;
-    if (cardText) {
-        await sendFeedbackToChat(cardText, 'disliked', addLogEntry);
+    let feedbackText = "";
+    if (cardToUpdate.activeFollowUpCard) {
+      feedbackText = `Parent Card: "${cardToUpdate.text}"\nFollow-up Card: "${cardToUpdate.activeFollowUpCard.text}"`;
+    } else {
+      feedbackText = cardToUpdate.text;
     }
     
-    if (isNewestCard) {
+    if (feedbackText) {
+        await sendFeedbackToChat(feedbackText, 'disliked', addLogEntry);
+    }
+    
+    if (isNewestCard && !isFollowUp) {
         setDrawnCardHistory(prev => prev.map(card => 
-            card.id === cardId ? { ...card, isFaded: true } : card
+            card.id === cardToUpdate.id ? { ...card, isFaded: true, activeFollowUpCard: card.activeFollowUpCard ? { ...card.activeFollowUpCard, isFaded: true } : null } : card
         ));
 
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -570,7 +552,7 @@ const App: React.FC = () => {
     } else if (isFollowUp) {
         setDrawnCardHistory(prev => prev.map(card => {
             if (card.activeFollowUpCard?.id === cardId) {
-                return { ...card, activeFollowUpCard: { ...card.activeFollowUpCard, isFaded: true }};
+                return { ...card, isFaded: true, activeFollowUpCard: { ...card.activeFollowUpCard, isFaded: true }};
             }
             return card;
         }));
@@ -652,6 +634,10 @@ const App: React.FC = () => {
     saveToLocalStorage(LOCALSTORAGE_KEYS.LANGUAGE_CODE, language);
   };
   const handleMuteChange = (muted: boolean) => {
+    if (!isTtsServiceAvailable && !muted) {
+        // Prevent unmuting if the TTS service is unavailable.
+        return;
+    }
     setIsAudioMuted(muted);
     saveToLocalStorage(LOCALSTORAGE_KEYS.IS_MUTED, muted);
     if (muted) {
@@ -673,6 +659,16 @@ const App: React.FC = () => {
         }
     }
   };
+  
+  const handleIntensityFilterChange = (newFilters: IntensityLevel[]) => {
+    // Ensure at least one is selected to avoid an empty state
+    if (newFilters.length === 0) {
+        setSelectedIntensityFilters([1, 2, 3]); // Default to a safe range
+    } else {
+        setSelectedIntensityFilters(newFilters.sort((a, b) => a - b));
+    }
+  };
+
 
   const handleOpenDevLog = () => {
     setShowDevLogSheet(prev => !prev);
@@ -694,7 +690,9 @@ const App: React.FC = () => {
               onEditCustomDeck={handleEditCustomDeck} onShowDeckInfo={handleShowDeckInfo}
               groupSetting={selectedGroupSetting}
               ageFilters={ageFilters}
+              participants={participants}
               showAllDecks={showDevFeatures}
+              selectedIntensityFilters={selectedIntensityFilters}
             />
           </header>
           
@@ -769,6 +767,7 @@ const App: React.FC = () => {
           currentVoice={selectedVoiceName} currentLanguage={selectedLanguageCode} isMuted={isAudioMuted}
           onVoiceChange={handleVoiceChange} onLanguageChange={handleLanguageChange} onMuteChange={handleMuteChange}
           onClose={() => setShowVoiceSettingsModal(false)} voicePersonas={CURATED_VOICE_PERSONAS}
+          isTtsServiceAvailable={isTtsServiceAvailable}
         />
       )}
       {showDeckInfoModal && itemForInfoModal && (
@@ -779,15 +778,8 @@ const App: React.FC = () => {
           currentSetting={selectedGroupSetting} onSettingChange={handleGroupSettingChange}
           onClose={() => setShowGroupSettingModal(false)} groupSettingsOptions={GROUP_SETTINGS} disabled={isLoading || isShuffling}
           ageFilters={ageFilters} onAgeFilterChange={handleAgeFilterChange}
+          selectedIntensityFilters={selectedIntensityFilters} onIntensityFilterChange={handleIntensityFilterChange}
         />
-      )}
-      {confirmationState && confirmationState.show && (
-          <ConfirmationModal
-              title={confirmationState.title}
-              message={confirmationState.message}
-              onConfirm={confirmationState.onConfirm}
-              onClose={() => setConfirmationState(null)}
-          />
       )}
     </div>
   );

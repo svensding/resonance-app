@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DrawnCard } from './DrawnCard';
 import { DrawnCardData as CardHistoryItemType } from '../services/geminiService';
@@ -149,6 +150,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
             isFollowUp={newestCard.isFollowUp}
             followUpPromptText={newestCard.followUpPromptText}
             activeFollowUpCard={newestCard.activeFollowUpCard}
+            hasFollowUp={newestCard.hasFollowUp}
         />
       </div>
 
@@ -184,6 +186,7 @@ export const DrawnCardsHistoryView: React.FC<DrawnCardsHistoryViewProps> = ({
                 isFollowUp={card.isFollowUp}
                 followUpPromptText={card.followUpPromptText}
                 activeFollowUpCard={card.activeFollowUpCard}
+                hasFollowUp={card.hasFollowUp}
               />
             ))}
           </div>

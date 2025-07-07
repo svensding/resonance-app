@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { ThemeIdentifier, CustomThemeData, getDisplayDataForCard, DrawnCardData } from '../services/geminiService'; 
 import { CornerGlyphGrid } from './CornerGlyphGrid';
@@ -20,6 +21,7 @@ export interface DrawnCardDisplayData {
   isFollowUp?: boolean;
   activeFollowUpCard?: DrawnCardData | null;
   followUpPromptText?: string | null;
+  hasFollowUp: boolean; // Add this prop explicitly
 }
 
 interface DrawnCardProps extends DrawnCardDisplayData {
@@ -70,6 +72,7 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
     isCompletedActivity,
     isFollowUp,
     activeFollowUpCard,
+    hasFollowUp,
   } = props;
 
   const [isRevealed, setIsRevealed] = useState(!isNewest);
@@ -283,14 +286,14 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
         isNewest: props.isNewest,
         isFollowUp: true,
         activeFollowUpCard: null,
+        hasFollowUp: true, // A follow up card is part of a set
         onRedoTimedActivity: () => {},
     };
 
     return (
         <div 
           className={`absolute inset-0 transition-all duration-500 ease-in-out
-          ${isFollowUpOnTop ? 'z-20' : 'z-10 cursor-pointer transform translate-x-3 -translate-y-3 rotate-2 hover:translate-x-2 hover:-translate-y-2'}`}
-          onClick={handleToggleStack}
+          ${isFollowUpOnTop ? 'z-20' : 'z-10 transform translate-x-3 -translate-y-3 rotate-2'}`}
         >
             <DrawnCard {...followUpProps} />
         </div>
@@ -298,25 +301,29 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
   };
   
   const handleCardClick = (e: React.MouseEvent) => {
-    if(activeFollowUpCard){
-       handleToggleStack(e);
-       return;
-    }
-    if (isCompletedActivity && isTimed && onRedoTimedActivity) {
+    e.stopPropagation();
+    if (isCompletedActivity && isTimed && onRedoTimedActivity && !activeFollowUpCard) {
         onRedoTimedActivity(id);
     }
   }
   
   const StackNav = () => {
-      if (!activeFollowUpCard || !isNewest) return null;
+      if (!hasFollowUp || !isNewest) return null;
+
+      const displayText = activeFollowUpCard ? (isFollowUpOnTop ? '2/2' : '1/2') : '1/2';
+      const disableNext = !activeFollowUpCard || isFollowUpOnTop;
+      const disablePrev = !isFollowUpOnTop;
+
       return(
         <div className="absolute top-[1.5vh] right-[1.5vh] z-30 select-none flex items-center bg-black/40 text-white text-[clamp(0.6rem,1.5vh,0.8rem)] font-bold rounded-full shadow-lg">
-            <button onClick={handleToggleStack} className="px-2 py-0.5 hover:bg-white/20 rounded-l-full disabled:opacity-50" disabled={!isFollowUpOnTop} aria-label="Previous card in stack">{'<'}</button>
-            <span className="px-1">{isFollowUpOnTop ? '2/2' : '1/2'}</span>
-            <button onClick={handleToggleStack} className="px-2 py-0.5 hover:bg-white/20 rounded-r-full disabled:opacity-50" disabled={isFollowUpOnTop} aria-label="Next card in stack">{'>'}</button>
+            <button onClick={handleToggleStack} className="px-2 py-0.5 hover:bg-white/20 rounded-l-full disabled:opacity-50 disabled:cursor-not-allowed" disabled={disablePrev} aria-label="Previous card in stack">{'<'}</button>
+            <span className="px-1">{displayText}</span>
+            <button onClick={handleToggleStack} className="px-2 py-0.5 hover:bg-white/20 rounded-r-full disabled:opacity-50 disabled:cursor-not-allowed" disabled={disableNext} aria-label="Next card in stack">{'>'}</button>
         </div>
       );
   }
+
+  const parentCursorClass = isCompletedActivity && isTimed && !activeFollowUpCard ? 'cursor-pointer' : '';
 
   return (
     <div 
@@ -327,13 +334,14 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
           transition: 'transform 0.4s ease-out',
       }}
     >
+      <StackNav />
       <div 
         style={{ paddingTop: `${CARD_ASPECT_RATIO_MULTIPLIER * 100}%` }} 
         className={`relative`}
       >
         <div 
             className={`absolute inset-0 transition-all duration-500 ease-in-out
-             ${!isFollowUpOnTop ? 'z-20' : `z-10 cursor-pointer transform -translate-x-3 translate-y-3 -rotate-2 ${activeFollowUpCard ? 'hover:-translate-x-2 hover:translate-y-2' : ''}`}`}
+             ${!isFollowUpOnTop ? 'z-20' : `z-10 ${activeFollowUpCard ? '' : parentCursorClass} transform -translate-x-3 translate-y-3 -rotate-2`}`}
             onClick={handleCardClick}
         >
           <div ref={cardFlipRef} className={`absolute inset-0 preserve-3d transition-transform duration-700 ease-in-out ${rotationClass}`}>
@@ -353,8 +361,6 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
                             ${(isRevealed && isNewest && !showCardBackView && !activeFollowUpCard) ? 'shimmer-effect' : ''} flex flex-col ${isFaded ? 'opacity-40' : ''}`}>
               
               <div className="absolute inset-0 bg-slate-800/40 rounded-xl"></div>
-              
-              <StackNav />
               
               <div className={`relative z-10 flex flex-col flex-grow h-full ${cardPaddingClass}`}>
                 <div className="absolute top-[1.5vh] left-[1.5vh] z-20">
@@ -410,8 +416,19 @@ const DrawnCardComponent: React.FC<DrawnCardProps> = (props) => {
                 </div>
                 
                 <div className="flex-shrink-0 w-full pt-1">
-                  {isTimed && !isCompletedActivity && isNewest && timerDuration && (
-                      <CountdownTimer duration={timerDuration} onEnd={() => onTimerEnd(id)} />
+                  {isTimed && !isCompletedActivity && isNewest && !isFollowUp && (
+                      timerDuration != null && timerDuration > 0 ? (
+                          <CountdownTimer duration={timerDuration} onEnd={() => onTimerEnd(id)} />
+                      ) : timerDuration === 0 ? (
+                          <div className="flex items-center justify-center p-3">
+                              <button
+                                  onClick={() => onTimerEnd(id)}
+                                  className="px-6 py-2 bg-sky-600 text-white font-bold rounded-full hover:bg-sky-500 transition-colors shadow-lg"
+                              >
+                                  Continue
+                              </button>
+                          </div>
+                      ) : null
                   )}
                 </div>
                 

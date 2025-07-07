@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { SocialContext, GroupSettingOption, AgeFilters } from '../services/geminiService';
+import { SocialContext, GroupSettingOption, AgeFilters, IntensityLevel, ALL_INTENSITY_LEVELS_INFO } from '../services/geminiService';
 
 interface GroupSettingModalProps {
   currentSetting: SocialContext;
@@ -10,6 +10,8 @@ interface GroupSettingModalProps {
   disabled?: boolean;
   ageFilters: AgeFilters;
   onAgeFilterChange: (newFilters: AgeFilters) => void;
+  selectedIntensityFilters: IntensityLevel[];
+  onIntensityFilterChange: (newFilters: IntensityLevel[]) => void;
 }
 
 export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
@@ -20,6 +22,8 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
   disabled = false,
   ageFilters,
   onAgeFilterChange,
+  selectedIntensityFilters,
+  onIntensityFilterChange,
 }) => {
 
   const handleAgeToggle = (filter: keyof AgeFilters) => {
@@ -28,7 +32,15 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
       ...ageFilters,
       [filter]: !ageFilters[filter],
     });
-  }
+  };
+
+  const handleIntensityToggle = (level: IntensityLevel) => {
+    if (disabled) return;
+    const newFilters = selectedIntensityFilters.includes(level)
+      ? selectedIntensityFilters.filter(l => l !== level)
+      : [...selectedIntensityFilters, level];
+    onIntensityFilterChange(newFilters);
+  };
 
   const AgeFilterButton: React.FC<{
     label: string;
@@ -114,6 +126,31 @@ export const GroupSettingModal: React.FC<GroupSettingModalProps> = ({
                 })}
               </div>
             </div>
+
+            <div className="border-t border-slate-700/80 pt-6">
+                <h3 className="text-[clamp(0.8rem,2.2vh,1.1rem)] font-bold text-slate-300 mb-3">Depth</h3>
+                <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                    {ALL_INTENSITY_LEVELS_INFO.map(levelInfo => (
+                        <button
+                            key={levelInfo.id}
+                            onClick={() => handleIntensityToggle(levelInfo.id)}
+                            disabled={disabled}
+                            title={levelInfo.description}
+                            className={`w-full p-2 text-xs sm:text-sm rounded-lg transition-all duration-150 ease-in-out focus:outline-none flex flex-col items-center justify-center space-y-1 aspect-square
+                                ${selectedIntensityFilters.includes(levelInfo.id)
+                                ? 'bg-sky-500 text-white font-bold ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-800 shadow-lg'
+                                : `bg-slate-700 text-slate-200 font-normal ${disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-slate-600'}`
+                                }`}
+                            aria-pressed={selectedIntensityFilters.includes(levelInfo.id)}
+                        >
+                            <span className="text-xl sm:text-2xl" aria-hidden="true">{levelInfo.emoji}</span>
+                            <span className="font-bold">{levelInfo.id}</span>
+                        </button>
+                    ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-3">Select all depth levels you are open to exploring. This filters the available decks.</p>
+            </div>
+
 
             <div className="border-t border-slate-700/80 pt-6">
                <h3 className="text-[clamp(0.8rem,2.2vh,1.1rem)] font-bold text-slate-300 mb-3">Age Suitability</h3>
